@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
 import { int, UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, id, pageQuery, parse } from '../http.js'
-import { mapEntry } from '../ledger.js'
+import { ensureAccount, mapEntry } from '../ledger.js'
+import { LOYALTY_SQL, loyaltyModel } from '../wallet/model.js'
 import { audit } from './util.js'
 
 export const phoneField = z
@@ -35,13 +36,14 @@ export function mapMember(row) {
     locale: row.locale,
     marketingConsent: row.marketing_consent,
     consentAt: row.consent_at,
+    verified: row.verified,
     createdAt: row.created_at,
     // Per-program balances: points and stamps are different units and are never summed together.
     balances: row.balances ?? undefined,
   }
 }
 
-export default function memberRoutes({ db }) {
+export default function memberRoutes({ db, wallet }) {
   const r = Router()
   r.use(requireAuth)
 
@@ -102,7 +104,20 @@ export default function memberRoutes({ db }) {
     }
   })
 
+  /* By phone (typed) or by card code (scanned from a wallet pass: "MP:XXXXXXXXXX"). */
   r.get('/lookup', async (req, res) => {
+    if (req.query.code) {
+      const code = String(req.query.code).trim().replace(/^MP:/i, '').toUpperCase()
+      if (!/^[0-9A-Z]{6,16}$/.test(code)) throw new HttpError(404, 'member_not_found')
+      const {
+        rows: [row],
+      } = await db.query(
+        'SELECT m.*, a.program_id AS matched_program_id FROM accounts a JOIN members m ON m.id = a.member_id WHERE a.tenant_id = $1 AND a.code = $2',
+        [req.auth.tenantId, code],
+      )
+      if (!row) throw new HttpError(404, 'member_not_found')
+      return res.json({ ...mapMember(row), matchedProgramId: row.matched_program_id })
+    }
     const { phone } = parse(z.object({ phone: phoneField }), req.query)
     const {
       rows: [row],
@@ -119,7 +134,8 @@ export default function memberRoutes({ db }) {
     if (!row) throw new HttpError(404, 'member_not_found')
     const [{ rows: accounts }, { rows: entries }] = await Promise.all([
       db.query(
-        `SELECT a.id, a.balance, a.lifetime_earned, a.created_at, p.id AS program_id, p.name, p.type, p.status, p.config
+        `SELECT a.id, a.balance, a.lifetime_earned, a.created_at, a.code, a.pass_token, a.pass_version,
+                p.id AS program_id, p.name, p.type, p.status, p.config
            FROM accounts a JOIN programs p ON p.id = a.program_id
           WHERE a.member_id = $1 AND a.tenant_id = $2 ORDER BY a.created_at`,
         [memberId, req.auth.tenantId],
@@ -138,10 +154,57 @@ export default function memberRoutes({ db }) {
         balance: int(a.balance),
         lifetimeEarned: int(a.lifetime_earned),
         createdAt: a.created_at,
+        code: a.code,
+        passPath: `/p/${a.pass_token}`,
+        passVersion: a.pass_version,
         program: { id: a.program_id, name: a.name, type: a.type, status: a.status, config: a.config },
       })),
       entries: entries.map((e) => ({ ...mapEntry(e), programId: e.program_id, voided: e.voided })),
     })
+  })
+
+  /* Open an account (and so a wallet card) for a member in a program. */
+  r.post('/:id/accounts', requireRole('manager', 'cashier'), async (req, res) => {
+    const memberId = parse(id, req.params.id)
+    const { programId } = parse(z.object({ programId: id }), req.body)
+    const {
+      rows: [program],
+    } = await db.query("SELECT id FROM programs WHERE id = $1 AND tenant_id = $2 AND status = 'active'", [programId, req.auth.tenantId])
+    if (!program) throw new HttpError(422, 'program_not_active')
+    const {
+      rows: [member],
+    } = await db.query('SELECT id FROM members WHERE id = $1 AND tenant_id = $2', [memberId, req.auth.tenantId])
+    if (!member) throw new HttpError(404, 'member_not_found')
+    const account = await ensureAccount(db, { tenantId: req.auth.tenantId, programId, memberId })
+    res.status(201).json({ id: account.id, code: account.code, passPath: `/p/${account.pass_token}` })
+  })
+
+  /* Reissue: every identifier on the card changes. Passes already installed
+     (possibly on the wrong person's phone) stop resolving at the counter and
+     are retired in both wallets. Also marks the member verified. */
+  r.post('/:id/accounts/:accountId/reissue', requireRole('manager'), async (req, res) => {
+    const memberId = parse(id, req.params.id)
+    const accountId = parse(id, req.params.accountId)
+    const {
+      rows: [old],
+    } = await db.query(`${LOYALTY_SQL} WHERE a.id = $1 AND a.member_id = $2 AND a.tenant_id = $3`, [accountId, memberId, req.auth.tenantId])
+    if (!old) throw new HttpError(404, 'account_not_found')
+    const {
+      rows: [account],
+    } = await db.query(
+      `UPDATE accounts SET
+         code = upper(substr(md5(gen_random_uuid()::text), 1, 10)),
+         pass_token = replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
+         apple_auth = replace(gen_random_uuid()::text, '-', ''),
+         pass_version = pass_version + 1,
+         updated_at = now()
+       WHERE id = $1 RETURNING code, pass_token, pass_version`,
+      [accountId],
+    )
+    await db.query('UPDATE members SET verified = true WHERE id = $1', [memberId])
+    wallet.retire(loyaltyModel(old, ''))
+    await audit(db, req, 'account.reissued', accountId)
+    res.json({ id: accountId, code: account.code, passPath: `/p/${account.pass_token}`, passVersion: account.pass_version })
   })
 
   r.patch('/:id', requireRole('manager'), async (req, res) => {

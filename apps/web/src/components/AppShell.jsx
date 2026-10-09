@@ -9,8 +9,8 @@ import {
   MqLedger,
   MqLogOut,
   MqMenu,
-  MqPass,
   MqScan,
+  MqSettings,
   MqUserPlus,
   MqUsers,
   MqX,
@@ -29,13 +29,11 @@ function SideNav({ onNavigate }) {
     { to: '/app/cashier', icon: MqScan, label: t('nav.cashier'), show: can('transact') },
     { to: '/app/members', icon: MqUsers, label: t('nav.members') },
     { to: '/app/programs', icon: MqCoins, label: t('nav.programs') },
+    { to: '/app/gift-cards', icon: MqGift, label: t('nav.giftCards') },
     { to: '/app/activity', icon: MqLedger, label: t('nav.activity') },
     { to: '/app/staff', icon: MqUserPlus, label: t('nav.staff'), show: can('manage') },
+    { to: '/app/settings', icon: MqSettings, label: t('nav.settings') },
   ].filter((item) => item.show !== false)
-  const soon = [
-    { icon: MqPass, label: t('nav.passes') },
-    { icon: MqGift, label: t('nav.giftCards') },
-  ]
   const link =
     'flex min-h-11 items-center gap-3 rounded-[14px] border border-transparent px-3 text-[13px] font-medium text-navy-100 transition hover:bg-white/5 hover:text-white'
   return (
@@ -51,18 +49,6 @@ function SideNav({ onNavigate }) {
           </NavLink>
         ))}
       </nav>
-      <div>
-        <p className="mb-2 px-3 text-[10px] font-semibold text-navy-300">{t('nav.roadmap')}</p>
-        <ul className="grid gap-1">
-          {soon.map(({ icon: Icon, label }) => (
-            <li key={label} className={`${link} cursor-default opacity-60 hover:bg-transparent hover:text-navy-100`} aria-disabled="true">
-              <Icon className="h-[19px] w-[19px] shrink-0" />
-              <span className="flex-1">{label}</span>
-              <span className="rounded-full border border-white/15 px-2 text-[10px]">{t('common.soon')}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
       <div className="mt-auto rounded-2xl border border-white/10 bg-white/5 p-3.5">
         <p className="truncate text-sm font-bold text-white">{me?.tenant.name}</p>
         <p className="mt-0.5 text-[11px] text-navy-200">{t(`roles.${me?.role}`)}</p>

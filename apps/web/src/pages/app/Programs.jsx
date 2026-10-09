@@ -1,13 +1,15 @@
-import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqPencil, MqPlus, MqStamp, Skeleton, useToast } from '@mirqam/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqPencil, MqPlus, MqQrCode, MqStamp, Skeleton, useToast } from '@mirqam/ui'
 import { computeEarn, DEFAULT_CONFIG, formatMinor, parseMoneyToMinor, validateProgramConfig } from '@mirqam-points/shared'
 import { useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
 import PassPreview from '../../components/PassPreview.jsx'
+import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
-import { api, useApi } from '../../lib/api.js'
+import { api, publicOrigin, useApi } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
 import { ruleSummary, statusTone, unitLabel } from '../../lib/programs.js'
 import { useSession } from '../../lib/session.jsx'
+import { CopyButton } from './GiftCards.jsx'
 
 /* Form state keeps money as SAR strings; converted to halalas only on submit. */
 function toForm(program) {
@@ -21,8 +23,20 @@ function toForm(program) {
     stampsPerVisit: String(c.stampsPerVisit ?? 1),
     stampsRequired: String(c.stampsRequired ?? 10),
     minPurchase: c.minPurchaseMinor ? formatMinor(c.minPurchaseMinor).replace(/,/g, '') : '',
+    background: program?.design?.background ?? '#172740',
+    foreground: program?.design?.foreground ?? '#ffffff',
+    label: program?.design?.label ?? '#8ac0c4',
+    rewardText: program?.design?.rewardText ?? '',
+    selfEnroll: program?.selfEnroll ?? false,
   }
 }
+
+const designOf = (form) => ({
+  background: form.background,
+  foreground: form.foreground,
+  label: form.label,
+  ...(form.rewardText.trim() ? { rewardText: form.rewardText.trim() } : {}),
+})
 
 function toConfig(form) {
   const minPurchaseMinor = form.minPurchase.trim() ? parseMoneyToMinor(form.minPurchase) : 0
@@ -52,8 +66,8 @@ function ProgramModal({ open, onClose, program, onSaved }) {
     setError(null)
     try {
       const saved = editing
-        ? await api(`/programs/${program.id}`, { method: 'PATCH', body: { name: form.name, config } })
-        : await api('/programs', { method: 'POST', body: { name: form.name, type: form.type, config } })
+        ? await api(`/programs/${program.id}`, { method: 'PATCH', body: { name: form.name, config, design: designOf(form), selfEnroll: form.selfEnroll } })
+        : await api('/programs', { method: 'POST', body: { name: form.name, type: form.type, config, design: designOf(form), selfEnroll: form.selfEnroll } })
       toast(t(editing ? 'programs.saved' : 'programs.created'))
       onSaved(saved)
       onClose()
@@ -69,7 +83,7 @@ function ProgramModal({ open, onClose, program, onSaved }) {
       type="button"
       disabled={editing}
       aria-pressed={form.type === type}
-      onClick={() => setForm((f) => ({ ...toForm({ type }), name: f.name }))}
+      onClick={() => setForm((f) => ({ ...f, ...toForm({ type, design: designOf(f), selfEnroll: f.selfEnroll }), name: f.name }))}
       className={`flex flex-1 items-start gap-3 rounded-2xl border p-4 text-start transition disabled:cursor-not-allowed ${form.type === type ? 'border-brand-500 bg-tint' : 'border-line hover:border-brand-500/50'}`}
     >
       <Icon className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
@@ -136,6 +150,32 @@ function ProgramModal({ open, onClose, program, onSaved }) {
           <p className="rounded-2xl bg-tint px-4 py-3 text-sm">
             {t('programs.preview', { amount: money(sample, locale), n: num(preview), unit: unitLabel(form.type, t) })}
           </p>
+          <fieldset className="rounded-2xl border border-line p-4">
+            <legend className="px-1 text-sm font-semibold">{t('programs.passDesign')}</legend>
+            <div className="grid grid-cols-3 gap-3">
+              {['background', 'foreground', 'label'].map((k) => (
+                <label key={k} className="grid gap-1.5 text-xs font-semibold">
+                  {t(`programs.color.${k}`)}
+                  <input type="color" value={form[k]} onChange={set(k)} className="h-11 w-full cursor-pointer rounded-xl border border-line bg-surface p-1" />
+                </label>
+              ))}
+            </div>
+            <Field label={t('programs.rewardText')} hint={t('programs.rewardTextHint')} className="mt-4">
+              {(p) => <Input {...p} value={form.rewardText} onChange={set('rewardText')} maxLength={140} />}
+            </Field>
+          </fieldset>
+          <label className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm">
+            <input
+              type="checkbox"
+              checked={form.selfEnroll}
+              onChange={(e) => setForm((f) => ({ ...f, selfEnroll: e.target.checked }))}
+              className="mt-1 h-4 w-4 accent-brand-600"
+            />
+            <span>
+              <span className="block font-semibold">{t('programs.selfEnroll')}</span>
+              <span className="mt-0.5 block text-xs text-muted">{t('programs.selfEnrollHint')}</span>
+            </span>
+          </label>
           {error && (
             <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
               {errorText(error)}
@@ -152,6 +192,7 @@ function ProgramModal({ open, onClose, program, onSaved }) {
             stampsRequired={Math.min(Number(form.stampsRequired) || 10, 20)}
             memberName={t('landing.demoMember')}
             labels={{ balance: unitLabel(form.type, t), member: t('pass.member') }}
+            design={{ background: form.background, foreground: form.foreground, label: form.label }}
           />
           <p className="mt-2 max-w-[340px] text-xs text-muted">{t('programs.passPreviewNote')}</p>
         </div>
@@ -167,6 +208,8 @@ export default function Programs() {
   const { can } = useSession()
   const { data, loading, reload } = useApi('/programs')
   const [modal, setModal] = useState(null) // { program?: object }
+  const [poster, setPoster] = useState(null)
+  const { me } = useSession()
 
   async function setStatus(program, status) {
     try {
@@ -227,6 +270,12 @@ export default function Programs() {
               </dl>
               {can('manage') && (
                 <div className="mt-5 flex flex-wrap gap-2">
+                  {p.selfEnroll && p.status === 'active' && (
+                    <Button variant="outline" size="sm" onClick={() => setPoster(p)}>
+                      <MqQrCode className="h-4 w-4" />
+                      {t('programs.joinPoster')}
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => setModal({ program: p })}>
                     <MqPencil className="h-4 w-4" />
                     {t('common.edit')}
@@ -245,6 +294,21 @@ export default function Programs() {
             </article>
           ))}
         </div>
+      )}
+      {poster && (
+        <Modal open onClose={() => setPoster(null)} title={t('programs.joinPoster')} closeLabel={t('common.close')}>
+          <div className="grid justify-items-center gap-4 text-center">
+            <p className="text-lg font-bold">{t('join.title', { program: poster.name })}</p>
+            <Qr value={`${publicOrigin()}/join/${me.tenant.slug}/${poster.id}`} size={220} label={t('programs.joinPoster')} />
+            <p className="text-sm text-muted">{t('programs.joinPosterHint')}</p>
+            <div className="flex gap-2">
+              <CopyButton value={`${publicOrigin()}/join/${me.tenant.slug}/${poster.id}`} />
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                {t('common.print')}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
       {modal && <ProgramModal open onClose={() => setModal(null)} program={modal.program} onSaved={reload} />}
     </>

@@ -1,60 +1,102 @@
-/* Counter flow: phone → (enroll if new) → earn or redeem → confirmation.
-   Large targets, one decision per screen. The camera scanner and offline
-   queue arrive with the cashier PWA (Phase 3); the ledger contract is the same. */
+/* Counter flow: phone / scanned card → (enroll if new) → earn or redeem → confirmation.
+   Gift cards: scanned or typed code → balance → partial or full spend.
+   Large targets, one decision per screen; the native app adds the camera scanner. */
 
-import { Avatar, Button, Card, Field, Input, MqCheckCircle, MqScan, MqSearch, Select } from '@mirqam/ui'
+import { Avatar, Button, Card, Field, Input, MqCheckCircle, MqGift, MqScan, MqSearch, Select } from '@mirqam/ui'
 import { computeEarn, normalizePhone, parseMoneyToMinor } from '@mirqam-points/shared'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi, useIdempotencyKey } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
 import { unitLabel } from '../../lib/programs.js'
+import { canScan, ScanError, scanCode } from '../../lib/scanner.js'
 import { MemberForm } from './Members.jsx'
 
-function Lookup({ onFound, onMissing }) {
+const LOYALTY_CODE = /^(MP:)?[0-9A-F]{10}$/i
+const GIFT_CODE = /^[0-9A-Z]{16}$/
+const compactCode = (v) => v.trim().toUpperCase().replace(/[\s-]/g, '')
+
+/* One field for everything the customer can present: a mobile number, a
+   wallet-pass code (MP:XXXXXXXXXX) or a gift-card code. In the native app the
+   camera fills it in. */
+function Lookup({ onFound, onMissing, onGift }) {
   const { t } = useI18n()
   const errorText = useErrorText()
-  const [phone, setPhone] = useState('')
+  const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const normalized = normalizePhone(phone)
+  const compact = compactCode(value)
+  const usable = Boolean(normalizePhone(value)) || LOYALTY_CODE.test(compact) || GIFT_CODE.test(compact)
 
-  async function submit(e) {
-    e.preventDefault()
-    if (!normalized) return
+  async function find(raw) {
+    const v = compactCode(raw)
     setBusy(true)
     setError(null)
     try {
-      const found = await api(`/members/lookup?phone=${encodeURIComponent(normalized)}`)
-      onFound(found.id)
+      if (GIFT_CODE.test(v)) return onGift(v)
+      if (LOYALTY_CODE.test(v)) {
+        const found = await api(`/members/lookup?code=${encodeURIComponent(v)}`)
+        return onFound(found.id, found.matchedProgramId)
+      }
+      const normalized = normalizePhone(raw)
+      if (!normalized) return
+      try {
+        const found = await api(`/members/lookup?phone=${encodeURIComponent(normalized)}`)
+        onFound(found.id)
+      } catch (err) {
+        if (err.code === 'member_not_found') onMissing(normalized)
+        else throw err
+      }
     } catch (err) {
-      if (err.code === 'member_not_found') onMissing(normalized)
-      else setError(err)
+      setError(err)
     } finally {
       setBusy(false)
     }
   }
 
+  async function scan() {
+    try {
+      const code = await scanCode()
+      if (code) {
+        setValue(code)
+        await find(code)
+      }
+    } catch (err) {
+      setError(err instanceof ScanError ? { code: err.code } : err)
+    }
+  }
+
   return (
-    <form onSubmit={submit} className="grid gap-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (usable) find(value)
+      }}
+      className="grid gap-4"
+    >
+      {canScan() && (
+        <Button size="lg" onClick={scan} className="!min-h-16 text-base">
+          <MqScan className="h-6 w-6" />
+          {t('cashier.scan')}
+        </Button>
+      )}
       <Field label={t('cashier.phoneLabel')} hint={t('cashier.phoneHint')} error={error && errorText(error)}>
         {(p) => (
           <Input
             {...p}
-            type="tel"
-            inputMode="tel"
             dir="ltr"
-            autoFocus
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            autoFocus={!canScan()}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             placeholder="05XXXXXXXX"
             className="!min-h-14 text-center text-2xl font-bold tracking-wider"
             autoComplete="off"
+            autoCapitalize="characters"
           />
         )}
       </Field>
-      <Button type="submit" size="lg" loading={busy} disabled={!normalized}>
+      <Button type="submit" size="lg" variant={canScan() ? 'outline' : 'primary'} loading={busy} disabled={!usable}>
         <MqSearch className="h-5 w-5" />
         {t('cashier.find')}
       </Button>
@@ -62,12 +104,108 @@ function Lookup({ onFound, onMissing }) {
   )
 }
 
-function Transact({ member, programs, onDone, onCancel }) {
+/* Gift card at the counter: balance check, then spend part or all of it. */
+function GiftRedeem({ code, onDone, onCancel }) {
+  const { t, locale } = useI18n()
+  const errorText = useErrorText()
+  const [card, setCard] = useState(null)
+  const [error, setError] = useState(null)
+  const [amount, setAmount] = useState('')
+  const [busy, setBusy] = useState(false)
+  const amountMinor = parseMoneyToMinor(amount)
+  const idem = useIdempotencyKey(`${code}|${amount}`)
+
+  useEffect(() => {
+    api('/gift-cards/lookup', { method: 'POST', body: { code } }).then(setCard, setError)
+  }, [code])
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      onDone(await api('/gift-cards/redeem', { method: 'POST', body: { code, amountMinor }, idempotencyKey: idem.key }))
+    } catch (err) {
+      setError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (error && !card)
+    return (
+      <div className="grid gap-4 text-center">
+        <p className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">{errorText(error)}</p>
+        <Button variant="outline" onClick={onCancel}>
+          {t('common.back')}
+        </Button>
+      </div>
+    )
+  if (!card) return <p className="py-10 text-center text-sm text-muted">{t('common.loading')}</p>
+  const spendable = card.status === 'active' && !card.expired
+  const valid = spendable && amountMinor != null && amountMinor > 0 && amountMinor <= card.balanceMinor
+  return (
+    <form onSubmit={submit} className="grid gap-5">
+      <div className="mp-pass flex items-center gap-3 p-5 text-white">
+        <MqGift className="h-7 w-7 text-brand-300" />
+        <span>
+          <small className="block text-xs">
+            {t('gift.title')} · •••• {card.last4}
+          </small>
+          <span className="tnum text-2xl font-bold">{money(card.balanceMinor, locale)}</span>
+        </span>
+      </div>
+      {!spendable && <p className="rounded-xl bg-warn-bg px-4 py-3 text-sm text-warn">{card.expired ? t('gift.expired') : t(`gift.status.${card.status}`)}</p>}
+      {spendable && (
+        <>
+          <Field label={t('gift.redeemAmount')} hint={t('gift.redeemHint', { amount: money(card.balanceMinor, locale) })}>
+            {(p) => (
+              <Input
+                {...p}
+                inputMode="decimal"
+                dir="ltr"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="!min-h-14 text-center text-2xl font-bold"
+                autoFocus
+              />
+            )}
+          </Field>
+          <button
+            type="button"
+            className="justify-self-start text-sm font-semibold text-accent"
+            onClick={() => setAmount((card.balanceMinor / 100).toFixed(2))}
+          >
+            {t('gift.useFull')}
+          </button>
+        </>
+      )}
+      {error && (
+        <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
+          {errorText(error)}
+        </p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        {spendable && (
+          <Button type="submit" size="lg" loading={busy} disabled={!valid}>
+            {t('gift.redeemSubmit', { amount: amountMinor ? money(amountMinor, locale) : '—' })}
+          </Button>
+        )}
+        <Button variant="ghost" size="lg" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
   const { t, locale } = useI18n()
   const errorText = useErrorText()
   const active = programs.filter((p) => p.status === 'active')
   const [mode, setMode] = useState('earn')
-  const [programId, setProgramId] = useState(active[0]?.id)
+  const [programId, setProgramId] = useState(active.some((p) => p.id === preferredProgramId) ? preferredProgramId : active[0]?.id)
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -177,7 +315,7 @@ function Transact({ member, programs, onDone, onCancel }) {
 }
 
 export default function Cashier() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const programs = useApi('/programs')
   const [step, setStep] = useState({ name: 'lookup' })
   const member = useApi(step.memberId ? `/members/${step.memberId}?v=${step.v ?? 0}` : null)
@@ -189,7 +327,11 @@ export default function Cashier() {
       <PageHeader title={t('nav.cashier')} subtitle={t('cashier.subtitle')} />
       <Card bodyClass="p-6 sm:p-8">
         {step.name === 'lookup' && (
-          <Lookup onFound={(id) => setStep({ name: 'member', memberId: id })} onMissing={(phone) => setStep({ name: 'enroll', phone })} />
+          <Lookup
+            onFound={(id, programId) => setStep({ name: 'member', memberId: id, programId })}
+            onMissing={(phone) => setStep({ name: 'enroll', phone })}
+            onGift={(code) => setStep({ name: 'gift', code })}
+          />
         )}
 
         {step.name === 'enroll' && (
@@ -224,6 +366,7 @@ export default function Cashier() {
               <Transact
                 member={member.data}
                 programs={programs.data.items}
+                preferredProgramId={step.programId}
                 onCancel={reset}
                 onDone={(result) => setStep({ name: 'done', memberId: step.memberId, result })}
               />
@@ -231,6 +374,21 @@ export default function Cashier() {
           ) : (
             <p className="py-10 text-center text-sm text-muted">{t('common.loading')}</p>
           ))}
+
+        {step.name === 'gift' && <GiftRedeem code={step.code} onCancel={reset} onDone={(result) => setStep({ name: 'giftDone', result })} />}
+
+        {step.name === 'giftDone' && (
+          <div className="fade-in text-center">
+            <MqCheckCircle className="mx-auto h-14 w-14 text-ok" />
+            <h2 className="mt-4 text-xl font-bold">{t('gift.redeemed', { amount: money(Math.abs(step.result.entry.amountMinor), locale) })}</h2>
+            <p className="mt-2 text-sm text-muted">{t('gift.remaining')}</p>
+            <p className="tnum mt-1 text-[40px] font-bold leading-none">{money(step.result.card.balanceMinor, locale)}</p>
+            <Button size="lg" className="mt-8 w-full" onClick={reset}>
+              <MqScan className="h-5 w-5" />
+              {t('cashier.nextCustomer')}
+            </Button>
+          </div>
+        )}
 
         {step.name === 'done' && (
           <div className="fade-in text-center">

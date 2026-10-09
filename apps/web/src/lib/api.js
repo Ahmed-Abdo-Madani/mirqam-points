@@ -1,4 +1,7 @@
-/* Thin fetch wrapper for the same-origin API (cookie session).
+/* Thin fetch wrapper for the API.
+   - Web: same-origin requests with the HttpOnly session cookie.
+   - Native app (Capacitor build, VITE_NATIVE=1): the API lives at VITE_API_BASE
+     and the session is a bearer token kept in the app's storage.
    Every write sends JSON (the server's CSRF guard requires it). Ledger writes
    pass `idempotencyKey` — reuse the same key when retrying the same action. */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,18 +17,36 @@ export class ApiError extends Error {
 
 export const UNAUTHENTICATED_EVENT = 'mp:unauthenticated'
 
+export const NATIVE = import.meta.env.VITE_NATIVE === '1'
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+const TOKEN_KEY = 'mp-token'
+
+/** Public origin for links customers open (pass pages, gift cards, join posters). */
+export const publicOrigin = () => API_BASE || window.location.origin
+
+export const sessionToken = {
+  get: () => (NATIVE ? localStorage.getItem(TOKEN_KEY) : null),
+  set: (token) => NATIVE && token && localStorage.setItem(TOKEN_KEY, token),
+  clear: () => NATIVE && localStorage.removeItem(TOKEN_KEY),
+}
+
 export async function api(path, { method = 'GET', body, idempotencyKey, signal } = {}) {
   const headers = { accept: 'application/json' }
   const write = method !== 'GET'
   if (write) headers['content-type'] = 'application/json'
   if (idempotencyKey) headers['idempotency-key'] = idempotencyKey
+  if (NATIVE) {
+    headers['x-mp-client'] = 'mobile'
+    const token = sessionToken.get()
+    if (token) headers.authorization = `Bearer ${token}`
+  }
   let res
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(`${API_BASE}/api${path}`, {
       method,
       headers,
       body: write ? JSON.stringify(body ?? {}) : undefined,
-      credentials: 'same-origin',
+      credentials: NATIVE ? 'omit' : 'same-origin',
       signal,
     })
   } catch (err) {

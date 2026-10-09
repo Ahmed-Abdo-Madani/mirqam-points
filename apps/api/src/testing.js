@@ -10,8 +10,12 @@ export async function freshDb() {
   const url = process.env.TEST_DATABASE_URL
   if (url) {
     if (!/test/i.test(url)) throw new Error('TEST_DATABASE_URL must name a test database (contain "test")')
-    const db = await openDb(url)
-    await db.exec('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')
+    // Each suite gets its own schema: test files run in parallel against one database.
+    const schema = `t_${Math.random().toString(36).slice(2, 10)}`
+    const admin = await openDb(url)
+    await admin.exec(`CREATE SCHEMA ${schema}`)
+    await admin.close()
+    const db = await openDb(`${url}${url.includes('?') ? '&' : '?'}options=${encodeURIComponent(`-c search_path=${schema}`)}`)
     await migrate(db)
     return db
   }

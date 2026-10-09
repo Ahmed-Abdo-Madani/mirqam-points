@@ -31,9 +31,14 @@ export default function authRoutes({ db, config }) {
     handler: (_req, res) => res.status(429).json({ error: 'rate_limited' }),
   })
 
+  /* Browsers get an HttpOnly cookie. The native app (x-mp-client: mobile) gets the
+     token in the body instead and sends it as a bearer header — cookies do not
+     survive a cross-origin Capacitor webview. */
   async function startSession(req, res, userId, tenantId) {
     const token = await createSession(db, { userId, tenantId, userAgent: req.get('user-agent'), ttlDays: config.sessionTtlDays })
+    if (req.get('x-mp-client') === 'mobile') return { token }
     res.setHeader('Set-Cookie', sessionCookie(token, { production: config.production, ttlDays: config.sessionTtlDays }))
+    return {}
   }
 
   r.post('/register', limiter, async (req, res) => {
@@ -52,20 +57,21 @@ export default function authRoutes({ db, config }) {
         ])
         const {
           rows: [tenant],
-        } = await tx.query('INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id', [body.businessName, slugify(body.businessName)])
+        } = await tx.query('INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id, slug', [body.businessName, slugify(body.businessName)])
         await tx.query("INSERT INTO memberships (tenant_id, user_id, role) VALUES ($1, $2, 'owner')", [tenant.id, user.id])
         await tx.query("INSERT INTO audit_log (tenant_id, actor_user_id, action) VALUES ($1, $2, 'tenant.created')", [tenant.id, user.id])
-        return { userId: user.id, tenantId: tenant.id }
+        return { userId: user.id, tenantId: tenant.id, slug: tenant.slug }
       })
     } catch (err) {
       if (err.code === UNIQUE_VIOLATION) throw new HttpError(409, 'email_taken')
       throw err
     }
-    await startSession(req, res, ids.userId, ids.tenantId)
+    const extra = await startSession(req, res, ids.userId, ids.tenantId)
     res.status(201).json({
       user: { id: ids.userId, email: body.email, name: body.name, locale: body.locale },
-      tenant: { id: ids.tenantId, name: body.businessName },
+      tenant: { id: ids.tenantId, name: body.businessName, slug: ids.slug },
       role: 'owner',
+      ...extra,
     })
   })
 
@@ -83,15 +89,16 @@ export default function authRoutes({ db, config }) {
       rows: [membership],
     } = await db.query(
       `SELECT m.tenant_id, m.role, t.name, t.slug FROM memberships m JOIN tenants t ON t.id = m.tenant_id
-        WHERE m.user_id = $1 ORDER BY m.created_at LIMIT 1`,
+        WHERE m.user_id = $1 AND t.closed_at IS NULL ORDER BY m.created_at LIMIT 1`,
       [user.id],
     )
     if (!membership) throw new HttpError(403, 'no_workspace')
-    await startSession(req, res, user.id, membership.tenant_id)
+    const extra = await startSession(req, res, user.id, membership.tenant_id)
     res.json({
       user: { id: user.id, email: user.email, name: user.name, locale: user.locale },
       tenant: { id: membership.tenant_id, name: membership.name, slug: membership.slug },
       role: membership.role,
+      ...extra,
     })
   })
 
@@ -102,6 +109,34 @@ export default function authRoutes({ db, config }) {
   })
 
   r.get('/me', requireAuth, (req, res) => res.json(me(req.auth)))
+
+  /* Account deletion (App Store guideline 5.1.1(v)). Requires the password.
+     The login is erased. If the user is the workspace's only owner, the
+     workspace is closed: staff lose access, and the business's transaction
+     records are retained only as the merchant's accounting history. */
+  r.post('/delete-account', requireAuth, limiter, async (req, res) => {
+    const { password: pw } = parse(z.object({ password: z.string().min(1).max(200) }), req.body)
+    const {
+      rows: [user],
+    } = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.auth.userId])
+    if (!user || !(await verifyPassword(pw, user.password_hash))) throw new HttpError(401, 'invalid_credentials')
+    await db.tx(async (tx) => {
+      // Workspaces where this user is the only owner.
+      const { rows: owned } = await tx.query(
+        `SELECT m.tenant_id FROM memberships m WHERE m.user_id = $1 AND m.role = 'owner'
+            AND NOT EXISTS (SELECT 1 FROM memberships o WHERE o.tenant_id = m.tenant_id AND o.role = 'owner' AND o.user_id <> m.user_id)`,
+        [req.auth.userId],
+      )
+      for (const { tenant_id } of owned) {
+        await tx.query('UPDATE tenants SET closed_at = now() WHERE id = $1', [tenant_id])
+        await tx.query('DELETE FROM sessions WHERE tenant_id = $1', [tenant_id])
+        await tx.query("INSERT INTO audit_log (tenant_id, action) VALUES ($1, 'tenant.closed_by_owner_deletion')", [tenant_id])
+      }
+      await tx.query('DELETE FROM users WHERE id = $1', [req.auth.userId])
+    })
+    res.setHeader('Set-Cookie', clearedCookie({ production: config.production }))
+    res.json({ ok: true })
+  })
 
   return r
 }

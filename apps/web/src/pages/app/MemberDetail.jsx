@@ -1,13 +1,15 @@
-import { Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, MqArrowRight, MqLedger, MqStamp, Skeleton, useToast } from '@mirqam/ui'
+import { Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, MqArrowRight, MqLedger, MqPass, MqStamp, Skeleton, useToast } from '@mirqam/ui'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import EntriesTable from '../../components/EntriesTable.jsx'
+import Qr from '../../components/Qr.jsx'
 import TransactionModal from '../../components/TransactionModal.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
-import { api, useApi, useIdempotencyKey } from '../../lib/api.js'
+import { api, publicOrigin, useApi, useIdempotencyKey } from '../../lib/api.js'
 import { day, num, signed } from '../../lib/format.js'
 import { ruleSummary, unitLabel } from '../../lib/programs.js'
 import { useSession } from '../../lib/session.jsx'
+import { CopyButton } from './GiftCards.jsx'
 
 function VoidModal({ entry, onClose, onDone }) {
   const { t } = useI18n()
@@ -62,7 +64,57 @@ function VoidModal({ entry, onClose, onDone }) {
   )
 }
 
-function AccountCard({ account, onAction, canTransact }) {
+/* The member's wallet card: they scan the QR with their own phone at the
+   counter, open the card page and add it to Apple/Google Wallet. */
+function CardModal({ account, memberId, onClose, onReissued }) {
+  const { t } = useI18n()
+  const errorText = useErrorText()
+  const toast = useToast()
+  const { can } = useSession()
+  const [busy, setBusy] = useState(false)
+  const url = `${publicOrigin()}${account.passPath}`
+  async function reissue() {
+    if (!window.confirm(t('card.reissueConfirm'))) return
+    setBusy(true)
+    try {
+      await api(`/members/${memberId}/accounts/${account.id}/reissue`, { method: 'POST' })
+      toast(t('card.reissued'))
+      onReissued()
+      onClose()
+    } catch (err) {
+      toast(errorText(err), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title={t('card.title', { program: account.program.name })} closeLabel={t('common.close')}>
+      <div className="grid justify-items-center gap-4 text-center">
+        <p className="text-sm text-muted">{t('card.scanToAdd')}</p>
+        <Qr value={url} size={200} label={t('card.title', { program: account.program.name })} />
+        <p className="tnum text-xs text-muted" dir="ltr">
+          {t('card.code')}: {account.code}
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <CopyButton value={url} />
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center px-3 text-xs font-semibold text-accent hover:underline">
+            {t('card.open')}
+          </a>
+        </div>
+        {can('manage') && (
+          <div className="mt-2 w-full border-t border-line pt-4 text-start">
+            <p className="text-xs leading-relaxed text-muted">{t('card.reissueHint')}</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={reissue} loading={busy}>
+              {t('card.reissue')}
+            </Button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function AccountCard({ account, onAction, onCard, canTransact }) {
   const { t, locale } = useI18n()
   const { program } = account
   const required = program.config.stampsRequired
@@ -92,16 +144,22 @@ function AccountCard({ account, onAction, canTransact }) {
         </div>
       )}
       <p className="mt-3 text-xs text-muted">{t('members.lifetime', { n: num(account.lifetimeEarned) })}</p>
-      {canTransact && program.status === 'active' && (
-        <div className="mt-4 flex gap-2">
-          <Button size="sm" onClick={() => onAction('earn', program.id)}>
-            {t('transactions.earn')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => onAction('redeem', program.id)} disabled={account.balance === 0}>
-            {t('transactions.redeem')}
-          </Button>
-        </div>
-      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button size="sm" variant="ghost" onClick={() => onCard(account)}>
+          <MqPass className="h-4 w-4" />
+          {t('card.button')}
+        </Button>
+        {canTransact && program.status === 'active' && (
+          <>
+            <Button size="sm" onClick={() => onAction('earn', program.id)}>
+              {t('transactions.earn')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onAction('redeem', program.id)} disabled={account.balance === 0}>
+              {t('transactions.redeem')}
+            </Button>
+          </>
+        )}
+      </div>
     </article>
   )
 }
@@ -114,6 +172,9 @@ export default function MemberDetail() {
   const programs = useApi('/programs')
   const [tx, setTx] = useState(null) // { mode, programId }
   const [voiding, setVoiding] = useState(null)
+  const [card, setCard] = useState(null)
+  const errorText = useErrorText()
+  const toast = useToast()
 
   if (member.error) {
     return (
@@ -136,6 +197,15 @@ export default function MemberDetail() {
   const programById = Object.fromEntries(programs.data.items.map((p) => [p.id, p]))
   const entries = m.entries.map((e) => ({ ...e, program: programById[e.programId] }))
   const reload = () => member.reload()
+  const withoutCard = programs.data.items.filter((p) => p.status === 'active' && !m.accounts.some((a) => a.program.id === p.id))
+  async function openCard(programId) {
+    try {
+      await api(`/members/${m.id}/accounts`, { method: 'POST', body: { programId } })
+      reload()
+    } catch (err) {
+      toast(errorText(err), 'err')
+    }
+  }
 
   return (
     <>
@@ -159,6 +229,7 @@ export default function MemberDetail() {
           <div className="mt-2 flex flex-wrap gap-2">
             {m.marketingConsent ? <Badge tone="green">{t('members.consented')}</Badge> : <Badge>{t('members.notConsented')}</Badge>}
             <Badge tone="teal">{t('members.since', { date: day(m.createdAt, locale) })}</Badge>
+            {!m.verified && <Badge tone="amber">{t('members.unverified')}</Badge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -180,11 +251,22 @@ export default function MemberDetail() {
       {m.accounts.length ? (
         <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {m.accounts.map((a) => (
-            <AccountCard key={a.id} account={a} canTransact={can('transact')} onAction={(mode, programId) => setTx({ mode, programId })} />
+            <AccountCard key={a.id} account={a} canTransact={can('transact')} onCard={setCard} onAction={(mode, programId) => setTx({ mode, programId })} />
           ))}
         </div>
       ) : (
-        <p className="mq-card mb-8 p-5 text-sm text-muted">{t('members.noBalances')}</p>
+        <p className="mq-card mb-4 p-5 text-sm text-muted">{t('members.noBalances')}</p>
+      )}
+      {!m.verified && <p className="mb-6 rounded-2xl border border-warn/20 bg-warn-bg px-4 py-3 text-sm text-warn">{t('members.unverifiedHint')}</p>}
+      {can('transact') && withoutCard.length > 0 && (
+        <div className="mb-8 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">{t('card.issueIn')}</span>
+          {withoutCard.map((p) => (
+            <Button key={p.id} size="sm" variant="outline" onClick={() => openCard(p.id)}>
+              {p.name}
+            </Button>
+          ))}
+        </div>
       )}
 
       <Card title={t('members.history')} bodyClass="">
@@ -207,6 +289,7 @@ export default function MemberDetail() {
         />
       )}
       {voiding && <VoidModal entry={voiding} onClose={() => setVoiding(null)} onDone={reload} />}
+      {card && <CardModal account={card} memberId={m.id} onClose={() => setCard(null)} onReissued={reload} />}
     </>
   )
 }

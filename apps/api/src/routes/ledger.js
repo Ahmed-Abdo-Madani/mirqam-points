@@ -45,7 +45,7 @@ async function loadTarget(db, tenantId, { programId, memberId }) {
 
 const actor = (req, extra) => ({ tenantId: req.auth.tenantId, actorUserId: req.auth.userId, idempotencyKey: idempotencyKey(req), ...extra })
 
-export default function ledgerRoutes({ db }) {
+export default function ledgerRoutes({ db, wallet }) {
   const r = Router()
   r.use(requireAuth)
 
@@ -61,6 +61,8 @@ export default function ledgerRoutes({ db }) {
       db,
       actor(req, { accountId: account.id, points, purchaseMinor: body.purchaseMinor, ref: body.ref, note: body.note, source: body.source }),
     )
+    // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
+    if (!result.replayed) wallet.notifyAccount(result.entry.accountId)
     res.status(result.replayed ? 200 : 201).json(result)
   })
 
@@ -77,6 +79,8 @@ export default function ledgerRoutes({ db }) {
     ])
     if (!account) throw new HttpError(422, 'insufficient_balance')
     const result = await redeem(db, actor(req, { accountId: account.id, points: body.points, ref: body.ref, note: body.note, source: body.source }))
+    // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
+    if (!result.replayed) wallet.notifyAccount(result.entry.accountId)
     res.status(result.replayed ? 200 : 201).json(result)
   })
 
@@ -86,6 +90,8 @@ export default function ledgerRoutes({ db }) {
     const account = await ensureAccount(db, { tenantId: req.auth.tenantId, ...body })
     const result = await adjust(db, actor(req, { accountId: account.id, points: body.points, note: body.note }))
     if (!result.replayed) await audit(db, req, 'ledger.adjusted', result.entry.id, { points: body.points, note: body.note })
+    // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
+    if (!result.replayed) wallet.notifyAccount(result.entry.accountId)
     res.status(result.replayed ? 200 : 201).json(result)
   })
 
@@ -93,6 +99,8 @@ export default function ledgerRoutes({ db }) {
     const body = parse(voidBody, req.body)
     const result = await voidEntry(db, actor(req, { entryId: body.entryId, note: body.note }))
     if (!result.replayed) await audit(db, req, 'ledger.voided', body.entryId, { note: body.note })
+    // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
+    if (!result.replayed) wallet.notifyAccount(result.entry.accountId)
     res.status(result.replayed ? 200 : 201).json(result)
   })
 

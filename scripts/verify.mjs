@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { testAppleCredentials } from '../apps/api/src/wallet/test-certs.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const skipBuild = process.argv.includes('--skip-build')
@@ -51,6 +52,19 @@ async function waitForHealth(base, server, timeoutMs = 30_000) {
   return false
 }
 
+function appleEnv() {
+  const c = testAppleCredentials()
+  const b64 = (s) => Buffer.from(s).toString('base64')
+  return {
+    APPLE_PASS_TYPE_ID: c.passTypeId,
+    APPLE_TEAM_ID: c.teamId,
+    APPLE_PASS_CERT_PEM: b64(c.certPem),
+    APPLE_PASS_KEY_PEM: b64(c.keyPem),
+    APPLE_WWDR_PEM: b64(c.wwdrPem),
+    APPLE_APNS_HOST: c.apnsHost,
+  }
+}
+
 const stages = []
 
 console.log('\n== 1/3 unit tests ==')
@@ -71,6 +85,9 @@ const server = spawn(process.execPath, ['apps/api/src/server.js'], {
     PUBLIC_URL: base,
     AUTH_RATE_LIMIT: '1000',
     WEB_DIST: join(ROOT, '.verify-no-dist'),
+    SECRET_KEY: 'verify-gate-secret',
+    // Throwaway certificate chain: exercises Apple pass signing and the PassKit web service.
+    ...appleEnv(),
   },
 })
 let serverLog = ''

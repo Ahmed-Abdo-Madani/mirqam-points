@@ -1,5 +1,9 @@
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
-export default {
+
+import wallet from './ar.wallet.js'
+import { mergeDict } from './merge.js'
+
+const base = {
   meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا' },
   brand: { name: 'مرقام نقاط', label: 'نقاط' },
   common: {
@@ -332,3 +336,5 @@ export default {
     db_unavailable: 'الخدمة غير متاحة مؤقتاً. حاول بعد قليل.',
   },
 }
+
+export default mergeDict(base, wallet)

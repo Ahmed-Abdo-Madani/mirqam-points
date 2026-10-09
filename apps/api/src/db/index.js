@@ -37,6 +37,12 @@ async function openPg(url) {
   const ssl = /sslmode=require/.test(url) || process.env.PGSSL === '1' ? { rejectUnauthorized: false } : undefined
   const pool = new pg.Pool({ connectionString: url, ssl, max: Number(process.env.PG_POOL_MAX || 10) })
   pool.on('error', (err) => console.error('[db] idle client error', err.message))
+  // Arabic names and copy must round-trip: refuse to run on a non-UTF8 database.
+  const { rows } = await pool.query('SHOW server_encoding')
+  if (rows[0].server_encoding !== 'UTF8') {
+    await pool.end()
+    throw new Error(`Database encoding is ${rows[0].server_encoding}; UTF8 is required`)
+  }
   return {
     kind: 'postgres',
     query: (text, params) => pool.query(text, params),

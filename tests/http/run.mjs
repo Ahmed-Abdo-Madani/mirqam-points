@@ -371,4 +371,6 @@ await check('the same idempotency key in two tenants does not collide', async ()
   }
 })
 
+await import('./wallet.mjs')
+
 process.exit(summary() ? 1 : 0)

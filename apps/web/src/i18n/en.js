@@ -1,5 +1,9 @@
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
-export default {
+
+import wallet from './en.wallet.js'
+import { mergeDict } from './merge.js'
+
+const base = {
   meta: { title: 'Mirqam Points | Loyalty programs & gift cards' },
   brand: { name: 'Mirqam Points', label: 'Points' },
   common: {
@@ -333,3 +337,5 @@ export default {
     db_unavailable: 'Service temporarily unavailable. Please try again shortly.',
   },
 }
+
+export default mergeDict(base, wallet)

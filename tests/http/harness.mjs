@@ -49,13 +49,28 @@ export function expectStatus(res, status, error) {
 }
 
 export const key = () => `k-${randomUUID()}`
+
+/** Reads pass.json out of a STORE-method .pkpass (what our server produces). */
+export function passJsonFrom(buf) {
+  let i = 0
+  while (buf.readUInt32LE(i) === 0x04034b50) {
+    const size = buf.readUInt32LE(i + 18)
+    const nameLen = buf.readUInt16LE(i + 26)
+    const extra = buf.readUInt16LE(i + 28)
+    const name = buf.subarray(i + 30, i + 30 + nameLen).toString()
+    const start = i + 30 + nameLen + extra
+    if (name === 'pass.json') return JSON.parse(buf.subarray(start, start + size).toString())
+    i = start + size
+  }
+  throw new Error('pass.json not found in pkpass')
+}
 export const uniq = () => randomUUID().slice(0, 8)
 export const phone = () => `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`
 
 export class Agent {
   cookie = ''
 
-  async request(method, path, { body, headers = {}, raw } = {}) {
+  async request(method, path, { body, headers = {}, raw, binary } = {}) {
     const init = { method, headers: { ...headers }, redirect: 'manual' }
     if (this.cookie) init.headers.cookie = this.cookie
     if (body !== undefined) {
@@ -65,6 +80,7 @@ export class Agent {
     const res = await fetch(`${BASE}${path}`, init)
     const setCookie = res.headers.get('set-cookie')
     if (setCookie) this.cookie = setCookie.split(';')[0].endsWith('=') ? '' : setCookie.split(';')[0]
+    if (binary) return { status: res.status, body: Buffer.from(await res.arrayBuffer()), headers: res.headers }
     const text = await res.text()
     let parsed
     try {

@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "sharp": "^0.35.5",
     "vitest": "^4.1.11"
   }
 }

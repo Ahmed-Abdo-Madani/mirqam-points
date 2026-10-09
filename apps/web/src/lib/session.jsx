@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api, UNAUTHENTICATED_EVENT } from './api.js'
+import { api, NATIVE, sessionToken, UNAUTHENTICATED_EVENT } from './api.js'
 
 const SessionCtx = createContext(null)
 
@@ -14,6 +14,7 @@ export function SessionProvider({ children }) {
   const [state, setState] = useState({ status: 'loading', me: null })
 
   const refresh = useCallback(async () => {
+    if (NATIVE && !sessionToken.get()) return setState({ status: 'anon', me: null })
     try {
       setState({ status: 'auth', me: await api('/auth/me') })
     } catch {
@@ -23,16 +24,29 @@ export function SessionProvider({ children }) {
 
   useEffect(() => {
     refresh()
-    const onExpired = () => setState({ status: 'anon', me: null })
+    const onExpired = () => {
+      sessionToken.clear()
+      setState({ status: 'anon', me: null })
+    }
     window.addEventListener(UNAUTHENTICATED_EVENT, onExpired)
     return () => window.removeEventListener(UNAUTHENTICATED_EVENT, onExpired)
   }, [refresh])
 
   const value = {
     ...state,
-    signedIn: (me) => setState({ status: 'auth', me }),
+    /* The native app receives its bearer token in the sign-in response. */
+    signedIn: ({ token, ...me }) => {
+      sessionToken.set(token)
+      setState({ status: 'auth', me })
+    },
     async logout() {
       await api('/auth/logout', { method: 'POST' }).catch(() => {})
+      sessionToken.clear()
+      setState({ status: 'anon', me: null })
+    },
+    /** After account deletion: the session no longer exists server-side. */
+    forget() {
+      sessionToken.clear()
       setState({ status: 'anon', me: null })
     },
     can: (capability) => Boolean(state.me && CAN[capability]?.includes(state.me.role)),

@@ -72,10 +72,18 @@ export function clearedCookie({ production }) {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${production ? '; Secure' : ''}`
 }
 
-/** Attaches req.auth = { userId, tenantId, role, user, tenant } when the cookie maps to a live session. */
+/** Bearer token from the native app (no cookies in Capacitor webviews across origins). */
+export function bearerToken(req) {
+  const m = /^Bearer ([A-Za-z0-9_-]{20,100})$/.exec(req.get('authorization') || '')
+  return m ? m[1] : null
+}
+
+/** Attaches req.auth = { userId, tenantId, role, user, tenant, via } when the cookie or bearer token maps to a live session. */
 export function loadSession(db) {
   return async (req, _res, next) => {
-    const token = readCookie(req, SESSION_COOKIE)
+    const cookie = readCookie(req, SESSION_COOKIE)
+    const bearer = cookie ? null : bearerToken(req)
+    const token = cookie || bearer
     if (!token) return next()
     const { rows } = await db.query(
       `SELECT s.user_id, s.tenant_id, s.last_seen_at, m.role,
@@ -84,13 +92,14 @@ export function loadSession(db) {
          JOIN users u ON u.id = s.user_id
          JOIN tenants t ON t.id = s.tenant_id
          JOIN memberships m ON m.user_id = s.user_id AND m.tenant_id = s.tenant_id
-        WHERE s.token_hash = $1 AND s.expires_at > now()`,
+        WHERE s.token_hash = $1 AND s.expires_at > now() AND t.closed_at IS NULL`,
       [sha256(token)],
     )
     const row = rows[0]
     if (row) {
       req.auth = {
         token,
+        via: cookie ? 'cookie' : 'bearer',
         userId: row.user_id,
         tenantId: row.tenant_id,
         role: row.role,
