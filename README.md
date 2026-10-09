@@ -1,0 +1,44 @@
+# Mirqam Points · مرقام نقاط
+
+Loyalty programs and gift cards that live in Apple Wallet and Google Wallet —
+part of the Mirqam platform family (bot.mirqam.sa, marketing.mirqam.sa,
+mirqam.sa). Plan and roadmap: [PLAN.md](./PLAN.md). Agent rules: [AGENTS.md](./AGENTS.md).
+
+## Status
+
+| Phase | State |
+|---|---|
+| 0 · Foundations (workspace, `@mirqam/ui`, schema, auth, gate, CI, deploy files) | done |
+| 1 · Ledger & merchant console (programs, members, earn/redeem/adjust/void, staff, activity) | core done — rewards catalogue, tiers, expiry, CSV import still to come |
+| 2 · Wallet passes (Google, Apple) | not started — blocked on issuer accounts |
+| 3 · Cashier PWA (scanner, offline queue), public API | desk cashier only |
+| 4–6 | not started |
+
+## Run locally
+
+Requires Node 22+. No database to install: development uses PGlite (real
+Postgres in WASM), persisted in `.data/pg`.
+
+```bash
+npm install
+npm run dev:api      # API on http://localhost:4100
+npm run dev          # console on http://localhost:5174 (proxies /api)
+node scripts/seed-dev.mjs   # optional demo workspace (credentials inside the script)
+```
+
+Useful pages: `/` landing · `/register` · `/app` console · `/design` design-system gallery.
+
+## Verify
+
+```bash
+node scripts/verify.mjs
+```
+
+Unit tests → HTTP battery on a throwaway server → web build. Exit 0 required.
+`npm run hooks:install` makes `git push` run it automatically.
+
+## Deploy
+
+`render.yaml` provisions the Docker web service `mirqam-points` and the
+Postgres `mirqam-points-db` (Oregon, same account and region as Mirqam Bot) on
+`points.mirqam.sa`. Add the DNS record `points CNAME mirqam-points.onrender.com`.

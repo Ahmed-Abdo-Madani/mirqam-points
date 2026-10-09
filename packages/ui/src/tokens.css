@@ -1,0 +1,473 @@
+/* ============================================================================
+   @mirqam/ui — Mirqam unified design language (bot · marketing · points)
+   Source: MIRQAM Visual Identity Guidelines 2026, as implemented in Mirqam Bot
+   (`_staging/rebuild/src/styles.css` @theme + `public/mirqam-glass.css`).
+
+   Import AFTER `@import "tailwindcss"` in the app stylesheet, and register this
+   package with `@source` so Tailwind scans its components.
+
+   Rules carried over:
+   - 65% white/CLOUD · 25% navy · 10% teal. Primary actions are NAVY; teal is
+     for active states, links, indicators and focus only.
+   - Teal #23949a never carries small text on white (3.64:1) — use `accent`.
+   - Western digits; `.tnum` for every KPI, balance and table number.
+   - Modal anti-flicker: no backdrop-filter on scrims; dialogs enter scale-only.
+   Difference from the bot (deliberate): dark mode is expressed as semantic
+   CSS variables instead of overriding individual utility classes.
+   ========================================================================== */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Display slot: Graphik Arabic once licensed; Plex carries the brand until then. */
+  --font-display: "Graphik Arabic", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+
+  /* NAVY ramp — 800 = NAVY (primary), 950 = INK */
+  --color-navy-50: #f0f4f8;
+  --color-navy-100: #dce4ee;
+  --color-navy-200: #b9c9dd;
+  --color-navy-300: #8ca6c4;
+  --color-navy-400: #5d80a5;
+  --color-navy-500: #3b6288;
+  --color-navy-600: #274b6e;
+  --color-navy-700: #1e3a57;
+  --color-navy-800: #172740;
+  --color-navy-900: #101d31;
+  --color-navy-950: #0e1726;
+
+  /* TEAL ramp — 500 = TEAL (signal/focus), 700 = ACCESSIBLE TEAL (small text) */
+  --color-brand-50: #eaf4f4;
+  --color-brand-100: #d7e9ea;
+  --color-brand-200: #b3d6d8;
+  --color-brand-300: #8ac0c4;
+  --color-brand-400: #54a8ad;
+  --color-brand-500: #23949a;
+  --color-brand-600: #177e83;
+  --color-brand-700: #0f6f74;
+  --color-brand-800: #0b565b;
+  --color-brand-900: #084549;
+
+  /* CLOUD / ICE neutrals and SLATE text */
+  --color-sand-50: #f5f7f8;
+  --color-sand-100: #eaf4f4;
+  --color-sand-200: #dceaea;
+  --color-sand-300: #c4dcdc;
+  --color-slate-400: #8b98a9;
+  --color-slate-500: #69788a;
+  --color-slate-600: #556375;
+
+  --radius-card: 22px;
+  --radius-control: 14px;
+
+  --ease-out-soft: cubic-bezier(0.22, 0.7, 0.25, 1);
+}
+
+/* Semantic tokens — the only colours components should use for surfaces and text. */
+:root {
+  --mq-canvas: #f1f6f7;
+  --mq-surface: #ffffff;
+  --mq-surface-glass: rgb(255 255 255 / 0.88);
+  --mq-edge: rgb(255 255 255 / 0.94);
+  --mq-soft: #f0f4f8;
+  --mq-tint: #eaf4f4;
+  --mq-ink: #172740;
+  --mq-muted: #556375;
+  --mq-faint: #8b98a9;
+  --mq-line: #d3e1e5;
+  --mq-accent: #0f6f74;
+  --mq-primary: #172740;
+  --mq-primary-hover: #1e3a57;
+  --mq-on-primary: #ffffff;
+  --mq-ok: #0f7a5a;
+  --mq-ok-bg: #e7f6f0;
+  --mq-warn: #9a5b00;
+  --mq-warn-bg: #fff4d9;
+  --mq-err: #b42318;
+  --mq-err-deep: #992014;
+  --mq-err-bg: #fdecea;
+  --mq-info: #175cd3;
+  --mq-info-bg: #eaf2ff;
+  --mq-shadow: 0 12px 36px rgb(23 39 64 / 0.035), 0 2px 5px rgb(23 39 64 / 0.02);
+  --mq-shadow-pop: 0 24px 70px rgb(12 32 53 / 0.17);
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --mq-canvas: #0e1a29;
+  --mq-surface: #172740;
+  --mq-surface-glass: rgb(24 43 62 / 0.94);
+  --mq-edge: rgb(255 255 255 / 0.08);
+  --mq-soft: #22354d;
+  --mq-tint: #1b3c49;
+  --mq-ink: #eaf4f4;
+  --mq-muted: #b9c9dd;
+  --mq-faint: #8ca6c4;
+  --mq-line: #30465f;
+  --mq-accent: #8ac0c4;
+  /* Navy buttons vanish on navy surfaces; dark mode promotes accessible teal (4.8:1 with white). */
+  --mq-primary: #177e83;
+  --mq-primary-hover: #0f6f74;
+  --mq-on-primary: #ffffff;
+  --mq-ok: #6fd3ad;
+  --mq-ok-bg: #123b31;
+  --mq-warn: #f2c46b;
+  --mq-warn-bg: #3a2d10;
+  --mq-err: #f59a8f;
+  --mq-err-deep: #f7b3aa;
+  --mq-err-bg: #3d1a18;
+  --mq-info: #9dbcff;
+  --mq-info-bg: #172a4d;
+  --mq-shadow: 0 12px 32px rgb(3 11 24 / 0.11);
+  --mq-shadow-pop: 0 24px 70px rgb(0 0 0 / 0.45);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--mq-canvas);
+  --color-surface: var(--mq-surface);
+  --color-soft: var(--mq-soft);
+  --color-tint: var(--mq-tint);
+  --color-ink: var(--mq-ink);
+  --color-muted: var(--mq-muted);
+  --color-faint: var(--mq-faint);
+  --color-line: var(--mq-line);
+  --color-accent: var(--mq-accent);
+  --color-primary: var(--mq-primary);
+  --color-primary-hover: var(--mq-primary-hover);
+  --color-on-primary: var(--mq-on-primary);
+  --color-ok: var(--mq-ok);
+  --color-ok-bg: var(--mq-ok-bg);
+  --color-warn: var(--mq-warn);
+  --color-warn-bg: var(--mq-warn-bg);
+  --color-err: var(--mq-err);
+  --color-err-deep: var(--mq-err-deep);
+  --color-err-bg: var(--mq-err-bg);
+  --color-info: var(--mq-info);
+  --color-info-bg: var(--mq-info-bg);
+  --shadow-card: var(--mq-shadow);
+  --shadow-pop: var(--mq-shadow-pop);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    min-height: 100dvh;
+    color: var(--mq-ink);
+    background:
+      radial-gradient(ellipse at 92% 0%, rgb(35 148 154 / 0.08), transparent 50%), radial-gradient(ellipse at 0 55%, rgb(35 148 154 / 0.04), transparent 50%),
+      var(--mq-canvas);
+    line-height: 1.8;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.4;
+  }
+  /* WCAG 2.4.7 / 2.4.11 — visible keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mq-line) transparent;
+  }
+  ::selection {
+    background: rgb(35 148 154 / 0.22);
+  }
+}
+
+@layer components {
+  /* Glass surface: translucent gradient, hairline, soft shadow — no blur on text. */
+  .mq-card {
+    background: linear-gradient(130deg, var(--mq-edge) 0, transparent 45%), var(--mq-surface-glass);
+    border: 1px solid var(--mq-line);
+    border-radius: var(--radius-card);
+    box-shadow:
+      var(--mq-shadow),
+      inset 0 1px 0 var(--mq-edge);
+  }
+  .input-base {
+    width: 100%;
+    min-height: 46px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--mq-line);
+    background: var(--mq-surface);
+    color: var(--mq-ink);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition:
+      border-color 0.18s,
+      box-shadow 0.18s;
+  }
+  .input-base::placeholder {
+    color: var(--mq-faint);
+  }
+  .input-base:focus {
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px rgb(35 148 154 / 0.18);
+  }
+  .input-base[aria-invalid="true"] {
+    border-color: var(--mq-err);
+  }
+  .th-base {
+    padding: 0.875rem 1rem;
+    text-align: start;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--mq-muted);
+    white-space: nowrap;
+  }
+  .td-base {
+    padding: 0.9rem 1rem;
+    font-size: 0.875rem;
+    vertical-align: middle;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .mq-kicker {
+    color: var(--color-brand-300);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* ---------- Brand wordmark ---------- */
+.mq-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+.mq-logo img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.mq-logo .mq-logo-night {
+  display: none;
+}
+.mq-logo-inverse .mq-logo-day,
+html[data-theme="dark"] .mq-logo .mq-logo-day {
+  display: none;
+}
+.mq-logo-inverse .mq-logo-night,
+html[data-theme="dark"] .mq-logo .mq-logo-night {
+  display: block;
+}
+.mq-logo-label {
+  border-inline-start: 1px solid rgb(35 148 154 / 0.33);
+  padding-inline-start: 12px;
+  color: var(--mq-ink);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.mq-logo-label span {
+  display: block;
+  font-size: 7px;
+  letter-spacing: 1.2px;
+  direction: ltr;
+  font-weight: 500;
+}
+.mq-logo-inverse .mq-logo-label {
+  color: #fff;
+}
+
+/* ---------- Motion (guidelines §12) ---------- */
+@keyframes mq-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mq-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes mq-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mq-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+/* Scale-only: the dialog is opaque from its first frame (anti-flicker rule). */
+@keyframes mq-modal-in {
+  from {
+    transform: scale(0.97);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes mq-modal-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes mq-backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes mq-float {
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+@keyframes mq-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes mq-skeleton-wave {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.fade-in {
+  animation: mq-fade-in 0.25s ease-out;
+}
+.fade-out {
+  animation: mq-fade-out 0.22s ease-in forwards;
+}
+.toast-in {
+  animation: mq-toast-in 0.2s ease-out;
+}
+.toast-out {
+  animation: mq-toast-out 0.25s ease-in forwards;
+}
+.modal-in {
+  animation: mq-modal-in 0.18s ease-out;
+}
+.modal-out {
+  animation: mq-modal-out 0.22s ease-in forwards;
+}
+.backdrop-out {
+  animation: mq-backdrop-out 0.25s ease-in forwards;
+}
+.mq-square,
+.mq-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+  .mq-square {
+    animation: mq-float 8s ease-in-out infinite;
+  }
+  .mq-square-second {
+    animation-delay: -4s;
+  }
+  .mq-orbit {
+    animation: mq-turn 90s linear infinite;
+  }
+}
+html[data-motion="paused"] *,
+html[data-motion="paused"] *::before,
+html[data-motion="paused"] *::after {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Skeleton loader ---------- */
+.mq-skeleton {
+  --sk-base: #dae7eb;
+  --sk-glow: #f4f9fa;
+  display: grid;
+  gap: 12px;
+  padding-block: 12px;
+}
+html[data-theme="dark"] .mq-skeleton {
+  --sk-base: #2a4054;
+  --sk-glow: #385369;
+}
+.mq-skeleton i {
+  display: block;
+  height: 12px;
+  border-radius: 8px;
+  background: var(--sk-base);
+  position: relative;
+  overflow: hidden;
+}
+.mq-skeleton i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent, var(--sk-glow), transparent);
+  transform: translateX(100%);
+  animation: mq-skeleton-wave 1.8s ease-in-out infinite;
+}
+.mq-skeleton i:nth-child(1) {
+  width: 38%;
+  height: 20px;
+}
+.mq-skeleton i:nth-child(2) {
+  width: 72%;
+}
+.mq-skeleton i:nth-child(3) {
+  width: 56%;
+}
+
+/* ---------- Print: content only ---------- */
+@media print {
+  aside,
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .mq-card {
+    box-shadow: none !important;
+  }
+  section,
+  tr {
+    break-inside: avoid;
+  }
+}

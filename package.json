@@ -1,0 +1,32 @@
+{
+  "name": "mirqam-points",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mirqam Points — loyalty programs and gift cards in Apple Wallet and Google Wallet",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @mirqam-points/web",
+    "dev:api": "npm run dev -w @mirqam-points/api",
+    "build": "npm run build -w @mirqam-points/web",
+    "start": "npm start -w @mirqam-points/api",
+    "db:migrate": "npm run db:migrate -w @mirqam-points/api",
+    "test:unit": "vitest run",
+    "test:http": "node tests/http/run.mjs",
+    "verify": "node scripts/verify.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "lint": "biome lint apps packages scripts tests",
+    "check": "biome check apps packages scripts tests",
+    "check:fix": "biome check --write apps packages scripts tests"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "vitest": "^4.1.11"
+  }
+}

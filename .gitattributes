@@ -1,0 +1,5 @@
+* text=auto eol=lf
+# Hooks must keep LF line endings to execute under core.autocrlf=true on Windows.
+.githooks/* text eol=lf
+*.png binary
+*.woff2 binary

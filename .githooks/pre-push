@@ -1,0 +1,23 @@
+#!/bin/sh
+# Mirqam Points pre-push guard — runs the same gate as CI before a push leaves
+# the machine. A non-zero exit BLOCKS the push.
+# Install once per clone: npm run hooks:install
+# Emergency bypass for one push: git push --no-verify (CI still blocks the merge).
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+cd "$repo_root" || exit 1
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "[pre-push] node not found on PATH - cannot run the verification gate." >&2
+  exit 1
+fi
+
+echo "[pre-push] running node scripts/verify.mjs ..."
+node scripts/verify.mjs
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-push] FAIL - verify exited $status; push blocked." >&2
+  exit "$status"
+fi
+echo "[pre-push] PASS - push allowed."
+exit 0

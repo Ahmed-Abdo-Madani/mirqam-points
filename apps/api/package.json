@@ -1,0 +1,21 @@
+{
+  "name": "@mirqam-points/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=../../.env src/server.js",
+    "start": "node --env-file-if-exists=../../.env src/server.js",
+    "db:migrate": "node --env-file-if-exists=../../.env src/db/migrate-cli.js"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@mirqam-points/shared": "*",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  }
+}

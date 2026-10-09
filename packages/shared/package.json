@@ -1,0 +1,10 @@
+{
+  "name": "@mirqam-points/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pure logic shared by the API and the web app (phone normalization, earn rules)",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@mirqam/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mirqam unified design language — tokens, primitives, icons and brand components shared by bot, marketing and points",
+  "exports": {
+    ".": "./src/index.js",
+    "./icons": "./src/icons.jsx",
+    "./tokens.css": "./src/tokens.css"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  }
+}

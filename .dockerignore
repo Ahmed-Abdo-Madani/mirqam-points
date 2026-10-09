@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+.data
+**/dist
+.env
+.env.*
+!.env.example
+*.log
+.verify.log
+.verify-no-dist
+.claude
