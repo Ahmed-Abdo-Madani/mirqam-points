@@ -1,8 +1,9 @@
 # Mirqam Points · مرقام نقاط
 
 Loyalty programs and gift cards that live in Apple Wallet and Google Wallet —
-part of the Mirqam platform family (bot.mirqam.sa, marketing.mirqam.sa,
-mirqam.sa). Plan and roadmap: [PLAN.md](./PLAN.md). Agent rules: [AGENTS.md](./AGENTS.md).
+part of the Mirqam platform family: [WhatsApp customer service](https://bot.mirqam.sa/),
+[accounting](https://pos.mirqam.sa/), [marketing](https://marketing.mirqam.sa/),
+and [Mirqam](https://mirqam.sa/). Plan and roadmap: [PLAN.md](./PLAN.md). Agent rules: [AGENTS.md](./AGENTS.md).
 
 Official website: [Mirqam Loyalty](https://loyalty.mirqam.sa/) · [Arabic loyalty guides](https://loyalty.mirqam.sa/blog/index.html).
 
