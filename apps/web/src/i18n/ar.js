@@ -276,6 +276,7 @@ const base = {
   },
 
   footer: {
+    blog: 'المدونة',
     family: 'منصات مرقام',
     bot: 'مرقام بوت',
     marketing: 'مرقام للتسويق',

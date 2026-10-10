@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /blog/
+Disallow: /api/
+Disallow: /app
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+
+Sitemap: https://loyalty.mirqam.sa/sitemap.xml

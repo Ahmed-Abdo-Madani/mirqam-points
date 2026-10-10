@@ -17,6 +17,9 @@ export default function PublicShell({ children }) {
           <Link to="/" className="me-auto" aria-label={t('brand.name')}>
             <Logo className="h-10 sm:h-12" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
           </Link>
+          <a href="/blog/index.html" className="hidden text-sm font-semibold text-muted hover:text-accent sm:inline">
+            {t('footer.blog')}
+          </a>
           <LocaleToggle className="hidden sm:inline-flex" />
           <ThemeToggle labels={{ toDark: t('common.darkMode'), toLight: t('common.lightMode') }} />
           {status === 'auth' ? (
@@ -52,6 +55,9 @@ export default function PublicShell({ children }) {
             <Logo className="h-10" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
             <nav aria-label={t('footer.family')} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
               <span className="font-semibold text-ink">{t('footer.family')}</span>
+              <a href="/blog/index.html" className="hover:text-accent">
+                {t('footer.blog')}
+              </a>
               <a href="https://bot.mirqam.sa" className="hover:text-accent">
                 {t('footer.bot')}
               </a>

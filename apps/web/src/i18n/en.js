@@ -277,6 +277,7 @@ const base = {
   },
 
   footer: {
+    blog: 'Blog',
     family: 'Mirqam platforms',
     bot: 'Mirqam Bot',
     marketing: 'Mirqam Marketing',
