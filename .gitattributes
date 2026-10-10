@@ -3,3 +3,5 @@
 .githooks/* text eol=lf
 *.png binary
 *.woff2 binary
+*.bat text eol=crlf
+*.cmd text eol=crlf

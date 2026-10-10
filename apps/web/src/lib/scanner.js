@@ -1,9 +1,8 @@
-/* Camera scanning of wallet-pass and gift-card barcodes.
-   Native app: ML Kit barcode scanner (Capacitor plugin, registered by name so
-   the web bundle carries no native code). Web: not available — typed entry. */
-import { Capacitor, registerPlugin } from '@capacitor/core'
-
-const BarcodeScanner = registerPlugin('BarcodeScanner')
+/* Camera scanning of wallet-pass and gift-card barcodes in the native app
+   (Capacitor's official barcode scanner: its own full-screen camera UI and
+   permission prompt on iOS and Android). The plugin is loaded lazily so the
+   web console bundle does not carry it. */
+import { Capacitor } from '@capacitor/core'
 
 export const canScan = () => Capacitor.isNativePlatform()
 
@@ -16,21 +15,14 @@ export class ScanError extends Error {
 
 /** Opens the scanner; resolves with the raw barcode value, or null if cancelled. */
 export async function scanCode() {
-  const perm = await BarcodeScanner.requestPermissions()
-  if (perm.camera !== 'granted' && perm.camera !== 'limited') throw new ScanError('camera_denied')
-  if (Capacitor.getPlatform() === 'android') {
-    const { available } = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable()
-    if (!available) {
-      // One-time download of Google's scanner module by Play services.
-      await BarcodeScanner.installGoogleBarcodeScannerModule()
-      throw new ScanError('scanner_installing')
-    }
-  }
+  const { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } = await import('@capacitor/barcode-scanner')
   try {
-    const { barcodes } = await BarcodeScanner.scan({ formats: ['QR_CODE', 'CODE_128'] })
-    return barcodes?.[0]?.rawValue ?? null
+    const result = await CapacitorBarcodeScanner.scanBarcode({ hint: CapacitorBarcodeScannerTypeHint.ALL })
+    return result?.ScanResult || null
   } catch (err) {
-    if (/cancel/i.test(String(err?.message))) return null
+    const message = String(err?.message || err)
+    if (/cancel/i.test(message)) return null
+    if (/permission|denied|camera/i.test(message)) throw new ScanError('camera_denied')
     throw err
   }
 }

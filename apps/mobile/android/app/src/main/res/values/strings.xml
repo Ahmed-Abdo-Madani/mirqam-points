@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mirqam Points</string>
+    <string name="title_activity_main">Mirqam Points</string>
+    <string name="package_name">sa.mirqam.points</string>
+    <string name="custom_url_scheme">sa.mirqam.points</string>
+</resources>

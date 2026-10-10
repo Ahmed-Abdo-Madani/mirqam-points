@@ -55,3 +55,11 @@
     animation: mq-float 9s ease-in-out infinite;
   }
 }
+
+/* ---------- Native app (Capacitor): respect the notch and home indicator ---------- */
+html[data-native] body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}

@@ -20,26 +20,22 @@ const NAVY = '#172740'
 
 const wordmarkWhite = brand('mirqam-dark.svg')
 
-/* Points app icon: white Mirqam wordmark on navy over a row of teal
-   qaf-diamonds (the loyalty-stamp motif). Distinct from Mirqam Bot's
-   WhatsApp-bubble icon, same brand system. Built once at 1024 and scaled. */
+/* Points app icon — the Mirqam family pattern (same as the live «مرقام تسويق»
+   app): white wordmark on navy with the product name beneath it.
+   Tahoma Bold renders the Arabic label with correct joining and dots via
+   librsvg; built once at 1024 and scaled down. */
 async function pointsIcon() {
   const mark = await sharp(wordmarkWhite, { density: 144 })
-    .resize(700, 420, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(720, 470, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer()
-  const diamonds = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="90" viewBox="0 0 560 90">${[0, 1, 2, 3, 4]
-      .map(
-        (i) =>
-          `<rect x="${i * 110 + 22}" y="17" width="56" height="56" rx="10" transform="rotate(45 ${i * 110 + 50} 45)" fill="${i < 4 ? '#23949a' : 'none'}" stroke="#54a8ad" stroke-width="6"/>`,
-      )
-      .join('')}</svg>`,
+  const label = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="200"><text x="512" y="150" font-family="Tahoma" font-weight="700" font-size="150" fill="#ffffff" text-anchor="middle">نقاط</text></svg>',
   )
   return sharp({ create: { width: 1024, height: 1024, channels: 4, background: NAVY } })
     .composite([
-      { input: mark, top: 190, left: 162 },
-      { input: await sharp(diamonds).png().toBuffer(), top: 700, left: 232 },
+      { input: mark, top: 150, left: 152 },
+      { input: await sharp(label).png().toBuffer(), top: 640, left: 0 },
     ])
     .png()
     .toBuffer()

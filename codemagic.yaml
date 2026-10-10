@@ -1,0 +1,77 @@
+# Codemagic CI — native builds of the Mirqam Points merchant app.
+# Prerequisite (one-time, Codemagic UI → Team settings → Integrations →
+# Developer Portal): an App Store Connect API key named "Mirqam ASC".
+# The key must be created by the Account Holder or an Admin (Team key).
+workflows:
+  ios-app-store:
+    name: iOS — TestFlight / App Store
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Mirqam ASC
+    environment:
+      node: 22
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: sa.mirqam.points
+      vars:
+        APP_STORE_APPLE_ID: 6821140365
+    triggering:
+      events: [tag]
+      tag_patterns:
+        - pattern: 'ios-v*'
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build web bundle and sync iOS project
+        script: |
+          npm run build:mobile -w @mirqam-points/web
+          cd apps/mobile && npx cap sync ios
+      - name: Apply signing profiles
+        script: xcode-project use-profiles
+      - name: Set build number
+        script: |
+          cd apps/mobile/ios/App
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: Build IPA
+        script: xcode-project build-ipa --project "apps/mobile/ios/App/App.xcodeproj" --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+
+  android-apk:
+    name: Android — signed APK/AAB
+    max_build_duration: 45
+    instance_type: linux_x2
+    environment:
+      node: 22
+      java: 21
+      android_signing:
+        - mirqam_points_upload   # keystore reference uploaded in Codemagic (code signing identities)
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build web bundle and sync Android project
+        script: |
+          npm run build:mobile -w @mirqam-points/web
+          cd apps/mobile && npx cap sync android
+      - name: Write keystore.properties from Codemagic signing
+        script: |
+          cat > apps/mobile/android/keystore.properties <<EOF
+          storeFile=$CM_KEYSTORE_PATH
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
+      - name: Build APK and AAB
+        script: cd apps/mobile/android && ./gradlew assembleRelease bundleRelease
+    artifacts:
+      - apps/mobile/android/app/build/outputs/**/*.apk
+      - apps/mobile/android/app/build/outputs/**/*.aab

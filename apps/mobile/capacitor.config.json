@@ -1,0 +1,22 @@
+{
+  "appId": "sa.mirqam.points",
+  "appName": "Mirqam Points",
+  "webDir": "../web/dist-mobile",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#172740"
+  },
+  "android": {
+    "backgroundColor": "#172740"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#172740",
+      "showSpinner": false
+    }
+  }
+}
