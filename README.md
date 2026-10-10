@@ -4,6 +4,8 @@ Loyalty programs and gift cards that live in Apple Wallet and Google Wallet —
 part of the Mirqam platform family (bot.mirqam.sa, marketing.mirqam.sa,
 mirqam.sa). Plan and roadmap: [PLAN.md](./PLAN.md). Agent rules: [AGENTS.md](./AGENTS.md).
 
+Official website: [Mirqam Loyalty](https://loyalty.mirqam.sa/) · [Arabic loyalty guides](https://loyalty.mirqam.sa/blog/index.html).
+
 ## Status
 
 | Phase | State |
@@ -41,4 +43,4 @@ Unit tests → HTTP battery on a throwaway server → web build. Exit 0 required
 
 `render.yaml` provisions the Docker web service `mirqam-points` and the
 Postgres `mirqam-points-db` (Oregon, same account and region as Mirqam Bot) on
-`points.mirqam.sa`. Add the DNS record `points CNAME mirqam-points.onrender.com`.
+`loyalty.mirqam.sa`. DNS: `loyalty CNAME mirqam-points.onrender.com`.
