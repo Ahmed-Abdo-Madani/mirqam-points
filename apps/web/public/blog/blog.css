@@ -1106,3 +1106,22 @@ html[data-theme="dark"] .sun {
     font-size: 28px;
   }
 }
+
+/* Keep the product wordmark and actions together on narrow screens. */
+html[data-product="pos"] .brand-label small {
+  font-family: var(--mq-font);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+@media (max-width: 760px) {
+  .bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .brand-label small {
+    display: none;
+  }
+  .nav {
+    grid-column: 1 / -1;
+  }
+}
