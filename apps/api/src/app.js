@@ -89,7 +89,7 @@ export function createApp({ db, config }) {
       const policy = String(res.getHeader('Content-Security-Policy') || '')
         .replace(
           /script-src ([^;]+)/,
-          '$& https://www.clarity.ms https://scripts.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net',
+          '$& https://www.clarity.ms https://scripts.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com',
         )
         .replace(
           /connect-src ([^;]+)/,
