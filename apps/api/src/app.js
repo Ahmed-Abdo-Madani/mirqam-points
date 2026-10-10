@@ -71,6 +71,18 @@ export function createApp({ db, config }) {
     }),
   )
 
+  // Permit GA4 only on public documents; authenticated routes retain the original CSP.
+  app.use((req, res, next) => {
+    if (req.path === '/' || /^\/blog\/[a-z0-9-]+\.html$/.test(req.path)) {
+      const policy = String(res.getHeader('Content-Security-Policy') || '')
+        .replace(/script-src ([^;]+)/, '$& https://www.googletagmanager.com')
+        .replace(/connect-src ([^;]+)/, '$& https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com')
+        .replace(/img-src ([^;]+)/, '$& https://www.googletagmanager.com https://*.google-analytics.com')
+      res.setHeader('Content-Security-Policy', policy)
+    }
+    next()
+  })
+
   app.get('/api/health', async (_req, res) => {
     try {
       await db.query('SELECT 1')
