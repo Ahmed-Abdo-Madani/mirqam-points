@@ -33,21 +33,34 @@ function Lookup({ onFound, onMissing, onGift }) {
     const v = compactCode(raw)
     setBusy(true)
     setError(null)
+    const byCode = async () => {
+      const found = await api(`/members/lookup?code=${encodeURIComponent(v)}`)
+      onFound(found.id, found.matchedProgramId)
+    }
     try {
       if (GIFT_CODE.test(v)) return onGift(v)
-      if (LOYALTY_CODE.test(v)) {
-        const found = await api(`/members/lookup?code=${encodeURIComponent(v)}`)
-        return onFound(found.id, found.matchedProgramId)
-      }
+      // A scanned pass always carries the MP: prefix.
+      if (v.startsWith('MP:')) return await byCode()
+      // A typed 10-digit mobile (05…) is also valid hex, so phone wins; the
+      // card code is the fallback when no member has that number.
       const normalized = normalizePhone(raw)
-      if (!normalized) return
-      try {
-        const found = await api(`/members/lookup?phone=${encodeURIComponent(normalized)}`)
-        onFound(found.id)
-      } catch (err) {
-        if (err.code === 'member_not_found') onMissing(normalized)
-        else throw err
+      if (normalized) {
+        try {
+          const found = await api(`/members/lookup?phone=${encodeURIComponent(normalized)}`)
+          return onFound(found.id)
+        } catch (err) {
+          if (err.code !== 'member_not_found') throw err
+        }
+        if (LOYALTY_CODE.test(v)) {
+          try {
+            return await byCode()
+          } catch (err) {
+            if (err.code !== 'member_not_found') throw err
+          }
+        }
+        return onMissing(normalized)
       }
+      if (LOYALTY_CODE.test(v)) return await byCode()
     } catch (err) {
       setError(err)
     } finally {

@@ -6,10 +6,9 @@
    LOCAL DEVELOPMENT ONLY — these credentials must never exist in production. */
 import { randomUUID } from 'node:crypto'
 
-export const DEMO = {
-  owner: { email: 'demo.owner@mirqam.test', password: 'demo-owner-pass-2026', name: 'سارة القحطاني', businessName: 'مقهى السحاب' },
-  cashier: { email: 'demo.cashier@mirqam.test', password: 'demo-cashier-pass-2026', name: 'فهد الكاشير', role: 'cashier' },
-}
+import { DEMO } from './demo-account.mjs'
+
+export { DEMO }
 
 const argBase = process.argv.indexOf('--base')
 const BASE = (argBase > -1 ? process.argv[argBase + 1] : process.env.BASE || 'http://localhost:4100').replace(/\/$/, '')

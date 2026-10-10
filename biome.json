@@ -1,7 +1,7 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "files": {
-    "includes": ["apps/**", "packages/**", "scripts/**", "tests/**", "!**/dist", "!**/node_modules", "!**/.data", "!apps/web/public/brand", "!apps/web/public/favicon.svg"]
+    "includes": ["apps/**", "packages/**", "scripts/**", "tests/**", "!**/dist", "!**/node_modules", "!**/.data", "!apps/web/public/brand", "!apps/web/public/favicon.svg", "!apps/mobile/android", "!apps/mobile/ios", "!apps/web/dist-mobile"]
   },
   "formatter": {
     "enabled": true,
