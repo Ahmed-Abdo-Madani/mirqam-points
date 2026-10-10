@@ -12,9 +12,6 @@ workflows:
     environment:
       node: 22
       xcode: latest
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: sa.mirqam.points
       vars:
         APP_STORE_APPLE_ID: 6821140365
     triggering:
@@ -28,8 +25,20 @@ workflows:
         script: |
           npm run build:mobile -w @mirqam-points/web
           cd apps/mobile && npx cap sync ios
-      - name: Apply signing profiles
-        script: xcode-project use-profiles
+      - name: Create/fetch signing files and apply them
+        script: |
+          # ios_signing only *fetches* existing profiles; this creates the distribution
+          # certificate + App Store profile through the "Mirqam ASC" API key when missing.
+          # Optional: set a secure CERTIFICATE_PRIVATE_KEY var (RSA PEM) to reuse one
+          # distribution certificate across builds (Apple allows only a few).
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            ssh-keygen -t rsa -b 2048 -m PEM -f /tmp/cm_dist_key -q -N ""
+            export CERTIFICATE_PRIVATE_KEY="$(cat /tmp/cm_dist_key)"
+          fi
+          keychain initialize
+          app-store-connect fetch-signing-files "sa.mirqam.points" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Set build number
         script: |
           cd apps/mobile/ios/App
