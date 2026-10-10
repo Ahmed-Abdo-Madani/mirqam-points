@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* App Store screenshots (iPhone 6.9": 1290×2796) of the real app, rendered by
+/* App Store screenshots (iPhone 6.3": 1179×2556 by default) of the real app, rendered by
    headless Chrome over the DevTools protocol against the LOCAL dev stack.
    Prereqs: npm run dev:api, npm run dev, node scripts/seed-dev.mjs
    Usage: node scripts/store-screenshots.mjs [--locale ar|en]  → dist-apps/screenshots/<locale>/ */
@@ -13,7 +13,12 @@ import { DEMO } from './demo-account.mjs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const WEB = 'http://localhost:5174'
 const locale = process.argv.includes('--locale') ? process.argv[process.argv.indexOf('--locale') + 1] : 'ar'
-const OUT = join(ROOT, 'dist-apps', 'screenshots', locale)
+// iPhone 6.1"/6.3" (1179×2556) by default — App Store Connect's current base size. --size 6.9 gives 1290×2796.
+const SIZE =
+  process.argv.includes('--size') && process.argv[process.argv.indexOf('--size') + 1] === '6.9'
+    ? { w: 430, h: 932, tag: '6.9' }
+    : { w: 393, h: 852, tag: '6.3' }
+const OUT = join(ROOT, 'dist-apps', 'screenshots', `${locale}-${SIZE.tag}`)
 mkdirSync(OUT, { recursive: true })
 
 const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -74,7 +79,7 @@ const clickText = (text) =>
 try {
   await cdp('Page.enable')
   await cdp('Runtime.enable')
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 430, height: 932, deviceScaleFactor: 3, mobile: true })
+  await cdp('Emulation.setDeviceMetricsOverride', { width: SIZE.w, height: SIZE.h, deviceScaleFactor: 3, mobile: true })
   await cdp('Emulation.setUserAgentOverride', {
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
   })
