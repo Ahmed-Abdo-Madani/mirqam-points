@@ -83,13 +83,22 @@ export function createApp({ db, config }) {
     next()
   })
 
-  // Clarity is scoped to editorial HTML; account and API routes keep the strict policy.
+  // Consented marketing SDKs are scoped to editorial HTML; account and API routes keep the strict policy.
   app.use((req, res, next) => {
     if (/^\/blog\/[a-z0-9-]+\.html$/.test(req.path)) {
       const policy = String(res.getHeader('Content-Security-Policy') || '')
-        .replace(/script-src ([^;]+)/, '$& https://www.clarity.ms https://scripts.clarity.ms')
-        .replace(/connect-src ([^;]+)/, '$& https://*.clarity.ms')
-        .replace(/img-src ([^;]+)/, '$& https://*.clarity.ms https://c.bing.com')
+        .replace(
+          /script-src ([^;]+)/,
+          '$& https://www.clarity.ms https://scripts.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net',
+        )
+        .replace(
+          /connect-src ([^;]+)/,
+          '$& https://*.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com',
+        )
+        .replace(
+          /img-src ([^;]+)/,
+          '$& https://*.clarity.ms https://c.bing.com https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://tr.snapchat.com',
+        )
       res.setHeader('Content-Security-Policy', policy)
     }
     next()
