@@ -90,15 +90,15 @@ export function createApp({ db, config }) {
       const policy = String(res.getHeader('Content-Security-Policy') || '')
         .replace(
           /script-src ([^;]+)/,
-          '$& https://www.clarity.ms https://scripts.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com',
+          '$& https://www.clarity.ms https://scripts.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com https://connect.facebook.net',
         )
         .replace(
           /connect-src ([^;]+)/,
-          '$& https://*.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com',
+          '$& https://*.clarity.ms https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://sc-static.net https://tr.snapchat.com https://www.facebook.com',
         )
         .replace(
           /img-src ([^;]+)/,
-          '$& https://*.clarity.ms https://c.bing.com https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://tr.snapchat.com',
+          '$& https://*.clarity.ms https://c.bing.com https://analytics.tiktok.com https://anlytics-ipv6.tiktokw.us https://tr.snapchat.com https://www.facebook.com',
         )
       res.setHeader('Content-Security-Policy', policy)
     }
