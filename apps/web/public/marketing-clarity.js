@@ -115,7 +115,8 @@
   var host = 'loyalty.mirqam.sa'
   var tiktok = 'DB5BOJRC77U33EAHFDB0'
   var snap = '2c4782a9-ef9d-473c-b817-ab1cbb97ab86'
-  var key = 'mirqam-advertising-consent-v1-' + host
+  var meta = '3661074154048426'
+  var key = 'mirqam-advertising-consent-v2-' + host
   var path = window.location.pathname
   if (window.location.hostname !== host || !/^\/blog\/[a-z0-9-]+\.html$/.test(path)) return
   if (window.location.hash && window.location.hash !== '#main') return
@@ -147,7 +148,7 @@
   panel.setAttribute('aria-label', 'خيارات قياس الإعلانات')
   var text = document.createElement('p')
   text.textContent =
-    'هل تسمح بقياس زيارات المدونة عبر TikTok وSnapchat؟ تُرسل بيانات الزيارة والجهاز وعنوان الشبكة إلى المنصتين لقياس الإعلانات. لا نرسل حقول النماذج أو بيانات حسابك. يمكنك الرفض أو سحب موافقتك لاحقًا.'
+    'هل تسمح بقياس زيارات المدونة عبر TikTok وSnapchat وMeta؟ تُرسل بيانات الزيارة والجهاز وعنوان الشبكة إلى هذه المنصات لقياس الإعلانات. لا نرسل حقول النماذج أو بيانات حسابك. يمكنك الرفض أو سحب موافقتك لاحقًا.'
   var accept = document.createElement('button')
   accept.type = 'button'
   accept.textContent = 'قبول قياس الإعلانات'
@@ -227,6 +228,29 @@
     document.head.appendChild(tag)
     snaptr('init', snap, {})
     snaptr('track', 'PAGE_VIEW')
+    var fbq =
+      window.fbq ||
+      function () {
+        if (fbq.callMethod) fbq.callMethod.apply(fbq, arguments)
+        else fbq.queue.push(arguments)
+      }
+    var metaTag
+    if (!window.fbq) {
+      window.fbq = fbq
+      window._fbq = fbq
+      fbq.push = fbq
+      fbq.loaded = true
+      fbq.version = '2.0'
+      fbq.queue = []
+      metaTag = document.createElement('script')
+      metaTag.async = true
+      metaTag.src = 'https://connect.facebook.net/en_US/fbevents.js'
+      document.head.appendChild(metaTag)
+    }
+    fbq('consent', 'grant')
+    fbq('set', 'autoConfig', false, meta)
+    fbq('init', meta)
+    fbq('trackSingle', meta, 'PageView')
   }
   function close() {
     panel.hidden = true
@@ -237,9 +261,10 @@
     close()
     if (!active) return
     if (window.ttq && window.ttq.revokeConsent) window.ttq.revokeConsent()
+    if (window.fbq) window.fbq('consent', 'revoke')
     document.cookie.split(';').forEach(function (cookie) {
       var name = cookie.trim().split('=')[0]
-      if (!/^(_ttp|_tt_enable_cookie|_scid|_scid_r|_sc_cspv|_sc_cspv_r)$/.test(name)) return
+      if (!/^(_ttp|_tt_enable_cookie|_scid|_scid_r|_sc_cspv|_sc_cspv_r|_fbp|_fbc)$/.test(name)) return
       ;[host, '.mirqam.sa'].forEach(function (domain) {
         document.cookie = name + '=; Max-Age=0; Path=/; Domain=' + domain + '; Secure; SameSite=Lax'
       })
@@ -260,6 +285,7 @@
   ;[
     ['خصوصية TikTok', 'https://www.tiktok.com/legal/page/row/privacy-policy/en'],
     ['خصوصية Snapchat', 'https://values.snap.com/privacy/privacy-policy'],
+    ['خصوصية Meta', 'https://www.facebook.com/privacy/policy/'],
   ].forEach(function (entry) {
     var link = document.createElement('a')
     link.href = entry[1]
