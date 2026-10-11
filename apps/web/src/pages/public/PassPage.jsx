@@ -1,10 +1,11 @@
 import { EmptyState, MqPass, Skeleton } from '@mirqam/ui'
 import { useParams } from 'react-router-dom'
+import Barcode from '../../components/Barcode.jsx'
 import PassPreview from '../../components/PassPreview.jsx'
-import Qr from '../../components/Qr.jsx'
 import { useI18n } from '../../i18n/index.jsx'
 import { useApi } from '../../lib/api.js'
 import { num } from '../../lib/format.js'
+import { passLabels } from '../app/CardDesign.jsx'
 import PublicCardShell from './PublicCardShell.jsx'
 import WalletButtons from './WalletButtons.jsx'
 
@@ -13,7 +14,6 @@ export default function PassPage() {
   const { token } = useParams()
   const { t } = useI18n()
   const { data, error } = useApi(`/public/pass/${token}`)
-  const unit = data?.type === 'stamps' ? t('pass.stamps') : t('pass.points')
   return (
     <PublicCardShell>
       {error ? (
@@ -30,8 +30,11 @@ export default function PassPage() {
               balance={data.balance}
               stampsRequired={data.stampsRequired ?? 10}
               memberName={data.memberName}
-              labels={{ balance: unit, member: t('pass.member') }}
+              lifetime={data.lifetime}
+              code={data.code}
+              labels={passLabels(t, data.type)}
               design={data.design}
+              logoUrl={data.logoUrl}
             />
           </div>
           {data.type === 'stamps' && data.stampsRequired && (
@@ -43,11 +46,21 @@ export default function PassPage() {
           <WalletButtons wallet={data.wallet} />
           <section className="mq-card flex flex-col items-center gap-3 p-6 text-center">
             <h2 className="text-sm font-bold">{t('pass.showAtCounter')}</h2>
-            <Qr value={data.barcode} size={180} label={t('pass.qrLabel')} />
+            <Barcode format={data.design?.barcode} value={data.barcode} size={data.design?.barcode === 'pdf417' ? 260 : 180} label={t('pass.qrLabel')} />
             <p className="tnum text-xs text-muted" dir="ltr">
               {data.code}
             </p>
           </section>
+          {data.design?.notes?.length > 0 && (
+            <dl className="mq-card grid gap-3 p-5 text-sm">
+              {data.design.notes.map((n, i) => (
+                <div key={i}>
+                  <dt className="text-xs text-muted">{n.label}</dt>
+                  <dd className="mt-0.5 break-words">{n.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
           <p className="text-center text-xs leading-relaxed text-muted">{t('pass.keepPrivate')}</p>
         </div>
       )}

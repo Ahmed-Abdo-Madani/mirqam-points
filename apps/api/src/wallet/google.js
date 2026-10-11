@@ -2,7 +2,7 @@
    upserts and "Save to Google Wallet" links. Objects are created server-side
    first so the save link is a short "skinny" JWT that only references ids. */
 import crypto from 'node:crypto'
-import { PASS_TEXT } from './model.js'
+import { loyaltyFields, PASS_TEXT } from './model.js'
 
 const API = 'https://walletobjects.googleapis.com/walletobjects/v1'
 const b64url = (v) => Buffer.from(typeof v === 'string' ? v : JSON.stringify(v)).toString('base64url')
@@ -72,8 +72,11 @@ export const loyaltyObjectId = (google, model) => `${google.issuerId}.${safeId(`
 export const giftClassId = (google, tenantSlug) => `${google.issuerId}.${safeId(`gift_${tenantSlug}`)}`
 export const giftObjectId = (google, model) => `${google.issuerId}.${safeId(`gift_${model.id}`)}`
 
-const logo = (publicUrl) => ({
-  sourceUri: { uri: `${publicUrl}/brand/pass-logo.png` },
+const BARCODES = { qr: 'QR_CODE', pdf417: 'PDF_417', aztec: 'AZTEC', code128: 'CODE_128' }
+
+/* The merchant's own logo when they uploaded one, otherwise the Mirqam mark. */
+const logo = (publicUrl, model) => ({
+  sourceUri: { uri: model?.logoUrl || `${publicUrl}/brand/pass-logo.png` },
   contentDescription: { defaultValue: { language: 'ar', value: 'Mirqam' } },
 })
 const text = (ar, en) => ({ defaultValue: { language: 'ar', value: ar }, translatedValues: [{ language: 'en', value: en }] })
@@ -83,7 +86,7 @@ function loyaltyClass(model, google, publicUrl) {
     id: loyaltyClassId(google, model.programId),
     issuerName: model.merchant,
     programName: model.programName,
-    programLogo: logo(publicUrl),
+    programLogo: logo(publicUrl, model),
     hexBackgroundColor: model.design.background,
     reviewStatus: 'UNDER_REVIEW',
     countryCode: 'SA',
@@ -91,21 +94,36 @@ function loyaltyClass(model, google, publicUrl) {
   }
 }
 
-function loyaltyObject(model, google) {
+function loyaltyObject(model, google, publicUrl) {
   const tx = PASS_TEXT[model.locale === 'en' ? 'en' : 'ar']
+  const stamps = model.type === 'stamps' && model.stampsRequired
+  const { front, back } = loyaltyFields(model, tx)
+  // Google has one account-name slot and one secondary points slot; further fields become text modules.
+  const member = front.find((f) => f.key === 'member')
+  const secondary = front.find((f) => f.key === 'remaining' || f.key === 'lifetime')
+  const extra = front.filter((f) => f !== member && f !== secondary)
+  const heroImage =
+    model.design.layout === 'strip' && stamps
+      ? {
+          sourceUri: { uri: `${publicUrl}/api/public/pass/${model.passToken}/strip.png?v=${model.updatedAt.getTime()}` },
+          contentDescription: { defaultValue: { language: 'ar', value: model.programName } },
+        }
+      : undefined
   return {
     id: loyaltyObjectId(google, model),
     classId: loyaltyClassId(google, model.programId),
     state: 'ACTIVE',
     accountId: model.code,
-    accountName: model.memberName || model.code,
+    accountName: member ? member.value : model.memberName || model.code,
     loyaltyPoints: {
       label: model.type === 'stamps' ? tx.stamps : tx.points,
-      balance: model.type === 'stamps' && model.stampsRequired ? { string: `${model.balance} / ${model.stampsRequired}` } : { int: model.balance },
+      balance: stamps ? { string: `${model.balance} / ${model.stampsRequired}` } : { int: model.balance },
     },
-    barcode: { type: 'QR_CODE', value: model.barcode, alternateText: model.code },
+    ...(secondary ? { secondaryLoyaltyPoints: { label: secondary.label, balance: { string: secondary.value } } } : {}),
+    barcode: { type: BARCODES[model.design.barcode] ?? 'QR_CODE', value: model.barcode, alternateText: model.code },
+    ...(heroImage ? { heroImage } : {}),
     linksModuleData: { uris: [{ uri: model.url, description: tx.open, id: 'card' }] },
-    ...(model.design.rewardText ? { textModulesData: [{ id: 'reward', header: tx.reward, body: model.design.rewardText }] } : {}),
+    textModulesData: [...extra, ...back.filter((f) => f.key !== 'link' && f.key !== 'code')].map((f) => ({ id: f.key, header: f.label, body: f.value })),
   }
 }
 
@@ -114,7 +132,7 @@ function giftClass(model, google, publicUrl, slug) {
     id: giftClassId(google, slug),
     issuerName: model.merchant,
     merchantName: model.merchant,
-    programLogo: logo(publicUrl),
+    programLogo: logo(publicUrl, model),
     hexBackgroundColor: model.design.background,
     reviewStatus: 'UNDER_REVIEW',
     countryCode: 'SA',
@@ -131,7 +149,7 @@ function giftObject(model, google, slug) {
     cardNumber: model.code,
     balance: { micros: String(model.balanceMinor * 10_000), currencyCode: 'SAR' },
     balanceUpdateTime: { date: model.updatedAt.toISOString() },
-    barcode: { type: 'QR_CODE', value: model.barcode, alternateText: model.code },
+    barcode: { type: BARCODES[model.design.barcode] ?? 'QR_CODE', value: model.barcode, alternateText: model.code },
     linksModuleData: { uris: [{ uri: model.url, description: 'Card', id: 'card' }] },
     ...(model.expiresAt ? { validTimeInterval: { end: { date: new Date(model.expiresAt).toISOString() } } } : {}),
     ...(model.message ? { textModulesData: [{ id: 'msg', header: model.senderName || 'Message', body: model.message }] } : {}),
@@ -147,7 +165,7 @@ export async function saveUrl(model, { google, publicUrl, slug }) {
     objects = { giftCardObjects: [{ id: giftObjectId(google, model) }] }
   } else {
     await upsert(google, 'loyaltyClass', loyaltyClass(model, google, publicUrl))
-    await upsert(google, 'loyaltyObject', loyaltyObject(model, google))
+    await upsert(google, 'loyaltyObject', loyaltyObject(model, google, publicUrl))
     objects = { loyaltyObjects: [{ id: loyaltyObjectId(google, model) }] }
   }
   const jwt = signJwt(
@@ -158,9 +176,14 @@ export async function saveUrl(model, { google, publicUrl, slug }) {
 }
 
 /** Pushes current balance to an already-saved object. Missing objects (never saved) are ignored. */
-export async function updateObject(model, { google, slug }) {
+export async function updateObject(model, { google, slug, publicUrl }) {
   if (model.kind === 'gift') return call(google, 'PATCH', `/giftCardObject/${encodeURIComponent(giftObjectId(google, model))}`, giftObject(model, google, slug))
-  return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}`, loyaltyObject(model, google))
+  return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}`, loyaltyObject(model, google, publicUrl))
+}
+
+/** Pushes a program's name/colours/logo to its Google class (objects only carry per-member data). */
+export function updateClass(model, { google, publicUrl }) {
+  return call(google, 'PATCH', `/loyaltyClass/${encodeURIComponent(loyaltyClassId(google, model.programId))}`, loyaltyClass(model, google, publicUrl))
 }
 
 /** Marks a superseded pass (after reissue) inactive. */
@@ -168,4 +191,4 @@ export function deactivateLoyalty(model, { google }) {
   return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}`, { state: 'INACTIVE' })
 }
 
-export { signJwt as _signJwtForTests }
+export { loyaltyObject as _loyaltyObjectForTests, signJwt as _signJwtForTests }

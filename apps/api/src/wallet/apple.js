@@ -8,7 +8,8 @@ import http2 from 'node:http2'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import forge from 'node-forge'
-import { PASS_TEXT, rgb } from './model.js'
+import { loyaltyFields, PASS_TEXT, rgb } from './model.js'
+import { renderStrip } from './strip.js'
 import { zip } from './zip.js'
 
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../../assets/pass')
@@ -25,6 +26,8 @@ function passImages() {
 export function appleConfigured(apple) {
   return Boolean(apple.passTypeId && apple.teamId && apple.certPem && apple.keyPem && apple.wwdrPem)
 }
+
+const FORMATS = { qr: 'PKBarcodeFormatQR', pdf417: 'PKBarcodeFormatPDF417', aztec: 'PKBarcodeFormatAztec', code128: 'PKBarcodeFormatCode128' }
 
 const money = (minor) => (minor / 100).toFixed(2)
 
@@ -44,7 +47,7 @@ export function passJson(model, { apple, publicUrl }) {
     backgroundColor: rgb(model.design.background),
     labelColor: rgb(model.design.label),
     sharingProhibited: true,
-    barcodes: [{ format: 'PKBarcodeFormatQR', message: model.barcode, messageEncoding: 'iso-8859-1', altText: model.code }],
+    barcodes: [{ format: FORMATS[model.design.barcode] ?? FORMATS.qr, message: model.barcode, messageEncoding: 'iso-8859-1', altText: model.code }],
   }
   if (model.kind === 'gift') {
     return {
@@ -68,21 +71,18 @@ export function passJson(model, { apple, publicUrl }) {
     }
   }
   const unit = model.type === 'stamps' ? tx.stamps : tx.points
-  const balanceValue = model.type === 'stamps' && model.stampsRequired ? `${model.balance} / ${model.stampsRequired}` : model.balance
-  return {
-    ...base,
-    storeCard: {
-      headerFields: [{ key: 'balance', label: unit, value: balanceValue, changeMessage: tx.balanceNow }],
-      primaryFields: [{ key: 'program', label: tx.program, value: model.programName }],
-      secondaryFields: [{ key: 'member', label: tx.member, value: model.memberName || '—' }],
-      backFields: [
-        { key: 'code', label: tx.code, value: model.code },
-        ...(model.design.rewardText ? [{ key: 'reward', label: tx.reward, value: model.design.rewardText }] : []),
-        { key: 'terms', label: tx.terms, value: tx.loyaltyTerms },
-        { key: 'link', label: tx.details, value: model.url },
-      ],
-    },
-  }
+  const stamps = model.type === 'stamps' && model.stampsRequired
+  const balanceValue = stamps ? `${model.balance} / ${model.stampsRequired}` : model.balance
+  const { front, back } = loyaltyFields(model, tx)
+  const balanceField = { key: 'balance', label: unit, value: balanceValue, changeMessage: tx.balanceNow }
+  const layout = model.design.layout === 'strip' && !stamps ? 'classic' : model.design.layout
+  const card =
+    layout === 'balance'
+      ? { primaryFields: [balanceField], secondaryFields: [{ key: 'program', label: tx.program, value: model.programName }, ...front].slice(0, 4) }
+      : layout === 'strip'
+        ? { headerFields: [balanceField], secondaryFields: front }
+        : { headerFields: [balanceField], primaryFields: [{ key: 'program', label: tx.program, value: model.programName }], secondaryFields: front }
+  return { ...base, storeCard: { ...card, backFields: back } }
 }
 
 function signManifest(manifest, apple) {
@@ -108,8 +108,28 @@ function signManifest(manifest, apple) {
 }
 
 /** Builds a signed .pkpass buffer. */
-export function buildPkpass(model, ctx) {
+export function buildPkpass(model, ctx, { logo } = {}) {
   const files = { 'pass.json': Buffer.from(JSON.stringify(passJson(model, ctx))), ...passImages() }
+  if (logo) {
+    // The merchant's logo replaces Mirqam's mark on the card and in notifications.
+    for (const name of ['logo.png', 'logo@2x.png', 'logo@3x.png', 'icon.png', 'icon@2x.png', 'icon@3x.png']) files[name] = logo
+  }
+  if (model.kind === 'loyalty' && model.design.layout === 'strip' && model.type === 'stamps' && model.stampsRequired) {
+    for (const [name, scale] of [
+      ['strip.png', 1],
+      ['strip@2x.png', 2],
+      ['strip@3x.png', 3],
+    ]) {
+      files[name] = renderStrip({
+        width: 375 * scale,
+        height: 123 * scale,
+        total: model.stampsRequired,
+        filled: Math.min(model.balance, model.stampsRequired),
+        shape: model.design.stampShape,
+        color: model.design.stampColor,
+      })
+    }
+  }
   const manifest = Buffer.from(
     JSON.stringify(Object.fromEntries(Object.entries(files).map(([name, data]) => [name, crypto.createHash('sha1').update(data).digest('hex')]))),
   )

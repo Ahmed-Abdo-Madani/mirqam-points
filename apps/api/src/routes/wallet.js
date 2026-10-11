@@ -12,6 +12,7 @@ import { UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, id, parse } from '../http.js'
 import { safeEqual } from '../secrets.js'
 import { parseSerial } from '../wallet/model.js'
+import { renderStrip } from '../wallet/strip.js'
 
 // Apple's web service posts JSON outside the console's CSRF rules; it gets its own small parser.
 const express_json = express.json({ limit: '8kb' })
@@ -102,7 +103,7 @@ export function appleWebService({ db, config, wallet }) {
     if (!found) return res.sendStatus(401)
     const since = req.get('if-modified-since')
     if (since && Math.floor(found.model.updatedAt.getTime() / 1000) <= Math.floor(new Date(since).getTime() / 1000)) return res.sendStatus(304)
-    sendPkpass(res, wallet.pkpass(found.model), 'pass', found.model.updatedAt)
+    sendPkpass(res, await wallet.pkpass(found.model), 'pass', found.model.updatedAt)
   })
 
   r.post('/v1/log', express_json, (req, res) => {
@@ -129,19 +130,49 @@ export function publicRoutes({ db, wallet }) {
       programName: m.programName,
       type: m.type,
       balance: m.balance,
+      lifetime: m.lifetime,
       stampsRequired: m.stampsRequired,
       memberName: m.memberName,
       code: m.code,
       barcode: m.barcode,
       design: m.design,
+      logoUrl: m.logoUrl ? new URL(m.logoUrl).pathname + new URL(m.logoUrl).search : null,
       wallet: walletLinks(`/api/public/pass/${req.params.token}`),
     })
+  })
+
+  /* Stamp-strip artwork for Google Wallet's hero image (Apple's is built into the pass). */
+  r.get('/pass/:token/strip.png', async (req, res) => {
+    const found = await wallet.loyaltyByToken(parse(tokenParam, req.params.token))
+    if (found?.model.type !== 'stamps' || !found.model.stampsRequired) throw new HttpError(404, 'pass_not_found')
+    const m = found.model
+    res.set({ 'content-type': 'image/png', 'cache-control': 'public, max-age=31536000, immutable' })
+    res.send(
+      renderStrip({
+        width: 1032,
+        height: 336,
+        total: m.stampsRequired,
+        filled: Math.min(m.balance, m.stampsRequired),
+        shape: m.design.stampShape,
+        color: m.design.stampColor,
+      }),
+    )
+  })
+
+  /* A merchant's uploaded logo; the ?v= query makes each upload a new immutable URL. */
+  r.get('/logo/:slug', async (req, res) => {
+    const {
+      rows: [row],
+    } = await db.query('SELECT logo FROM tenants WHERE slug = $1 AND logo IS NOT NULL AND closed_at IS NULL', [String(req.params.slug).slice(0, 80)])
+    if (!row) throw new HttpError(404, 'logo_not_found')
+    res.set({ 'content-type': 'image/png', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' })
+    res.send(row.logo)
   })
 
   r.get('/pass/:token/apple.pkpass', async (req, res) => {
     const found = await wallet.loyaltyByToken(parse(tokenParam, req.params.token))
     if (!found) throw new HttpError(404, 'pass_not_found')
-    sendPkpass(res, wallet.pkpass(found.model), 'card', found.model.updatedAt)
+    sendPkpass(res, await wallet.pkpass(found.model), 'card', found.model.updatedAt)
   })
 
   r.get('/pass/:token/google', async (req, res) => {
@@ -172,7 +203,7 @@ export function publicRoutes({ db, wallet }) {
   r.get('/gift/:token/apple.pkpass', async (req, res) => {
     const found = await wallet.giftByToken(parse(tokenParam, req.params.token))
     if (!found) throw new HttpError(404, 'gift_card_not_found')
-    sendPkpass(res, wallet.pkpass(found.model), 'gift-card', found.model.updatedAt)
+    sendPkpass(res, await wallet.pkpass(found.model), 'gift-card', found.model.updatedAt)
   })
 
   r.get('/gift/:token/google', async (req, res) => {

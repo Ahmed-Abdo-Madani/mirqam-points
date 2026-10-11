@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
 import { errorHandler, HttpError } from './http.js'
 import authRoutes from './routes/auth.js'
+import brandingRoutes from './routes/branding.js'
 import giftCardRoutes from './routes/giftcards.js'
 import ledgerRoutes from './routes/ledger.js'
 import memberRoutes from './routes/members.js'
@@ -117,6 +118,8 @@ export function createApp({ db, config }) {
   // Apple Wallet devices call this directly and authenticate with per-pass tokens.
   app.use('/api/wallet/apple', appleWebService({ db, config, wallet }))
 
+  // Logo uploads carry a base64 PNG, so they get a larger body limit than the rest of the API.
+  app.use('/api/branding', mobileCors(config), express.json({ limit: '600kb' }), csrfGuard(config), loadSession(db), brandingRoutes({ db, wallet }))
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))

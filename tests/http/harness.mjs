@@ -33,6 +33,9 @@ export function expect(actual, label = 'value') {
     toBe(want) {
       if (actual !== want) fail(`expected ${JSON.stringify(want)}, got ${JSON.stringify(actual)}`)
     },
+    toEqual(want) {
+      if (JSON.stringify(actual) !== JSON.stringify(want)) fail(`expected ${JSON.stringify(want)}, got ${JSON.stringify(actual)}`)
+    },
     toBeTruthy() {
       if (!actual) fail(`expected truthy, got ${JSON.stringify(actual)}`)
     },
@@ -93,6 +96,7 @@ export class Agent {
 
   get = (path, opts) => this.request('GET', path, opts)
   post = (path, body, opts = {}) => this.request('POST', path, { ...opts, body: body ?? {} })
+  put = (path, body, opts = {}) => this.request('PUT', path, { ...opts, body })
   patch = (path, body, opts = {}) => this.request('PATCH', path, { ...opts, body })
   delete = (path, opts = {}) => this.request('DELETE', path, { ...opts, body: {} })
 

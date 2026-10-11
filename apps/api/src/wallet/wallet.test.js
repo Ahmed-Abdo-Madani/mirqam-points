@@ -3,8 +3,9 @@ import { inflateRawSync } from 'node:zlib'
 import forge from 'node-forge'
 import { describe, expect, it } from 'vitest'
 import { buildPkpass, passJson } from './apple.js'
-import { _signJwtForTests, loyaltyObjectId } from './google.js'
+import { _loyaltyObjectForTests, _signJwtForTests, loyaltyObjectId } from './google.js'
 import { normalizeDesign, parseSerial } from './model.js'
+import { inspectLogo, renderStrip } from './strip.js'
 import { testAppleCredentials } from './test-certs.js'
 
 /* Reads our STORE-only zip back into { name: Buffer }. */
@@ -117,5 +118,72 @@ describe('google wallet', () => {
 
   it('object ids are issuer-scoped and versioned', () => {
     expect(loyaltyObjectId({ issuerId: '3388000000023218379' }, model)).toBe('3388000000023218379.acct_0b5c1c1e-1111-4222-8333-944455556666_v1')
+  })
+})
+
+describe('card design', () => {
+  const designed = (raw) => ({ ...model, passToken: 'tok'.repeat(10), lifetime: 42, design: normalizeDesign(raw) })
+
+  it('normalizeDesign drops unknown values and caps lists', () => {
+    const d = normalizeDesign({
+      layout: 'nope',
+      barcode: 'pdf417',
+      stampShape: 'star',
+      background: 'red',
+      front: ['member', 'lifetime', 'code', 'remaining', 'bogus'],
+      back: ['terms', 'terms', 'x'],
+      notes: [{ label: ' Phone ', value: '0500' }, { label: '', value: 'x' }, ...Array.from({ length: 9 }, (_, i) => ({ label: `n${i}`, value: 'v' }))],
+    })
+    expect(d).toMatchObject({ layout: 'classic', barcode: 'pdf417', stampShape: 'star', background: '#172740', back: ['terms'] })
+    expect(d.front).toEqual(['member', 'lifetime', 'code'])
+    expect(d.notes).toHaveLength(6)
+    expect(d.notes[0]).toEqual({ label: 'Phone', value: '0500' })
+  })
+
+  it('PDF417 and the front/back field choices reach pass.json', () => {
+    const json = passJson(designed({ barcode: 'pdf417', front: ['member', 'lifetime'], back: ['code'], notes: [{ label: 'Phone', value: '0550394276' }] }), ctx)
+    expect(json.barcodes[0].format).toBe('PKBarcodeFormatPDF417')
+    expect(json.storeCard.secondaryFields.map((f) => f.key)).toEqual(['member', 'lifetime'])
+    expect(json.storeCard.backFields.map((f) => f.key)).toEqual(['code', 'note0'])
+  })
+
+  it('layouts rearrange the card face', () => {
+    expect(passJson(designed({ layout: 'balance' }), ctx).storeCard.primaryFields[0].key).toBe('balance')
+    const strip = passJson(designed({ layout: 'strip' }), ctx).storeCard
+    expect(strip.primaryFields).toBeUndefined()
+    expect(strip.headerFields[0].key).toBe('balance')
+    // A points program has no stamps to draw, so "strip" falls back to the classic face.
+    expect(passJson({ ...designed({ layout: 'strip' }), type: 'points', stampsRequired: null }, ctx).storeCard.primaryFields[0].key).toBe('program')
+  })
+
+  it('strip layout ships stamp artwork and a merchant logo replaces the Mirqam mark', () => {
+    const logo = renderStrip({ width: 96, height: 96, total: 1, filled: 1 })
+    const files = unzip(buildPkpass(designed({ layout: 'strip', stampShape: 'heart' }), ctx, { logo }))
+    for (const name of ['strip.png', 'strip@2x.png', 'strip@3x.png']) expect(files[name].subarray(1, 4).toString()).toBe('PNG')
+    expect(files['strip@2x.png'].readUInt32BE(16)).toBe(750)
+    expect(files['logo.png'].equals(logo)).toBe(true)
+    expect(files['icon.png'].equals(logo)).toBe(true)
+    const manifest = JSON.parse(files['manifest.json'])
+    expect(Object.keys(manifest)).toContain('strip.png')
+  })
+
+  it('stamp strips are valid PNGs of the requested size, and logo validation rejects junk', () => {
+    const png = renderStrip({ width: 300, height: 100, total: 21, filled: 7, shape: 'square', color: '#336699' })
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([300, 100])
+    expect(inspectLogo(png)).toEqual({ width: 300, height: 100 })
+    expect(inspectLogo(renderStrip({ width: 20, height: 20, total: 1, filled: 0 }))).toBeNull() // too small to be a logo
+    expect(inspectLogo(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'.padEnd(64)))).toBeNull()
+  })
+
+  it('Google objects follow the design: barcode type, secondary points, hero image', () => {
+    const obj = _loyaltyObjectForTests(
+      designed({ layout: 'strip', barcode: 'aztec', front: ['member', 'remaining'], notes: [{ label: 'Phone', value: '055' }] }),
+      { issuerId: '1' },
+      'https://points.example',
+    )
+    expect(obj.barcode.type).toBe('AZTEC')
+    expect(obj.secondaryLoyaltyPoints).toMatchObject({ label: 'المتبقي', balance: { string: '5' } })
+    expect(obj.heroImage.sourceUri.uri).toMatch(/^https:\/\/points\.example\/api\/public\/pass\/tok.+\/strip\.png\?v=\d+$/)
+    expect(obj.textModulesData.some((t) => t.header === 'Phone' && t.body === '055')).toBe(true)
   })
 })

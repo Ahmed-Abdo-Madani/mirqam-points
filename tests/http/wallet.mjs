@@ -1,6 +1,7 @@
 /* HTTP battery: wallet passes, self-enrollment, gift cards, native-app auth,
    account deletion. The gate boots the server with a throwaway Apple
    certificate chain (APPLE_* env) and without Google credentials. */
+import { renderStrip } from '../../apps/api/src/wallet/strip.js'
 import { Agent, check, expect, expectStatus, key, passJsonFrom, phone, uniq } from './harness.mjs'
 
 const hdr = () => ({ headers: { 'idempotency-key': key() } })
@@ -215,6 +216,78 @@ await check('native app: token sign-in, bearer requests, CORS for the app origin
   expect(evil.headers.get('access-control-allow-origin')).toBe(null)
   // A cookie session can never be driven from the app origin.
   expectStatus(await owner.post('/api/programs', { name: 'x', type: 'points' }, { headers: { origin: 'capacitor://localhost' } }), 403, 'origin_not_allowed')
+})
+
+// ---------------------------------------------------------------- card design
+await check('card design: validated, stored, and reflected in the public pass and the .pkpass', async () => {
+  const owner = await Agent.owner()
+  const prog = await program(owner)
+  const bad = [
+    { barcode: 'ean13' },
+    { layout: 'wild' },
+    { front: ['member', 'lifetime', 'code', 'remaining'] },
+    { notes: [{ label: 'x', value: '' }] },
+    { background: 'red' },
+    { extra: 1 },
+  ]
+  for (const design of bad) expectStatus(await owner.patch(`/api/programs/${prog.id}`, { design }), 400, 'validation_failed')
+  const design = {
+    layout: 'strip',
+    barcode: 'pdf417',
+    stampShape: 'heart',
+    stampColor: '#6b3f27',
+    front: ['member', 'remaining'],
+    back: ['code', 'terms'],
+    notes: [{ label: 'Phone', value: '0550394276' }],
+  }
+  const saved = await owner.patch(`/api/programs/${prog.id}`, { design })
+  expectStatus(saved, 200)
+  expect(saved.body.design.barcode).toBe('pdf417')
+  const { token } = await memberWithCard(owner, prog)
+  const pub = await new Agent().get(`/api/public/pass/${token}`)
+  expect(pub.body.design.layout).toBe('strip')
+  expect(pub.body.design.barcode).toBe('pdf417')
+  expect(pub.body.design.stampShape).toBe('heart')
+  const pk = await new Agent().request('GET', `/api/public/pass/${token}/apple.pkpass`, { binary: true })
+  const pass = passJsonFrom(pk.body)
+  expect(pass.barcodes[0].format).toBe('PKBarcodeFormatPDF417')
+  expect(pass.storeCard.secondaryFields.map((f) => f.key)).toEqual(['member', 'remaining'])
+  expect(pass.storeCard.backFields.map((f) => f.key)).toEqual(['code', 'terms', 'note0'])
+  const strip = await new Agent().request('GET', `/api/public/pass/${token}/strip.png`, { binary: true })
+  expectStatus(strip, 200)
+  expect(strip.headers.get('content-type')).toBe('image/png')
+  expect(strip.body.subarray(1, 4).toString()).toBe('PNG')
+  // Cashiers cannot restyle the card.
+  const cashier = await Agent.staff(owner, 'cashier')
+  expectStatus(await cashier.patch(`/api/programs/${prog.id}`, { design: { barcode: 'qr' } }), 403, 'forbidden')
+})
+
+await check('merchant logo: PNG only, bounded, public, tenant-scoped, removable', async () => {
+  const owner = await Agent.owner()
+  const png = renderStrip({ width: 128, height: 128, total: 1, filled: 1 }).toString('base64')
+  expectStatus(await owner.put('/api/branding/logo', { png: Buffer.from('<svg/>').toString('base64') }), 422, 'invalid_logo')
+  expectStatus(
+    await owner.put('/api/branding/logo', { png: renderStrip({ width: 16, height: 16, total: 1, filled: 1 }).toString('base64') }),
+    422,
+    'invalid_logo',
+  )
+  const set = await owner.put('/api/branding/logo', { png })
+  expectStatus(set, 200)
+  expect(set.body.logoUrl).toMatch(/^\/api\/public\/logo\/.+\?v=\d+$/)
+  expect((await owner.get('/api/auth/me')).body.tenant.logoUrl).toBe(set.body.logoUrl)
+  const pubLogo = await new Agent().request('GET', set.body.logoUrl, { binary: true })
+  expectStatus(pubLogo, 200)
+  expect(pubLogo.body.toString('base64')).toBe(png)
+  const prog = await program(owner)
+  const { token } = await memberWithCard(owner, prog)
+  expect((await new Agent().get(`/api/public/pass/${token}`)).body.logoUrl).toBe(set.body.logoUrl)
+  const cashier = await Agent.staff(owner, 'cashier')
+  expectStatus(await cashier.put('/api/branding/logo', { png }), 403, 'forbidden')
+  expectStatus(await new Agent().put('/api/branding/logo', { png }), 401, 'unauthenticated')
+  const other = await Agent.owner()
+  expect((await other.get('/api/auth/me')).body.tenant.logoUrl).toBe(null)
+  expectStatus(await owner.delete('/api/branding/logo'), 200)
+  expectStatus(await new Agent().get(set.body.logoUrl), 404, 'logo_not_found')
 })
 
 // ---------------------------------------------------------------- account deletion

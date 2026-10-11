@@ -1,14 +1,14 @@
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqPencil, MqPlus, MqQrCode, MqStamp, Skeleton, useToast } from '@mirqam/ui'
-import { computeEarn, DEFAULT_CONFIG, formatMinor, parseMoneyToMinor, validateProgramConfig } from '@mirqam-points/shared'
+import { computeEarn, DEFAULT_CONFIG, formatMinor, normalizeDesign, parseMoneyToMinor, validateProgramConfig } from '@mirqam-points/shared'
 import { useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
-import PassPreview from '../../components/PassPreview.jsx'
 import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, publicOrigin, useApi } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
 import { ruleSummary, statusTone, unitLabel } from '../../lib/programs.js'
 import { useSession } from '../../lib/session.jsx'
+import { CardDesignForm, CardPreview } from './CardDesign.jsx'
 import { CopyButton } from './GiftCards.jsx'
 
 /* Form state keeps money as SAR strings; converted to halalas only on submit. */
@@ -23,19 +23,16 @@ function toForm(program) {
     stampsPerVisit: String(c.stampsPerVisit ?? 1),
     stampsRequired: String(c.stampsRequired ?? 10),
     minPurchase: c.minPurchaseMinor ? formatMinor(c.minPurchaseMinor).replace(/,/g, '') : '',
-    background: program?.design?.background ?? '#172740',
-    foreground: program?.design?.foreground ?? '#ffffff',
-    label: program?.design?.label ?? '#8ac0c4',
-    rewardText: program?.design?.rewardText ?? '',
+    design: normalizeDesign(program?.design),
     selfEnroll: program?.selfEnroll ?? false,
   }
 }
 
+// A points program has no stamps to draw, so it never keeps the stamp-strip layout.
 const designOf = (form) => ({
-  background: form.background,
-  foreground: form.foreground,
-  label: form.label,
-  ...(form.rewardText.trim() ? { rewardText: form.rewardText.trim() } : {}),
+  ...form.design,
+  ...(form.type !== 'stamps' && form.design.layout === 'strip' ? { layout: 'classic' } : {}),
+  rewardText: (form.design.rewardText ?? '').trim(),
 })
 
 function toConfig(form) {
@@ -54,6 +51,8 @@ function ProgramModal({ open, onClose, program, onSaved }) {
   const [form, setForm] = useState(() => toForm(program))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [tab, setTab] = useState('program')
+  const [side, setSide] = useState('front')
   const editing = Boolean(program)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const config = toConfig(form)
@@ -112,70 +111,73 @@ function ProgramModal({ open, onClose, program, onSaved }) {
         </>
       }
     >
+      <div className="mb-4 flex gap-1 border-b border-line" role="tablist">
+        {['program', 'card'].map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={tab === k}
+            onClick={() => setTab(k)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition ${tab === k ? 'border-brand-500 text-accent' : 'border-transparent text-muted hover:text-ink'}`}
+          >
+            {t(k === 'program' ? 'design.tabProgram' : 'design.tabCard')}
+          </button>
+        ))}
+      </div>
       <div className="grid gap-6 md:grid-cols-[1fr_auto]">
         <div className="grid content-start gap-4">
-          <Field label={t('programs.name')}>
-            {(p) => <Input {...p} value={form.name} onChange={set('name')} placeholder={t('programs.namePlaceholder')} maxLength={80} />}
-          </Field>
-          <fieldset>
-            <legend className="mb-1.5 text-sm font-semibold">{t('programs.typeLabel')}</legend>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              {typeButton('points', MqCoins)}
-              {typeButton('stamps', MqStamp)}
-            </div>
-            {editing && <p className="mt-1 text-xs text-muted">{t('programs.typeLocked')}</p>}
-          </fieldset>
-          {form.type === 'points' ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('programs.pointsPerUnit')}>
-                {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.pointsPerUnit} onChange={set('pointsPerUnit')} />}
-              </Field>
-              <Field label={t('programs.unit')} hint={t('programs.unitHint')}>
-                {(p) => <Input {...p} inputMode="decimal" dir="ltr" value={form.unit} onChange={set('unit')} />}
-              </Field>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('programs.stampsPerVisit')}>
-                {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.stampsPerVisit} onChange={set('stampsPerVisit')} />}
-              </Field>
-              <Field label={t('programs.stampsRequired')} hint={t('programs.stampsRequiredHint')}>
-                {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.stampsRequired} onChange={set('stampsRequired')} />}
-              </Field>
-            </div>
-          )}
-          <Field label={t('programs.minPurchase')} hint={t('programs.minPurchaseHint')}>
-            {(p) => <Input {...p} inputMode="decimal" dir="ltr" value={form.minPurchase} onChange={set('minPurchase')} placeholder="0.00" />}
-          </Field>
-          <p className="rounded-2xl bg-tint px-4 py-3 text-sm">
-            {t('programs.preview', { amount: money(sample, locale), n: num(preview), unit: unitLabel(form.type, t) })}
-          </p>
-          <fieldset className="rounded-2xl border border-line p-4">
-            <legend className="px-1 text-sm font-semibold">{t('programs.passDesign')}</legend>
-            <div className="grid grid-cols-3 gap-3">
-              {['background', 'foreground', 'label'].map((k) => (
-                <label key={k} className="grid gap-1.5 text-xs font-semibold">
-                  {t(`programs.color.${k}`)}
-                  <input type="color" value={form[k]} onChange={set(k)} className="h-11 w-full cursor-pointer rounded-xl border border-line bg-surface p-1" />
-                </label>
-              ))}
-            </div>
-            <Field label={t('programs.rewardText')} hint={t('programs.rewardTextHint')} className="mt-4">
-              {(p) => <Input {...p} value={form.rewardText} onChange={set('rewardText')} maxLength={140} />}
+          {tab === 'card' && <CardDesignForm design={form.design} type={form.type} onChange={(design) => setForm((f) => ({ ...f, design }))} />}
+          <div className={tab === 'card' ? 'hidden' : 'contents'}>
+            <Field label={t('programs.name')}>
+              {(p) => <Input {...p} value={form.name} onChange={set('name')} placeholder={t('programs.namePlaceholder')} maxLength={80} />}
             </Field>
-          </fieldset>
-          <label className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm">
-            <input
-              type="checkbox"
-              checked={form.selfEnroll}
-              onChange={(e) => setForm((f) => ({ ...f, selfEnroll: e.target.checked }))}
-              className="mt-1 h-4 w-4 accent-brand-600"
-            />
-            <span>
-              <span className="block font-semibold">{t('programs.selfEnroll')}</span>
-              <span className="mt-0.5 block text-xs text-muted">{t('programs.selfEnrollHint')}</span>
-            </span>
-          </label>
+            <fieldset>
+              <legend className="mb-1.5 text-sm font-semibold">{t('programs.typeLabel')}</legend>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {typeButton('points', MqCoins)}
+                {typeButton('stamps', MqStamp)}
+              </div>
+              {editing && <p className="mt-1 text-xs text-muted">{t('programs.typeLocked')}</p>}
+            </fieldset>
+            {form.type === 'points' ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t('programs.pointsPerUnit')}>
+                  {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.pointsPerUnit} onChange={set('pointsPerUnit')} />}
+                </Field>
+                <Field label={t('programs.unit')} hint={t('programs.unitHint')}>
+                  {(p) => <Input {...p} inputMode="decimal" dir="ltr" value={form.unit} onChange={set('unit')} />}
+                </Field>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t('programs.stampsPerVisit')}>
+                  {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.stampsPerVisit} onChange={set('stampsPerVisit')} />}
+                </Field>
+                <Field label={t('programs.stampsRequired')} hint={t('programs.stampsRequiredHint')}>
+                  {(p) => <Input {...p} inputMode="numeric" dir="ltr" value={form.stampsRequired} onChange={set('stampsRequired')} />}
+                </Field>
+              </div>
+            )}
+            <Field label={t('programs.minPurchase')} hint={t('programs.minPurchaseHint')}>
+              {(p) => <Input {...p} inputMode="decimal" dir="ltr" value={form.minPurchase} onChange={set('minPurchase')} placeholder="0.00" />}
+            </Field>
+            <p className="rounded-2xl bg-tint px-4 py-3 text-sm">
+              {t('programs.preview', { amount: money(sample, locale), n: num(preview), unit: unitLabel(form.type, t) })}
+            </p>
+            <label className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm">
+              <input
+                type="checkbox"
+                checked={form.selfEnroll}
+                onChange={(e) => setForm((f) => ({ ...f, selfEnroll: e.target.checked }))}
+                className="mt-1 h-4 w-4 accent-brand-600"
+              />
+              <span>
+                <span className="block font-semibold">{t('programs.selfEnroll')}</span>
+                <span className="mt-0.5 block text-xs text-muted">{t('programs.selfEnrollHint')}</span>
+              </span>
+            </label>
+          </div>
           {error && (
             <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
               {errorText(error)}
@@ -183,18 +185,17 @@ function ProgramModal({ open, onClose, program, onSaved }) {
           )}
         </div>
         <div className="hidden md:block">
-          <p className="mb-2 text-xs font-semibold text-muted">{t('programs.passPreview')}</p>
-          <PassPreview
+          <CardPreview
+            side={side}
+            onSide={setSide}
             merchant={me.tenant.name}
+            logoUrl={me.tenant.logoUrl}
             programName={form.name || t('programs.namePlaceholder')}
             type={form.type}
-            balance={form.type === 'stamps' ? Math.min(3, Number(form.stampsRequired) || 0) : 120}
             stampsRequired={Math.min(Number(form.stampsRequired) || 10, 20)}
             memberName={t('landing.demoMember')}
-            labels={{ balance: unitLabel(form.type, t), member: t('pass.member') }}
-            design={{ background: form.background, foreground: form.foreground, label: form.label }}
+            design={designOf(form)}
           />
-          <p className="mt-2 max-w-[340px] text-xs text-muted">{t('programs.passPreviewNote')}</p>
         </div>
       </div>
     </Modal>

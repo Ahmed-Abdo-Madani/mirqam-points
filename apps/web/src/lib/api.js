@@ -23,6 +23,8 @@ const TOKEN_KEY = 'mp-token'
 
 /** Public origin for links customers open (pass pages, gift cards, join posters). */
 export const publicOrigin = () => API_BASE || window.location.origin
+/** Server-relative asset paths (merchant logos) resolved against the API origin, which differs in the native app. */
+export const assetUrl = (path) => (path?.startsWith('/') ? `${API_BASE}${path}` : path || null)
 
 export const sessionToken = {
   get: () => (NATIVE ? localStorage.getItem(TOKEN_KEY) : null),

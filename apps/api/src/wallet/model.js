@@ -1,16 +1,9 @@
 /* Platform-neutral pass model. Apple and Google renderers consume this, so a
    pass looks and reads the same in both wallets. */
+import { DEFAULT_DESIGN, normalizeDesign } from '@mirqam-points/shared'
 import { int } from '../db/index.js'
 
-export const DEFAULT_DESIGN = { background: '#172740', foreground: '#ffffff', label: '#8ac0c4' }
-const HEX = /^#[0-9a-fA-F]{6}$/
-
-export function normalizeDesign(raw = {}) {
-  const d = { ...DEFAULT_DESIGN }
-  for (const k of ['background', 'foreground', 'label']) if (HEX.test(raw?.[k] ?? '')) d[k] = raw[k].toLowerCase()
-  if (typeof raw?.rewardText === 'string' && raw.rewardText.trim()) d.rewardText = raw.rewardText.trim().slice(0, 140)
-  return d
-}
+export { DEFAULT_DESIGN, normalizeDesign }
 
 export const rgb = (hex) => `rgb(${Number.parseInt(hex.slice(1, 3), 16)}, ${Number.parseInt(hex.slice(3, 5), 16)}, ${Number.parseInt(hex.slice(5, 7), 16)})`
 
@@ -26,13 +19,15 @@ export function parseSerial(serial) {
 }
 
 export const LOYALTY_SQL = `
-  SELECT a.id, a.balance, a.lifetime_earned, a.code, a.pass_token, a.apple_auth, a.pass_version, a.updated_at,
+  SELECT a.id, a.tenant_id, a.pass_token AS token, a.balance, a.lifetime_earned, a.code, a.pass_token, a.apple_auth, a.pass_version, a.updated_at,
          m.name AS member_name, m.locale, p.id AS program_id, p.name AS program_name, p.type, p.config, p.design,
-         t.name AS merchant, t.slug
+         t.name AS merchant, t.slug, t.logo_version
     FROM accounts a
     JOIN members m ON m.id = a.member_id
     JOIN programs p ON p.id = a.program_id
     JOIN tenants t ON t.id = a.tenant_id`
+
+const logoUrl = (row, publicUrl) => (row.logo_version ? `${publicUrl}/api/public/logo/${row.slug}?v=${row.logo_version}` : null)
 
 export function loyaltyModel(row, publicUrl) {
   return {
@@ -41,11 +36,16 @@ export function loyaltyModel(row, publicUrl) {
     serial: loyaltySerial(row.id, row.pass_version),
     version: row.pass_version,
     authToken: row.apple_auth,
+    tenantId: row.tenant_id,
     merchant: row.merchant,
+    logoVersion: row.logo_version,
+    logoUrl: logoUrl(row, publicUrl),
+    passToken: row.token,
     programId: row.program_id,
     programName: row.program_name,
     type: row.type,
     balance: int(row.balance),
+    lifetime: int(row.lifetime_earned),
     stampsRequired: row.type === 'stamps' ? row.config?.stampsRequired : null,
     memberName: row.member_name || '',
     locale: row.locale || 'ar',
@@ -58,7 +58,7 @@ export function loyaltyModel(row, publicUrl) {
 }
 
 export const GIFT_SQL = `
-  SELECT g.*, t.name AS merchant, t.slug FROM gift_cards g JOIN tenants t ON t.id = g.tenant_id`
+  SELECT g.*, t.name AS merchant, t.slug, t.logo_version FROM gift_cards g JOIN tenants t ON t.id = g.tenant_id`
 
 export function giftModel(row, code, publicUrl) {
   return {
@@ -66,7 +66,10 @@ export function giftModel(row, code, publicUrl) {
     id: row.id,
     serial: giftSerial(row.id),
     authToken: row.apple_auth,
+    tenantId: row.tenant_id,
     merchant: row.merchant,
+    logoVersion: row.logo_version,
+    logoUrl: logoUrl(row, publicUrl),
     balanceMinor: int(row.balance_minor),
     initialMinor: int(row.initial_minor),
     status: row.status,
@@ -103,6 +106,11 @@ export const PASS_TEXT = {
     giftCard: 'بطاقة هدية',
     reward: 'المكافأة',
     open: 'فتح البطاقة',
+    remaining: 'المتبقي',
+    remainingStamps: 'ختم للمكافأة',
+    lifetime: 'إجمالي المكتسب',
+    info: 'معلومات',
+    rewardReady: 'المكافأة جاهزة',
   },
   en: {
     points: 'Points',
@@ -122,5 +130,33 @@ export const PASS_TEXT = {
     giftCard: 'Gift card',
     reward: 'Reward',
     open: 'Open card',
+    remaining: 'To go',
+    remainingStamps: 'stamps to reward',
+    lifetime: 'Lifetime earned',
+    info: 'Info',
+    rewardReady: 'Reward ready',
   },
+}
+
+/* Fields shown on the card face and in the details section, per the merchant's design.
+   Both wallets render these, so a card reads the same everywhere. */
+export function loyaltyFields(model, tx) {
+  const d = model.design
+  const remaining = model.type === 'stamps' && model.stampsRequired ? Math.max(model.stampsRequired - model.balance, 0) : null
+  const all = {
+    member: { key: 'member', label: tx.member, value: model.memberName || '—' },
+    remaining: remaining == null ? null : { key: 'remaining', label: tx.remaining, value: remaining === 0 ? tx.rewardReady : String(remaining) },
+    lifetime: { key: 'lifetime', label: tx.lifetime, value: String(model.lifetime ?? 0) },
+    code: { key: 'code', label: tx.code, value: model.code },
+  }
+  const front = d.front.map((k) => all[k]).filter(Boolean)
+  const back = []
+  for (const k of d.back) {
+    if (k === 'code') back.push({ key: 'code', label: tx.code, value: model.code })
+    if (k === 'reward' && d.rewardText) back.push({ key: 'reward', label: tx.reward, value: d.rewardText })
+    if (k === 'terms') back.push({ key: 'terms', label: tx.terms, value: tx.loyaltyTerms })
+    if (k === 'link') back.push({ key: 'link', label: tx.details, value: model.url })
+  }
+  for (const [i, n] of d.notes.entries()) back.push({ key: `note${i}`, label: n.label, value: n.value })
+  return { front, back }
 }

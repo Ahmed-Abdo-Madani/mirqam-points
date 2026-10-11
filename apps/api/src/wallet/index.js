@@ -5,7 +5,7 @@
 import { HttpError } from '../http.js'
 import { unseal } from '../secrets.js'
 import { appleConfigured, buildPkpass, pushToDevices } from './apple.js'
-import { deactivateLoyalty, googleConfigured, saveUrl, updateObject } from './google.js'
+import { deactivateLoyalty, googleConfigured, saveUrl, updateClass, updateObject } from './google.js'
 import { GIFT_SQL, giftModel, LOYALTY_SQL, loyaltyModel } from './model.js'
 
 export function createWallet({ db, config }) {
@@ -27,9 +27,15 @@ export function createWallet({ db, config }) {
   const giftByToken = (token) => gift('g.public_token = $1', [token])
   const giftById = (id) => gift('g.id = $1', [id])
 
-  function pkpass(model) {
+  async function logoOf(model) {
+    if (!model.logoVersion) return null
+    const { rows } = await db.query('SELECT logo FROM tenants WHERE id = $1', [model.tenantId])
+    return rows[0]?.logo ?? null
+  }
+
+  async function pkpass(model) {
     if (!status().apple) throw new HttpError(503, 'apple_wallet_unavailable')
-    return buildPkpass(model, ctx)
+    return buildPkpass(model, ctx, { logo: await logoOf(model) })
   }
 
   function googleUrl(model, slug) {
@@ -81,6 +87,8 @@ export function createWallet({ db, config }) {
         const { rows } = await db.query('UPDATE accounts SET updated_at = now() WHERE program_id = $1 RETURNING id', [programId])
         for (const r of rows) {
           const found = await loyaltyById(r.id)
+          if (found && status().google && r === rows[0])
+            await updateClass(found.model, ctx).catch((err) => console.warn(`[wallet] class update failed: ${err.message}`))
           if (found) await Promise.allSettled([pushApple(found.model.serial), status().google ? updateObject(found.model, { ...ctx, slug: found.slug }) : null])
         }
       })

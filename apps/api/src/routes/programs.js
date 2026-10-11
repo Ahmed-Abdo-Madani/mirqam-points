@@ -1,4 +1,4 @@
-import { PROGRAM_TYPES, validateProgramConfig } from '@mirqam-points/shared'
+import { BACK_FIELDS, BARCODES, FRONT_FIELDS, LAYOUTS, MAX_NOTES, PROGRAM_TYPES, STAMP_SHAPES, validateProgramConfig } from '@mirqam-points/shared'
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
@@ -9,7 +9,20 @@ import { audit } from './util.js'
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 const design = z
-  .object({ background: hex.optional(), foreground: hex.optional(), label: hex.optional(), rewardText: z.string().trim().max(140).optional() })
+  .object({
+    layout: z.enum(LAYOUTS),
+    background: hex,
+    foreground: hex,
+    label: hex,
+    stampColor: hex,
+    stampShape: z.enum(STAMP_SHAPES),
+    barcode: z.enum(BARCODES),
+    front: z.array(z.enum(FRONT_FIELDS)).max(3),
+    back: z.array(z.enum(BACK_FIELDS)).max(BACK_FIELDS.length),
+    notes: z.array(z.object({ label: z.string().trim().min(1).max(40), value: z.string().trim().min(1).max(400) }).strict()).max(MAX_NOTES),
+    rewardText: z.string().trim().max(140),
+  })
+  .partial()
   .strict()
 
 const createBody = z.object({

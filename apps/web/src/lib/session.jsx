@@ -39,6 +39,8 @@ export function SessionProvider({ children }) {
       sessionToken.set(token)
       setState({ status: 'auth', me })
     },
+    /** Re-reads the workspace (e.g. after the logo changes). */
+    refresh,
     async logout() {
       await api('/auth/logout', { method: 'POST' }).catch(() => {})
       sessionToken.clear()

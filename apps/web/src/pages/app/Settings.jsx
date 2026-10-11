@@ -1,9 +1,9 @@
-import { Badge, Button, Card, Field, Input, Modal } from '@mirqam/ui'
-import { useState } from 'react'
+import { Badge, Button, Card, Field, Input, Modal, useToast } from '@mirqam/ui'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader, RoleBadge } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
-import { api, useApi } from '../../lib/api.js'
+import { api, assetUrl, useApi } from '../../lib/api.js'
 import { useSession } from '../../lib/session.jsx'
 
 /* In-app account deletion (App Store guideline 5.1.1(v)): no email round-trip, password-confirmed. */
@@ -67,6 +67,78 @@ function DeleteAccount() {
   )
 }
 
+/* Reads the chosen image, scales it to at most 512px and re-encodes it as PNG
+   (the only format wallets and the API accept), so any PNG/JPG/WebP works. */
+async function toLogoPng(file) {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(48, Math.round(bitmap.width * scale))
+  canvas.height = Math.max(48, Math.round(bitmap.height * scale))
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
+
+function Logo() {
+  const { t } = useI18n()
+  const errorText = useErrorText()
+  const toast = useToast()
+  const { me, refresh, can } = useSession()
+  const input = useRef(null)
+  const [busy, setBusy] = useState(false)
+
+  async function run(fn, done) {
+    setBusy(true)
+    try {
+      await fn()
+      await refresh()
+      toast(t(done))
+    } catch (err) {
+      toast(err?.code || err?.status ? errorText(err) : t('design.logoFailed'), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title={t('design.logoTitle')} subtitle={t('design.logoSubtitle')}>
+      <div className="flex items-center gap-4">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-line bg-tint text-lg font-bold">
+          {me.tenant.logoUrl ? <img src={assetUrl(me.tenant.logoUrl)} alt="" className="h-full w-full object-contain" /> : me.tenant.name[0]}
+        </span>
+        <p className="text-xs leading-relaxed text-muted">{t('design.logoHint')}</p>
+      </div>
+      {can('manage') && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <input
+            ref={input}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) run(async () => api('/branding/logo', { method: 'PUT', body: { png: await toLogoPng(file) } }), 'design.logoSaved')
+            }}
+          />
+          <Button variant="outline" size="sm" loading={busy} onClick={() => input.current?.click()}>
+            {t('design.logoUpload')}
+          </Button>
+          {me.tenant.logoUrl && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => run(() => api('/branding/logo', { method: 'DELETE' }), 'design.logoRemoved')}>
+              {t('design.logoRemove')}
+            </Button>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export default function Settings() {
   const { t } = useI18n()
   const { me } = useSession()
@@ -100,6 +172,7 @@ export default function Settings() {
             </div>
           </dl>
         </Card>
+        <Logo />
         <Card title={t('settings.wallets')} subtitle={t('settings.walletsSubtitle')}>
           <ul className="grid gap-3 text-sm">
             <li className="flex items-center justify-between gap-3">

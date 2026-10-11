@@ -87,7 +87,7 @@ export function loadSession(db) {
     if (!token) return next()
     const { rows } = await db.query(
       `SELECT s.user_id, s.tenant_id, s.last_seen_at, m.role,
-              u.email, u.name AS user_name, u.locale, t.name AS tenant_name, t.slug
+              u.email, u.name AS user_name, u.locale, t.name AS tenant_name, t.slug, t.logo_version
          FROM sessions s
          JOIN users u ON u.id = s.user_id
          JOIN tenants t ON t.id = s.tenant_id
@@ -104,7 +104,12 @@ export function loadSession(db) {
         tenantId: row.tenant_id,
         role: row.role,
         user: { id: row.user_id, email: row.email, name: row.user_name, locale: row.locale },
-        tenant: { id: row.tenant_id, name: row.tenant_name, slug: row.slug },
+        tenant: {
+          id: row.tenant_id,
+          name: row.tenant_name,
+          slug: row.slug,
+          logoUrl: row.logo_version ? `/api/public/logo/${row.slug}?v=${row.logo_version}` : null,
+        },
       }
       // Touch at most every 5 minutes to avoid a write per request.
       if (Date.now() - new Date(row.last_seen_at).getTime() > 5 * 60_000) {
