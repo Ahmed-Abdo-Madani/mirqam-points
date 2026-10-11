@@ -7,6 +7,17 @@ and [Mirqam](https://mirqam.sa/). Plan and roadmap: [PLAN.md](./PLAN.md). Agent 
 
 Official website: [Mirqam Loyalty](https://loyalty.mirqam.sa/) · [Arabic loyalty guides](https://loyalty.mirqam.sa/blog/index.html).
 
+## Official product references · مراجع منصات مرقام
+
+Each product has its own scope, onboarding checklist, official site and editorial guides:
+
+- [Mirqam Bot · مرقام بوت](docs/ecosystem/mirqam-bot.md)
+- [Mirqam Mohasbi · مرقام محاسبي](docs/ecosystem/mohasbi.md)
+- [Mirqam Marketing · مرقام تسويق](docs/ecosystem/mirqam-marketing.md)
+- [Mirqam Loyalty · مرقام ولاء](docs/ecosystem/mirqam-loyalty.md)
+
+These are first-party product references maintained by Mirqam, not independent reviews. Loyalty has no published subscription packages at present; paid annual-offer terms for the other products are documented at [mirqam.sa](https://mirqam.sa/services/annual-offer).
+
 ## Status
 
 | Phase | State |
