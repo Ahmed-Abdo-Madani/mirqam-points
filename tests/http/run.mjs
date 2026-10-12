@@ -97,6 +97,23 @@ await check('protected routes require a session', async () => {
   expectStatus(await new Agent().get('/api/members'), 401, 'unauthenticated')
 })
 
+await check('billing prices include VAT, owner only, tenant isolation and no client-side activation', async () => {
+  const owner = await Agent.owner()
+  const cashier = await Agent.staff(owner, 'cashier')
+  expectStatus(await new Agent().get('/api/billing'), 401)
+  expectStatus(await cashier.get('/api/billing'), 403)
+  expectStatus(await cashier.post('/api/billing/checkout', { cycle: 'monthly' }, { headers: { 'idempotency-key': key() } }), 403)
+  const state = await owner.get('/api/billing')
+  expectStatus(state, 200)
+  expect(state.body.prices).toEqual({ monthly: 6900, yearly: 69000 })
+  expect(state.body.vatIncluded).toBe(true)
+  expect(state.body.subscription).toBe(null)
+  expectStatus(await owner.post('/api/billing/checkout/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/confirm', { status: 'paid' }), 404)
+  expectStatus(await owner.post('/api/billing/checkout/------------------------------------/confirm'), 400)
+  expectStatus(await new Agent().post('/api/billing/moyasar/webhook', { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', status: 'paid' }), 200)
+  expect((await owner.get('/api/billing')).body.subscription).toBe(null)
+})
+
 // ---------------------------------------------------------------- CSRF
 await check('state-changing requests must be JSON', async () => {
   const a = await Agent.owner()

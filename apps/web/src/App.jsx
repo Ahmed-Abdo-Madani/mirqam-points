@@ -18,6 +18,7 @@ const Activity = lazy(() => import('./pages/app/Activity.jsx'))
 const Staff = lazy(() => import('./pages/app/Staff.jsx'))
 const Design = lazy(() => import('./pages/Design.jsx'))
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
+const Billing = lazy(() => import('./pages/app/Billing.jsx'))
 const Settings = lazy(() => import('./pages/app/Settings.jsx'))
 const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
 const GiftPage = lazy(() => import('./pages/public/GiftPage.jsx'))
@@ -89,6 +90,14 @@ export default function App() {
           <Route path="activity" element={<Activity />} />
           <Route path="gift-cards" element={<GiftCards />} />
           <Route path="settings" element={<Settings />} />
+          <Route
+            path="billing"
+            element={
+              <RequireAuth capability="owner">
+                <Billing />
+              </RequireAuth>
+            }
+          />
           <Route
             path="staff"
             element={

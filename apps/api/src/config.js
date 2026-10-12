@@ -10,6 +10,7 @@ export function loadConfig(env = process.env) {
   const publicUrl = (env.PUBLIC_URL || 'http://localhost:5174').replace(/\/$/, '')
   return {
     production,
+    moyasarSecretKey: env.MOYASAR_SECRET_KEY || '',
     port: Number(env.PORT || 4100),
     databaseUrl,
     publicUrl,

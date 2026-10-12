@@ -4,6 +4,19 @@ import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  billing: {
+    title: 'Subscription and payments',
+    vat: 'All prices are in SAR and include VAT.',
+    monthly: 'Monthly subscription',
+    yearly: 'Annual subscription',
+    sar: 'SAR',
+    pay: 'Continue to secure checkout',
+    paid: 'Payment confirmed. Your subscription is active.',
+    pending: 'Payment has not been confirmed. Reload to check again.',
+    active: 'Active subscription',
+    inactive: 'No active paid subscription',
+    until: 'Valid until',
+  },
   meta: { title: 'Mirqam Points | Loyalty programs & gift cards' },
   brand: { name: 'Mirqam Points', label: 'Points' },
   common: {
@@ -295,6 +308,11 @@ const base = {
   },
 
   errors: {
+    billing_unavailable: 'Payments are currently unavailable. Please try later.',
+    billing_provider_error: 'Unable to reach the payment provider. Try again.',
+    billing_request_conflict: 'Checkout request conflicts with your previous selection. Reload.',
+    billing_payment_mismatch: 'Payment could not be matched to the subscription. Contact support.',
+
     generic: 'Something went wrong. Please try again.',
     network_error: 'Could not reach the server. Check your connection and retry — the transaction will not be duplicated.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
