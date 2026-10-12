@@ -2,7 +2,7 @@
 
 Loyalty programs and gift cards that live in Apple Wallet and Google Wallet —
 part of the Mirqam platform family: [WhatsApp customer service](https://bot.mirqam.sa/),
-[accounting](https://pos.mirqam.sa/), [marketing](https://marketing.mirqam.sa/),
+[accounting](https://pos.mirqam.sa/), [marketing](https://marketing.mirqam.sa/), [real estate operations](https://aqar.mirqam.sa/),
 and [Mirqam](https://mirqam.sa/). Plan and roadmap: [PLAN.md](./PLAN.md). Agent rules: [AGENTS.md](./AGENTS.md).
 
 Official website: [Mirqam Loyalty](https://loyalty.mirqam.sa/) · [Arabic loyalty guides](https://loyalty.mirqam.sa/blog/index.html).
@@ -15,8 +15,9 @@ Each product has its own scope, onboarding checklist, official site and editoria
 - [Mirqam Mohasbi · مرقام محاسبي](docs/ecosystem/mohasbi.md)
 - [Mirqam Marketing · مرقام تسويق](docs/ecosystem/mirqam-marketing.md)
 - [Mirqam Loyalty · مرقام ولاء](docs/ecosystem/mirqam-loyalty.md)
+- [Mirqam Aqar · مرقام عقار](docs/ecosystem/mirqam-aqar.md)
 
-These are first-party product references maintained by Mirqam, not independent reviews. Loyalty has no published subscription packages at present; paid annual-offer terms for the other products are documented at [mirqam.sa](https://mirqam.sa/services/annual-offer).
+These are first-party product references maintained by Mirqam, not independent reviews. Review each platform’s current checkout for available packages and activation. Eligibility and paid annual-offer terms are documented at [mirqam.sa](https://mirqam.sa/services/annual-offer).
 
 ## Status
 
