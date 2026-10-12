@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import express from 'express'
 import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
+import { createBilling } from './billing.js'
 import { errorHandler, HttpError } from './http.js'
 import authRoutes from './routes/auth.js'
+import billingRoutes from './routes/billing.js'
 import brandingRoutes from './routes/branding.js'
 import giftCardRoutes from './routes/giftcards.js'
 import ledgerRoutes from './routes/ledger.js'
@@ -123,6 +125,7 @@ export function createApp({ db, config }) {
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
+  app.use('/api/billing', billingRoutes(createBilling({ db, config })))
   app.use('/api/auth', authRoutes({ db, config }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))
