@@ -25,6 +25,7 @@ function SideNav({ onNavigate }) {
   const { t } = useI18n()
   const { me, can } = useSession()
   const nav = [
+    { to: '/app/billing', icon: MqCoins, label: t('billing.title'), show: can('owner') },
     { to: '/app', end: true, icon: MqDashboard, label: t('nav.dashboard') },
     { to: '/app/cashier', icon: MqScan, label: t('nav.cashier'), show: can('transact') },
     { to: '/app/members', icon: MqUsers, label: t('nav.members') },
