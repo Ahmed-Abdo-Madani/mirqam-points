@@ -1,7 +1,18 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
-import { clearedCookie, createSession, destroySession, dummyVerify, hashPassword, requireAuth, sessionCookie, slugify, verifyPassword } from '../auth.js'
+import {
+  clearedCookie,
+  createSession,
+  destroySession,
+  dummyVerify,
+  hashPassword,
+  recentSocialLogin,
+  requireAuth,
+  sessionCookie,
+  slugify,
+  verifyPassword,
+} from '../auth.js'
 import { UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, parse } from '../http.js'
 
@@ -18,7 +29,7 @@ const registerBody = z.object({
 const loginBody = z.object({ email, password: z.string().min(1).max(200) })
 
 export function me(auth) {
-  return { user: auth.user, tenant: auth.tenant, role: auth.role }
+  return { user: auth.user, tenant: auth.tenant, role: auth.role, recentSocialLogin: recentSocialLogin(auth), socialProviders: auth.socialProviders || [] }
 }
 
 export default function authRoutes({ db, config }) {
@@ -110,16 +121,23 @@ export default function authRoutes({ db, config }) {
 
   r.get('/me', requireAuth, (req, res) => res.json(me(req.auth)))
 
-  /* Account deletion (App Store guideline 5.1.1(v)). Requires the password.
+  /* Account deletion (App Store guideline 5.1.1(v)). Requires the password or a recent server-verified social login.
      The login is erased. If the user is the workspace's only owner, the
      workspace is closed: staff lose access, and the business's transaction
      records are retained only as the merchant's accounting history. */
   r.post('/delete-account', requireAuth, limiter, async (req, res) => {
-    const { password: pw } = parse(z.object({ password: z.string().min(1).max(200) }), req.body)
-    const {
-      rows: [user],
-    } = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.auth.userId])
-    if (!user || !(await verifyPassword(pw, user.password_hash))) throw new HttpError(401, 'invalid_credentials')
+    const { password: pw, socialConfirmation } = parse(
+      z.object({ password: z.string().min(1).max(200).optional(), socialConfirmation: z.literal(true).optional() }),
+      req.body,
+    )
+    if (socialConfirmation) {
+      if (!recentSocialLogin(req.auth)) throw new HttpError(401, 'social_reauth_required')
+    } else {
+      const {
+        rows: [user],
+      } = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.auth.userId])
+      if (!pw || !user || !(await verifyPassword(pw, user.password_hash))) throw new HttpError(401, 'invalid_credentials')
+    }
     await db.tx(async (tx) => {
       // Workspaces where this user is the only owner.
       const { rows: owned } = await tx.query(

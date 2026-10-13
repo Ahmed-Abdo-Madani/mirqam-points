@@ -112,6 +112,8 @@ export default {
   },
   legal: { privacy: 'Privacy Policy', terms: 'Terms', support: 'Support' },
   settings: {
+    deleteSocialConfirm: 'Confirm deletion with recent sign-in',
+    deleteSocialAgain: 'For linked accounts: sign in again below, then return to Settings to confirm deletion within five minutes.',
     subtitle: 'Your account, phone wallets and privacy.',
     account: 'Account',
     workspace: 'Store',

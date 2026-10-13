@@ -14,6 +14,7 @@ import memberRoutes from './routes/members.js'
 import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
 import { appleWebService, publicRoutes } from './routes/wallet.js'
+import { installSocialLogin } from './social-login.js'
 import { createWallet } from './wallet/index.js'
 
 export const VERSION = '0.2.0'
@@ -122,6 +123,7 @@ export function createApp({ db, config }) {
 
   // Logo uploads carry a base64 PNG, so they get a larger body limit than the rest of the API.
   app.use('/api/branding', mobileCors(config), express.json({ limit: '600kb' }), csrfGuard(config), loadSession(db), brandingRoutes({ db, wallet }))
+  installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))

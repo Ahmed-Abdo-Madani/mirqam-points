@@ -86,6 +86,8 @@ const base = {
   },
 
   auth: {
+    google: 'المتابعة بواسطة Google',
+    github: 'المتابعة بواسطة GitHub',
     login: 'تسجيل الدخول',
     logout: 'تسجيل الخروج',
     startFree: 'ابدأ مجاناً',
@@ -307,6 +309,7 @@ const base = {
   },
 
   errors: {
+    social_reauth_required: 'انتهت مهلة التأكيد. أعد الدخول عبر Google أو GitHub ثم ارجع إلى الإعدادات.',
     billing_unavailable: 'الدفع غير متاح حاليًا. يرجى المحاولة لاحقًا.',
     billing_provider_error: 'تعذر الاتصال بمزود الدفع. حاول مجددًا.',
     billing_request_conflict: 'طلب الدفع لا يطابق الاختيار السابق. حدّث الصفحة.',
