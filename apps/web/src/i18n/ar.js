@@ -86,6 +86,8 @@ const base = {
   },
 
   auth: {
+    google: 'المتابعة بواسطة Google',
+    github: 'المتابعة بواسطة GitHub',
     login: 'تسجيل الدخول',
     logout: 'تسجيل الخروج',
     startFree: 'ابدأ مجاناً',

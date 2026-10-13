@@ -87,6 +87,8 @@ const base = {
   },
 
   auth: {
+    google: 'Continue with Google',
+    github: 'Continue with GitHub',
     login: 'Sign in',
     logout: 'Sign out',
     startFree: 'Start free',
