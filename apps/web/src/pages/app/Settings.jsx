@@ -6,7 +6,7 @@ import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, assetUrl, useApi } from '../../lib/api.js'
 import { useSession } from '../../lib/session.jsx'
 
-/* In-app account deletion (App Store guideline 5.1.1(v)): no email round-trip, password-confirmed. */
+/* In-app account deletion (App Store guideline 5.1.1(v)): no email round-trip, confirmed by password or a recent social login. */
 function DeleteAccount() {
   const { t } = useI18n()
   const errorText = useErrorText()
@@ -17,11 +17,11 @@ function DeleteAccount() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  async function confirm() {
+  async function confirm(socialConfirmation = false) {
     setBusy(true)
     setError(null)
     try {
-      await api('/auth/delete-account', { method: 'POST', body: { password } })
+      await api('/auth/delete-account', { method: 'POST', body: socialConfirmation ? { socialConfirmation: true } : { password } })
       forget()
       navigate('/', { replace: true })
     } catch (err) {
@@ -47,7 +47,7 @@ function DeleteAccount() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button variant="danger" onClick={confirm} loading={busy} disabled={!password}>
+            <Button variant="danger" onClick={() => confirm()} loading={busy} disabled={!password}>
               {t('settings.deleteForever')}
             </Button>
           </>
@@ -57,6 +57,20 @@ function DeleteAccount() {
         <Field label={t('auth.password')} className="mt-4">
           {(p) => <Input {...p} type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />}
         </Field>
+        {me.socialProviders?.length > 0 && (
+          <div className="mt-4 grid gap-3">
+            {me.recentSocialLogin ? (
+              <Button variant="danger" onClick={() => confirm(true)} loading={busy}>{t('settings.deleteSocialConfirm')}</Button>
+            ) : (
+              <>
+                <p className="text-sm text-muted">{t('settings.deleteSocialAgain')}</p>
+                {me.socialProviders.filter((p) => ['google', 'github'].includes(p)).map((provider) => (
+                  <a key={provider} href={'/api/auth/social/' + provider} className="text-accent underline">{t(provider === 'google' ? 'auth.google' : 'auth.github')}</a>
+                ))}
+              </>
+            )}
+          </div>
+        )}
         {error && (
           <p role="alert" className="mt-4 rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
             {errorText(error)}
