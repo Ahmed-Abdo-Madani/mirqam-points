@@ -60,13 +60,19 @@ function DeleteAccount() {
         {me.socialProviders?.length > 0 && (
           <div className="mt-4 grid gap-3">
             {me.recentSocialLogin ? (
-              <Button variant="danger" onClick={() => confirm(true)} loading={busy}>{t('settings.deleteSocialConfirm')}</Button>
+              <Button variant="danger" onClick={() => confirm(true)} loading={busy}>
+                {t('settings.deleteSocialConfirm')}
+              </Button>
             ) : (
               <>
                 <p className="text-sm text-muted">{t('settings.deleteSocialAgain')}</p>
-                {me.socialProviders.filter((p) => ['google', 'github'].includes(p)).map((provider) => (
-                  <a key={provider} href={'/api/auth/social/' + provider} className="text-accent underline">{t(provider === 'google' ? 'auth.google' : 'auth.github')}</a>
-                ))}
+                {me.socialProviders
+                  .filter((p) => ['google', 'github'].includes(p))
+                  .map((provider) => (
+                    <a key={provider} href={'/api/auth/social/' + provider} className="text-accent underline">
+                      {t(provider === 'google' ? 'auth.google' : 'auth.github')}
+                    </a>
+                  ))}
               </>
             )}
           </div>
