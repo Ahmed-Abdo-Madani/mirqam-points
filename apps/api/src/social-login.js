@@ -34,8 +34,8 @@ export function socialResolver(db) {
 }
 export function installSocialLogin(app,{db,config,env=process.env}){
  const social=createSocialAuth({env,origin:config.publicUrl,loginPath:'/login',resolve:socialResolver(db),startSession:async(req,res,ids)=>{
-  const token=await createSession(db,{...ids,userAgent:req.headers['user-agent'],ttlDays:config.sessionTtlDays})
-  res.setHeader('Set-Cookie',sessionCookie(token,{production:config.production,ttlDays:config.sessionTtlDays}))
+  const token=await createSession(db,{...ids,userAgent:req.headers['user-agent'],ttlDays:config.sessionTtlDays,socialAuthenticated:true})
+  res.setHeader('Set-Cookie',sessionCookie(token,{production:config.production,ttlDays:config.sessionTtlDays,socialAuthenticated:true}))
  }})
  app.use((req,res,next)=>{if(!req.path.startsWith('/api/auth/social/'))return next();social.handle(req,res).catch(next)})
 }
