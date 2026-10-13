@@ -111,6 +111,8 @@ export default {
   },
   legal: { privacy: 'سياسة الخصوصية', terms: 'الشروط والأحكام', support: 'الدعم' },
   settings: {
+    deleteSocialConfirm: 'تأكيد الحذف بتسجيل الدخول الأخير',
+    deleteSocialAgain: 'للحسابات المرتبطة: أعد الدخول أدناه، ثم ارجع إلى الإعدادات لتأكيد الحذف خلال خمس دقائق.',
     subtitle: 'حسابك، ومحافظ الجوال، والخصوصية.',
     account: 'الحساب',
     workspace: 'المتجر',
