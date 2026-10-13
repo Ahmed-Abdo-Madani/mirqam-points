@@ -38,12 +38,12 @@ export async function dummyVerify(password) {
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex')
 
-export async function createSession(db, { userId, tenantId, userAgent, ttlDays }) {
+export async function createSession(db, { userId, tenantId, userAgent, ttlDays, socialAuthenticated = false }) {
   const token = crypto.randomBytes(32).toString('base64url')
   await db.query(
-    `INSERT INTO sessions (token_hash, user_id, tenant_id, user_agent, expires_at)
-     VALUES ($1, $2, $3, $4, now() + make_interval(days => $5))`,
-    [sha256(token), userId, tenantId, String(userAgent || '').slice(0, 300), ttlDays],
+    `INSERT INTO sessions (token_hash, user_id, tenant_id, user_agent, expires_at, social_authenticated_at)
+     VALUES ($1, $2, $3, $4, now() + make_interval(days => $5), CASE WHEN $6 THEN now() ELSE NULL END)`,
+    [sha256(token), userId, tenantId, String(userAgent || '').slice(0, 300), ttlDays, socialAuthenticated],
   )
   return token
 }
@@ -86,7 +86,8 @@ export function loadSession(db) {
     const token = cookie || bearer
     if (!token) return next()
     const { rows } = await db.query(
-      `SELECT s.user_id, s.tenant_id, s.last_seen_at, m.role,
+      `SELECT s.user_id, s.tenant_id, s.last_seen_at, s.social_authenticated_at, m.role,
+              ARRAY(SELECT provider FROM social_identities WHERE user_id = u.id) AS social_providers,
               u.email, u.name AS user_name, u.locale, t.name AS tenant_name, t.slug, t.logo_version
          FROM sessions s
          JOIN users u ON u.id = s.user_id
@@ -103,6 +104,8 @@ export function loadSession(db) {
         userId: row.user_id,
         tenantId: row.tenant_id,
         role: row.role,
+        socialAuthenticatedAt: row.social_authenticated_at,
+        socialProviders: row.social_providers,
         user: { id: row.user_id, email: row.email, name: row.user_name, locale: row.locale },
         tenant: {
           id: row.tenant_id,
@@ -118,6 +121,11 @@ export function loadSession(db) {
     }
     next()
   }
+}
+
+export function recentSocialLogin(auth, now = Date.now()) {
+  const age = now - new Date(auth?.socialAuthenticatedAt || 0).getTime()
+  return Boolean(auth?.socialAuthenticatedAt) && age >= 0 && age <= 5 * 60_000
 }
 
 export function requireAuth(req, _res, next) {
