@@ -27,8 +27,13 @@ export default function Auth({ mode }) {
   const [form, setForm] = useState({ email: '', password: '', name: '', businessName: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [providers,setProviders]=useState([])
-  useEffect(()=>{fetch('/api/auth/social/providers').then(r=>r.json()).then(d=>setProviders(d.providers||[])).catch(()=>{})},[])
+  const [providers, setProviders] = useState([])
+  useEffect(() => {
+    fetch('/api/auth/social/providers')
+      .then((r) => r.json())
+      .then((d) => setProviders(d.providers || []))
+      .catch(() => {})
+  }, [])
   const register = mode === 'register'
 
   if (session.status === 'auth') return <Navigate to={safeNext(params.get('next'))} replace />
@@ -96,7 +101,17 @@ export default function Auth({ mode }) {
           <h1 className="text-[28px] font-bold">{t(register ? 'auth.registerTitle' : 'auth.loginTitle')}</h1>
           <p className="mt-2 text-sm text-muted">{t(register ? 'auth.registerSubtitle' : 'auth.loginSubtitle')}</p>
 
-          <div className="mt-6 grid gap-3">{providers.map(provider=><a key={provider} className="rounded-xl border border-line bg-surface px-4 py-3 text-center font-semibold text-ink focus-visible:outline-accent" href={'/api/auth/social/'+provider}>{t(provider==='google'?'auth.google':'auth.github')}</a>)}</div>
+          <div className="mt-6 grid gap-3">
+            {providers.map((provider) => (
+              <a
+                key={provider}
+                className="rounded-xl border border-line bg-surface px-4 py-3 text-center font-semibold text-ink focus-visible:outline-accent"
+                href={'/api/auth/social/' + provider}
+              >
+                {t(provider === 'google' ? 'auth.google' : 'auth.github')}
+              </a>
+            ))}
+          </div>
           <form onSubmit={submit} className="mt-8 grid gap-4" noValidate>
             {register && (
               <>
