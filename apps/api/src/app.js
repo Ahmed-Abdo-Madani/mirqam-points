@@ -1,4 +1,3 @@
-import { installSocialLogin } from './social-login.js'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import express from 'express'
@@ -15,6 +14,7 @@ import memberRoutes from './routes/members.js'
 import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
 import { appleWebService, publicRoutes } from './routes/wallet.js'
+import { installSocialLogin } from './social-login.js'
 import { createWallet } from './wallet/index.js'
 
 export const VERSION = '0.2.0'
