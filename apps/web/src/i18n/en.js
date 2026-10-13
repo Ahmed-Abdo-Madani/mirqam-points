@@ -310,6 +310,7 @@ const base = {
   },
 
   errors: {
+    social_reauth_required: 'Confirmation expired. Sign in through Google or GitHub again, then return to Settings.',
     billing_unavailable: 'Payments are currently unavailable. Please try later.',
     billing_provider_error: 'Unable to reach the payment provider. Try again.',
     billing_request_conflict: 'Checkout request conflicts with your previous selection. Reload.',
