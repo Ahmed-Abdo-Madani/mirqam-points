@@ -2,8 +2,8 @@ import crypto from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 import forge from 'node-forge'
 import { describe, expect, it } from 'vitest'
-import { buildPkpass, passJson } from './apple.js'
-import { _loyaltyObjectForTests, _signJwtForTests, loyaltyObjectId } from './google.js'
+import { buildPkpass, passJson, pushToDevices } from './apple.js'
+import { _loyaltyObjectForTests, _signJwtForTests, addMessage, loyaltyObjectId } from './google.js'
 import { normalizeDesign, parseSerial } from './model.js'
 import { inspectLogo, renderStrip } from './strip.js'
 import { testAppleCredentials } from './test-certs.js'
@@ -185,5 +185,53 @@ describe('card design', () => {
     expect(obj.secondaryLoyaltyPoints).toMatchObject({ label: 'المتبقي', balance: { string: '5' } })
     expect(obj.heroImage.sourceUri.uri).toMatch(/^https:\/\/points\.example\/api\/public\/pass\/tok.+\/strip\.png\?v=\d+$/)
     expect(obj.textModulesData.some((t) => t.header === 'Phone' && t.body === '055')).toBe(true)
+  })
+})
+
+describe('campaign delivery', () => {
+  it('Apple: one APNs connection delivers a push to every registered device token', async () => {
+    const http2 = await import('node:http2')
+    const seen = []
+    const server = http2.createSecureServer({ cert: apple.certPem, key: apple.keyPem })
+    server.on('stream', (stream, headers) => {
+      seen.push({ path: headers[':path'], topic: headers['apns-topic'] })
+      stream.respond({ ':status': 200 })
+      stream.end()
+    })
+    await new Promise((r) => server.listen(0, '127.0.0.1', r))
+    const previous = process.env.NODE_TLS_REJECT_UNAUTHORIZED
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0' // the fake APNs uses a throwaway certificate
+    try {
+      const result = await pushToDevices(['tokA', 'tokB'], { ...apple, apnsHost: `https://127.0.0.1:${server.address().port}` })
+      expect(result).toEqual({ sent: 2, failed: 0, invalid: [] })
+      expect(seen.map((s) => s.path).sort()).toEqual(['/3/device/tokA', '/3/device/tokB'])
+      expect(seen.every((s) => s.topic === apple.passTypeId)).toBe(true)
+    } finally {
+      if (previous === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED
+      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = previous
+      server.close()
+    }
+  })
+
+  it('Google: addMessage posts a TEXT_AND_NOTIFY message to the pass object', async () => {
+    const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const google = {
+      issuerId: '123',
+      serviceAccount: { client_email: 'svc@test.iam.gserviceaccount.com', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) },
+    }
+    const calls = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), body: init?.body })
+      return new Response(JSON.stringify({ access_token: 'tok', expires_in: 3600 }), { status: 200 })
+    }
+    try {
+      await addMessage(model, { id: 'c-1', title: 'Weekend offer', body: 'Double stamps' }, { google })
+    } finally {
+      globalThis.fetch = realFetch
+    }
+    const post = calls.find((c) => c.url.endsWith('/addMessage'))
+    expect(post.url).toContain(`/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}/addMessage`)
+    expect(JSON.parse(post.body).message).toEqual({ id: 'msg_c-1', header: 'Weekend offer', body: 'Double stamps', messageType: 'TEXT_AND_NOTIFY' })
   })
 })
