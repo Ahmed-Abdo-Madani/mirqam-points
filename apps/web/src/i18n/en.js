@@ -344,6 +344,7 @@ const base = {
   },
 
   errors: {
+    http_error: 'The service could not be reached. Please try again shortly.',
     social_reauth_required: 'Confirmation expired. Sign in through Google or GitHub again, then return to Settings.',
     billing_unavailable: 'Payments are currently unavailable. Please try later.',
     billing_provider_error: 'Unable to reach the payment provider. Try again.',
