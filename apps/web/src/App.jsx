@@ -1,3 +1,4 @@
+import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
 import { EmptyState, MqSearch, Skeleton } from '@mirqam/ui'
 import { lazy, Suspense } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -57,6 +58,8 @@ export default function App() {
   return (
     <Suspense fallback={<Skeleton className="p-10" rows={2} />}>
       <Routes>
+        <Route path="/hq-entry" element={<HqEntry />} />
+        <Route path="/hq-admin" element={<HqAdmin />} />
         {/* The native app is the merchant console: it opens straight into it. */}
         <Route path="/" element={NATIVE ? <Navigate to="/app" replace /> : <Landing />} />
         <Route path="/p/:token" element={<PassPage />} />
