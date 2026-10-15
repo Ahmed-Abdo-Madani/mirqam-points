@@ -1,3 +1,4 @@
+import { request as httpRequest } from 'node:http'
 import express from 'express'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import { createSession, loadSession } from './auth.js'
@@ -32,7 +33,7 @@ beforeAll(async () => {
  server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s))});base='http://127.0.0.1:'+server.address().port
 })
 afterAll(async()=>{await new Promise(r=>server.close(r));await db.close()})
-const entry = (origin='https://loyalty.mirqam.sa') => fetch(base+'/api/hq-entry',{method:'POST',headers:{host:'loyalty.mirqam.sa',origin,'content-type':'application/json'},body:JSON.stringify({code})})
+const entry = (origin='https://loyalty.mirqam.sa') => new Promise((resolve,reject)=>{const req=httpRequest(base+'/api/hq-entry',{method:'POST',headers:{host:'loyalty.mirqam.sa',origin,'content-type':'application/json'}},res=>{let body='';res.on('data',d=>body+=d);res.on('end',()=>resolve({status:res.statusCode,headers:{get:key=>{const v=res.headers[key];return Array.isArray(v)?v[0]:v}},json:async()=>JSON.parse(body)}))});req.on('error',reject);req.end(JSON.stringify({code}))})
 test('anonymous and ordinary tenant owners cannot read global administration',async()=>{
  expect((await fetch(base+'/api/hq-admin')).status).toBe(401)
  expect((await fetch(base+'/api/hq-admin',{headers:{cookie:customerCookie}})).status).toBe(403)
