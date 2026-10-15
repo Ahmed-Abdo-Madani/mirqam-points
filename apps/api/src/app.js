@@ -1,3 +1,4 @@
+import { installHqAdmin } from './hq-admin.js'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import express from 'express'
@@ -126,6 +127,7 @@ export function createApp({ db, config }) {
   app.use('/api/branding', mobileCors(config), express.json({ limit: '600kb' }), csrfGuard(config), loadSession(db), brandingRoutes({ db, wallet }))
   installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
+  installHqAdmin(app, { db, config, wallet })
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
   app.use('/api/billing', billingRoutes(createBilling({ db, config })))
