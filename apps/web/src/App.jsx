@@ -1,4 +1,3 @@
-import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
 import { EmptyState, MqSearch, Skeleton } from '@mirqam/ui'
 import { lazy, Suspense } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -8,6 +7,7 @@ import { useI18n } from './i18n/index.jsx'
 import { NATIVE } from './lib/api.js'
 import { useSession } from './lib/session.jsx'
 import Auth from './pages/Auth.jsx'
+import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
 import Landing from './pages/Landing.jsx'
 
 const Dashboard = lazy(() => import('./pages/app/Dashboard.jsx'))
