@@ -5,7 +5,7 @@
 import { HttpError } from '../http.js'
 import { unseal } from '../secrets.js'
 import { appleConfigured, buildPkpass, pushToDevices } from './apple.js'
-import { deactivateLoyalty, googleConfigured, saveUrl, updateClass, updateObject } from './google.js'
+import { addMessage, deactivateLoyalty, googleConfigured, saveUrl, updateClass, updateObject } from './google.js'
 import { GIFT_SQL, giftModel, LOYALTY_SQL, loyaltyModel } from './model.js'
 
 export function createWallet({ db, config }) {
@@ -53,6 +53,20 @@ export function createWallet({ db, config }) {
     if (result.invalid.length) await db.query('DELETE FROM apple_registrations WHERE push_token = ANY($1)', [result.invalid])
   }
 
+  /* One APNs connection for a whole batch of passes. */
+  async function pushAppleMany(serials) {
+    if (!status().apple || !serials.length) return
+    const { rows } = await db.query('SELECT push_token FROM apple_registrations WHERE serial = ANY($1) AND pass_type_id = $2', [
+      serials,
+      config.apple.passTypeId,
+    ])
+    const result = await pushToDevices(
+      rows.map((r) => r.push_token),
+      config.apple,
+    )
+    if (result.invalid.length) await db.query('DELETE FROM apple_registrations WHERE push_token = ANY($1)', [result.invalid])
+  }
+
   function background(label, fn) {
     fn().catch((err) => console.warn(`[wallet] ${label} failed: ${err.message}`))
   }
@@ -92,6 +106,24 @@ export function createWallet({ db, config }) {
           if (found) await Promise.allSettled([pushApple(found.model.serial), status().google ? updateObject(found.model, { ...ctx, slug: found.slug }) : null])
         }
       })
+    },
+    /** After a campaign is recorded: every recipient pass gets the message and a notification. Resolves when fan-out ends. */
+    async sendCampaign(campaign) {
+      const { rows } = await db.query('SELECT account_id FROM campaign_recipients WHERE campaign_id = $1', [campaign.id])
+      const BATCH = 50
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const found = (await Promise.all(rows.slice(i, i + BATCH).map((r) => loyaltyById(r.account_id).catch(() => null)))).filter(Boolean)
+        await Promise.allSettled([
+          pushAppleMany(found.map((f) => f.model.serial)),
+          ...(status().google
+            ? found.map((f) =>
+                updateObject(f.model, { ...ctx, slug: f.slug })
+                  .then(() => addMessage(f.model, campaign, ctx))
+                  .catch((err) => console.warn(`[wallet] campaign google failed: ${err.message}`)),
+              )
+            : []),
+        ])
+      }
     },
     /** After reissue: the superseded pass is retired on both platforms. */
     retire(previousModel) {

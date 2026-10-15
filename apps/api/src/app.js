@@ -8,6 +8,7 @@ import { errorHandler, HttpError } from './http.js'
 import authRoutes from './routes/auth.js'
 import billingRoutes from './routes/billing.js'
 import brandingRoutes from './routes/branding.js'
+import campaignRoutes from './routes/campaigns.js'
 import giftCardRoutes from './routes/giftcards.js'
 import ledgerRoutes from './routes/ledger.js'
 import memberRoutes from './routes/members.js'
@@ -132,6 +133,7 @@ export function createApp({ db, config }) {
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))
   app.use('/api/ledger', ledgerRoutes({ db, wallet }))
+  app.use('/api/campaigns', campaignRoutes({ db, wallet }))
   app.use('/api/gift-cards', giftCardRoutes({ db, config, wallet }))
   app.use('/api/staff', staffRoutes({ db }))
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }))

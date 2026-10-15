@@ -15,6 +15,7 @@ const Members = lazy(() => import('./pages/app/Members.jsx'))
 const MemberDetail = lazy(() => import('./pages/app/MemberDetail.jsx'))
 const Programs = lazy(() => import('./pages/app/Programs.jsx'))
 const Activity = lazy(() => import('./pages/app/Activity.jsx'))
+const Campaigns = lazy(() => import('./pages/app/Campaigns.jsx'))
 const Staff = lazy(() => import('./pages/app/Staff.jsx'))
 const Design = lazy(() => import('./pages/Design.jsx'))
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
@@ -87,6 +88,14 @@ export default function App() {
           <Route path="members" element={<Members />} />
           <Route path="members/:id" element={<MemberDetail />} />
           <Route path="programs" element={<Programs />} />
+          <Route
+            path="campaigns"
+            element={
+              <RequireAuth capability="manage">
+                <Campaigns />
+              </RequireAuth>
+            }
+          />
           <Route path="activity" element={<Activity />} />
           <Route path="gift-cards" element={<GiftCards />} />
           <Route path="settings" element={<Settings />} />

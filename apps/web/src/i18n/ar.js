@@ -1,5 +1,6 @@
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
+import campaigns from './ar.campaigns.js'
 import wallet from './ar.wallet.js'
 import { mergeDict } from './merge.js'
 
@@ -251,6 +252,10 @@ const base = {
     newBalance: 'الرصيد الجديد',
     sameCustomer: 'عملية أخرى لنفس العميل',
     nextCustomer: 'العميل التالي',
+    stampOnly: 'ختم زيارة بدون إدخال قيمة الفاتورة',
+    confirmStamp: 'إضافة {n} {unit}',
+    addBill: 'إدخال قيمة الفاتورة',
+    skipBill: 'إضافة ختم بدون فاتورة',
   },
 
   activity: {
@@ -329,6 +334,10 @@ const base = {
     member_exists: 'العضو مسجّل مسبقاً.',
     program_not_active: 'البرنامج غير مفعّل.',
     nothing_to_earn: 'المبلغ أقل من الحد المطلوب لاحتساب نقاط.',
+    purchase_required: 'أدخل قيمة الفاتورة لاحتساب هذه العملية.',
+    campaign_rate_limited: 'وصلت إلى الحد اليومي للحملات لهذا البرنامج (3 حملات كل 24 ساعة). حاول لاحقاً.',
+    no_recipients: 'لا يوجد عملاء ضمن هذه الفئة لإرسال الحملة إليهم.',
+    campaign_not_found: 'الحملة غير موجودة.',
     insufficient_balance: 'الرصيد غير كافٍ.',
     already_voided: 'تم إلغاء هذه العملية مسبقاً.',
     cannot_void_void: 'لا يمكن إلغاء عملية إلغاء.',
@@ -359,4 +368,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet)
+export default mergeDict(base, wallet, campaigns)

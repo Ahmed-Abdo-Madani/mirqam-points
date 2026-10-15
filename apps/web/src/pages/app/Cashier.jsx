@@ -218,19 +218,31 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
   const errorText = useErrorText()
   const active = programs.filter((p) => p.status === 'active')
   const [mode, setMode] = useState('earn')
-  const [programId, setProgramId] = useState(active.some((p) => p.id === preferredProgramId) ? preferredProgramId : active[0]?.id)
+  // Scanned cards open their own program; otherwise a stamp card that needs no bill amount is the quickest default.
+  const fastStamp = active.find((p) => p.type === 'stamps' && !p.config.minPurchaseMinor)
+  const [programId, setProgramId] = useState(active.some((p) => p.id === preferredProgramId) ? preferredProgramId : (fastStamp ?? active[0])?.id)
   const [amount, setAmount] = useState('')
+  // Stamp cards default to a plain stamp with no bill amount; the cashier can opt into entering one.
+  const [withBill, setWithBill] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  // Transact unmounts after success, so the next transaction always starts with a fresh key.
-  const idem = useIdempotencyKey(`${mode}|${programId}|${amount}`)
 
   const program = active.find((p) => p.id === programId)
   const account = member.accounts.find((a) => a.program.id === programId)
   const balance = account?.balance ?? 0
-  const purchaseMinor = mode === 'earn' ? parseMoneyToMinor(amount) : null
-  const points =
-    mode === 'earn' ? (program && purchaseMinor != null ? computeEarn(program.type, program.config, purchaseMinor) : 0) : Number.parseInt(amount, 10) || 0
+  // A flat stamp needs a stamp card without a minimum purchase; everything else is priced by the bill.
+  const canSkipBill = program?.type === 'stamps' && !program.config.minPurchaseMinor
+  const visitOnly = mode === 'earn' && canSkipBill && !withBill
+  // Transact unmounts after success, so the next transaction always starts with a fresh key.
+  const idem = useIdempotencyKey(`${mode}|${programId}|${visitOnly ? 'visit' : amount}`)
+  const purchaseMinor = mode === 'earn' && !visitOnly ? parseMoneyToMinor(amount) : null
+  const points = visitOnly
+    ? program.config.stampsPerVisit
+    : mode === 'earn'
+      ? program && purchaseMinor != null
+        ? computeEarn(program.type, program.config, purchaseMinor)
+        : 0
+      : Number.parseInt(amount, 10) || 0
   const valid = Boolean(program) && points > 0 && (mode === 'earn' || points <= balance)
 
   async function submit(e) {
@@ -240,7 +252,9 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
     setError(null)
     try {
       const body =
-        mode === 'earn' ? { programId, memberId: member.id, purchaseMinor, source: 'pos' } : { programId, memberId: member.id, points, source: 'pos' }
+        mode === 'earn'
+          ? { programId, memberId: member.id, ...(visitOnly ? {} : { purchaseMinor }), source: 'pos' }
+          : { programId, memberId: member.id, points, source: 'pos' }
       const result = await api(`/ledger/${mode}`, { method: 'POST', body, idempotencyKey: idem.key })
       onDone({ ...result, program, mode })
     } catch (err) {
@@ -290,24 +304,45 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
           {num(balance)} {unitLabel(program.type, t)}
         </strong>
       </p>
-      <Field
-        label={t(mode === 'earn' ? 'transactions.purchaseAmount' : 'transactions.redeemAmount')}
-        hint={mode === 'earn' ? t('transactions.willEarn', { n: num(points), unit: unitLabel(program.type, t) }) : t('cashier.maxRedeem', { n: num(balance) })}
-      >
-        {(p) => (
-          <Input
-            {...p}
-            inputMode={mode === 'earn' ? 'decimal' : 'numeric'}
-            dir="ltr"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder={mode === 'earn' ? '0.00' : '0'}
-            className="!min-h-14 text-center text-2xl font-bold"
-            autoComplete="off"
-            autoFocus
-          />
-        )}
-      </Field>
+      {visitOnly ? (
+        <div className="grid gap-3 rounded-2xl border border-line bg-soft p-4 text-center">
+          <p className="text-sm text-muted">{t('cashier.stampOnly')}</p>
+          <p className="tnum text-3xl font-bold text-accent">+{num(points)}</p>
+        </div>
+      ) : (
+        <Field
+          label={t(mode === 'earn' ? 'transactions.purchaseAmount' : 'transactions.redeemAmount')}
+          hint={
+            mode === 'earn' ? t('transactions.willEarn', { n: num(points), unit: unitLabel(program.type, t) }) : t('cashier.maxRedeem', { n: num(balance) })
+          }
+        >
+          {(p) => (
+            <Input
+              {...p}
+              inputMode={mode === 'earn' ? 'decimal' : 'numeric'}
+              dir="ltr"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={mode === 'earn' ? '0.00' : '0'}
+              className="!min-h-14 text-center text-2xl font-bold"
+              autoComplete="off"
+              autoFocus
+            />
+          )}
+        </Field>
+      )}
+      {mode === 'earn' && canSkipBill && (
+        <button
+          type="button"
+          className="justify-self-start text-sm font-semibold text-accent"
+          onClick={() => {
+            setWithBill((v) => !v)
+            setAmount('')
+          }}
+        >
+          {t(withBill ? 'cashier.skipBill' : 'cashier.addBill')}
+        </button>
+      )}
       {error && (
         <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
           {errorText(error)}
@@ -315,9 +350,15 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
       )}
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Button type="submit" size="lg" loading={busy} disabled={!valid}>
-          {mode === 'earn'
-            ? t('cashier.confirmEarn', { n: num(points), unit: unitLabel(program.type, t), amount: purchaseMinor != null ? money(purchaseMinor, locale) : '—' })
-            : t('cashier.confirmRedeem', { n: num(points), unit: unitLabel(program.type, t) })}
+          {visitOnly
+            ? t('cashier.confirmStamp', { n: num(points), unit: unitLabel(program.type, t) })
+            : mode === 'earn'
+              ? t('cashier.confirmEarn', {
+                  n: num(points),
+                  unit: unitLabel(program.type, t),
+                  amount: purchaseMinor != null ? money(purchaseMinor, locale) : '—',
+                })
+              : t('cashier.confirmRedeem', { n: num(points), unit: unitLabel(program.type, t) })}
         </Button>
         <Button variant="ghost" size="lg" onClick={onCancel}>
           {t('common.cancel')}

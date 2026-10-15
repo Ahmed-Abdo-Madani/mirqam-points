@@ -289,3 +289,27 @@ I proceeded on defaults so the plan is complete; please confirm or change these,
 3. Build the gallery page; review it against the bot's live look.
 4. Write Postgres schema v1 and the ledger engine with its invariant tests (before any UI).
 5. Stand up `verify.mjs`, pre-push hook, and CI.
+
+---
+
+## 13. Campaigns — wallet-pass notification messages (shipped)
+
+**How the wallets do it.** Neither Apple nor Google has a general "push a message" API for passes; a notification is a side effect of a pass update.
+
+| | Apple Wallet | Google Wallet |
+|---|---|---|
+| Mechanism | A pass field carrying `changeMessage: "%@"` whose value changes. A silent APNs push makes the device re-fetch the pass, and Wallet raises the lock-screen alert from the changed field. | `POST loyaltyObject/{id}/addMessage` with `messageType: TEXT_AND_NOTIFY`. |
+| Message lives on | Back of the pass (field label = title, value = body) | Pass message list and a text module |
+| Limits | None stated, but identical consecutive values do not alert | Notifications are rate-limited per pass per day |
+
+**Design.**
+- `campaigns` + `campaign_recipients` (migration 004) are immutable once sent; the recipient rows record exactly which passes got the message and drive "latest message" on each pass.
+- Audience is a program's card holders: `consented` (default, marketing consent only) or `all`. Zero recipients is refused.
+- Guard rails: manager/owner only; one idempotency key per send (a retry returns the original); at most 3 campaigns per program per rolling 24 h (matches Google's limit); title ≤ 40, body ≤ 200 chars; audited as `campaign.sent`.
+- Fan-out runs in the background in batches of 50 with one APNs connection per batch; the request never waits on Apple/Google, and a failed push is only a late refresh because Wallet polls.
+- Console: **Campaigns** page with live reach count, notification preview, confirm step and history.
+
+**Not yet built (follow-ups).** Scheduled sends; segments beyond consent (inactive 30 days, near reward, birthday); per-campaign delivery stats (Apple gives no receipts); a Postgres-backed queue for very large audiences (§3 jobs).
+
+## 14. Cashier: stamp without a bill amount (shipped)
+`POST /api/ledger/earn` accepts a missing `purchaseMinor` for stamp programs with no minimum purchase (a flat `stampsPerVisit`, stored with a null purchase). Points programs and stamp programs with a minimum answer `purchase_required`. The cashier defaults to this one-tap mode (and to such a program when one exists), with "Enter a bill amount" as the opt-in alternative.

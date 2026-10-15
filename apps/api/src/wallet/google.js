@@ -181,6 +181,14 @@ export async function updateObject(model, { google, slug, publicUrl }) {
   return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}`, loyaltyObject(model, google, publicUrl))
 }
 
+/* Google raises a notification for a TEXT_AND_NOTIFY message (it rate-limits these per pass).
+   Objects that were never saved to a wallet return 404 and are skipped. */
+export function addMessage(model, campaign, { google }) {
+  return call(google, 'POST', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}/addMessage`, {
+    message: { id: safeId(`msg_${campaign.id}`), header: campaign.title, body: campaign.body, messageType: 'TEXT_AND_NOTIFY' },
+  })
+}
+
 /** Pushes a program's name/colours/logo to its Google class (objects only carry per-member data). */
 export function updateClass(model, { google, publicUrl }) {
   return call(google, 'PATCH', `/loyaltyClass/${encodeURIComponent(loyaltyClassId(google, model.programId))}`, loyaltyClass(model, google, publicUrl))

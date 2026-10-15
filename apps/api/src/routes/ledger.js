@@ -12,7 +12,8 @@ const note = z.string().trim().max(500).optional()
 const target = { programId: id, memberId: id }
 const source = z.enum(['console', 'pos']).default('console')
 
-const earnBody = z.object({ ...target, purchaseMinor: z.number().int().min(0).max(100_000_000), ref, note, source })
+// purchaseMinor is optional: a stamp card can award a visit without a bill amount.
+const earnBody = z.object({ ...target, purchaseMinor: z.number().int().min(0).max(100_000_000).optional(), ref, note, source })
 const redeemBody = z.object({ ...target, points: z.number().int().min(1).max(10_000_000), ref, note, source })
 const adjustBody = z.object({
   ...target,
@@ -54,7 +55,9 @@ export default function ledgerRoutes({ db, wallet }) {
     const body = parse(earnBody, req.body)
     const program = await loadTarget(db, req.auth.tenantId, body)
     if (program.status !== 'active') throw new HttpError(422, 'program_not_active')
-    const points = computeEarn(program.type, program.config, body.purchaseMinor)
+    // Without an amount only a stamp card with no minimum purchase can earn (a flat stamp per visit).
+    if (body.purchaseMinor == null && (program.type !== 'stamps' || program.config.minPurchaseMinor > 0)) throw new HttpError(422, 'purchase_required')
+    const points = computeEarn(program.type, program.config, body.purchaseMinor ?? 0)
     if (points <= 0) throw new HttpError(422, 'nothing_to_earn')
     const account = await ensureAccount(db, { tenantId: req.auth.tenantId, ...body })
     const result = await earn(

@@ -73,7 +73,9 @@ export function passJson(model, { apple, publicUrl }) {
   const unit = model.type === 'stamps' ? tx.stamps : tx.points
   const stamps = model.type === 'stamps' && model.stampsRequired
   const balanceValue = stamps ? `${model.balance} / ${model.stampsRequired}` : model.balance
-  const { front, back } = loyaltyFields(model, tx)
+  const { front, back: backFields } = loyaltyFields(model, tx)
+  // A changed message field with changeMessage is what makes Wallet raise a lock-screen notification.
+  const back = backFields.map((f) => (f.key === 'message' ? { ...f, changeMessage: '%@' } : f))
   const balanceField = { key: 'balance', label: unit, value: balanceValue, changeMessage: tx.balanceNow }
   const layout = model.design.layout === 'strip' && !stamps ? 'classic' : model.design.layout
   const card =

@@ -21,11 +21,15 @@ export function parseSerial(serial) {
 export const LOYALTY_SQL = `
   SELECT a.id, a.tenant_id, a.pass_token AS token, a.balance, a.lifetime_earned, a.code, a.pass_token, a.apple_auth, a.pass_version, a.updated_at,
          m.name AS member_name, m.locale, p.id AS program_id, p.name AS program_name, p.type, p.config, p.design,
-         t.name AS merchant, t.slug, t.logo_version
+         t.name AS merchant, t.slug, t.logo_version, msg.title AS msg_title, msg.body AS msg_body, msg.created_at AS msg_at
     FROM accounts a
     JOIN members m ON m.id = a.member_id
     JOIN programs p ON p.id = a.program_id
-    JOIN tenants t ON t.id = a.tenant_id`
+    JOIN tenants t ON t.id = a.tenant_id
+    LEFT JOIN LATERAL (
+      SELECT c.title, c.body, c.created_at FROM campaign_recipients cr JOIN campaigns c ON c.id = cr.campaign_id
+       WHERE cr.account_id = a.id ORDER BY c.created_at DESC, c.id DESC LIMIT 1
+    ) msg ON true`
 
 const logoUrl = (row, publicUrl) => (row.logo_version ? `${publicUrl}/api/public/logo/${row.slug}?v=${row.logo_version}` : null)
 
@@ -52,6 +56,8 @@ export function loyaltyModel(row, publicUrl) {
     barcode: `MP:${row.code}`,
     code: row.code,
     design: normalizeDesign(row.design),
+    // The latest campaign this pass received; wallets surface it as a notification when it changes.
+    message: row.msg_title ? { title: row.msg_title, body: row.msg_body, sentAt: new Date(row.msg_at) } : null,
     url: `${publicUrl}/p/${row.pass_token}`,
     updatedAt: new Date(row.updated_at),
   }
@@ -151,6 +157,7 @@ export function loyaltyFields(model, tx) {
   }
   const front = d.front.map((k) => all[k]).filter(Boolean)
   const back = []
+  if (model.message) back.push({ key: 'message', label: model.message.title, value: model.message.body })
   for (const k of d.back) {
     if (k === 'code') back.push({ key: 'code', label: tx.code, value: model.code })
     if (k === 'reward' && d.rewardText) back.push({ key: 'reward', label: tx.reward, value: d.rewardText })

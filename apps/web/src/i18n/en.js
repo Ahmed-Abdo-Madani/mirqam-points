@@ -1,5 +1,6 @@
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
 
+import campaigns from './en.campaigns.js'
 import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
@@ -252,6 +253,10 @@ const base = {
     newBalance: 'New balance',
     sameCustomer: 'Another transaction, same customer',
     nextCustomer: 'Next customer',
+    stampOnly: 'Visit stamp — no bill amount needed',
+    confirmStamp: 'Add {n} {unit}',
+    addBill: 'Enter a bill amount',
+    skipBill: 'Add a stamp without a bill',
   },
 
   activity: {
@@ -330,6 +335,10 @@ const base = {
     member_exists: 'Member already exists.',
     program_not_active: 'The program is not active.',
     nothing_to_earn: 'The amount is below the minimum that earns points.',
+    purchase_required: 'Enter the bill amount to record this transaction.',
+    campaign_rate_limited: 'This program reached its daily campaign limit (3 per 24 hours). Try again later.',
+    no_recipients: 'There are no customers in this audience to send the campaign to.',
+    campaign_not_found: 'Campaign not found.',
     insufficient_balance: 'Insufficient balance.',
     already_voided: 'This transaction was already voided.',
     cannot_void_void: 'A void cannot be voided.',
@@ -360,4 +369,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet)
+export default mergeDict(base, wallet, campaigns)
