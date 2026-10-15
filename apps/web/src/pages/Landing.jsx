@@ -37,6 +37,13 @@ export default function Landing() {
               <Link to="/login" className="inline-flex min-h-12 items-center rounded-[15px] border border-line bg-surface px-6 font-bold hover:bg-soft">
                 {t('auth.login')}
               </Link>
+              <a
+                href="/downloads/mirqam-points.apk"
+                download
+                className="inline-flex min-h-12 items-center rounded-[15px] border border-line bg-surface px-6 font-bold hover:bg-soft"
+              >
+                {t('landing.androidApp')}
+              </a>
             </div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">
               {['proof1', 'proof2', 'proof3'].map((k) => (
