@@ -303,7 +303,7 @@ I proceeded on defaults so the plan is complete; please confirm or change these,
 | Limits | None stated, but identical consecutive values do not alert | Notifications are rate-limited per pass per day |
 
 **Design.**
-- `campaigns` + `campaign_recipients` (migration 004) are immutable once sent; the recipient rows record exactly which passes got the message and drive "latest message" on each pass.
+- `campaigns` + `campaign_recipients` (migration 007) are immutable once sent; the recipient rows record exactly which passes got the message and drive "latest message" on each pass.
 - Audience is a program's card holders: `consented` (default, marketing consent only) or `all`. Zero recipients is refused.
 - Guard rails: manager/owner only; one idempotency key per send (a retry returns the original); at most 3 campaigns per program per rolling 24 h (matches Google's limit); title ≤ 40, body ≤ 200 chars; audited as `campaign.sent`.
 - Fan-out runs in the background in batches of 50 with one APNs connection per batch; the request never waits on Apple/Google, and a failed push is only a late refresh because Wallet polls.

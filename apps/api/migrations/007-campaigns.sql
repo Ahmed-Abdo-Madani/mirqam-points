@@ -1,4 +1,4 @@
--- 004 · Campaigns: merchant messages delivered to customers as wallet-pass notifications.
+-- 007 · Campaigns: merchant messages delivered to customers as wallet-pass notifications.
 -- A campaign is immutable once sent. campaign_recipients records exactly which
 -- passes (accounts) received it, so each pass can show its latest message and the
 -- audience of a past campaign stays reproducible after members change consent.
