@@ -20,6 +20,7 @@ import {
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
+import { useApi } from '../lib/api.js'
 import { useSession } from '../lib/session.jsx'
 
 function SideNav({ onNavigate }) {
@@ -83,6 +84,33 @@ export function PageHeader({ title, subtitle, actions }) {
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  )
+}
+
+/* Renewal notice for every role: the subscription is ending, has ended, or (when the paywall is on) is missing. */
+function SubscriptionBanner() {
+  const { t } = useI18n()
+  const { can } = useSession()
+  const { data } = useApi('/billing/state')
+  if (!data) return null
+  const { state, daysLeft, enforced } = data
+  const show = state === 'expiring' || state === 'expired' || (enforced && (state === 'none' || state === 'trial'))
+  if (!show) return null
+  const bad = state === 'expired' || state === 'none'
+  return (
+    <div
+      role={bad ? 'alert' : 'status'}
+      className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${bad ? 'border-err/20 bg-err-bg text-err' : 'border-warn/20 bg-warn-bg text-warn'}`}
+    >
+      <span className="font-semibold">{t(`billing.banner.${state}`, { n: daysLeft })}</span>
+      {can('owner') ? (
+        <NavLink to="/app/billing" className="font-bold underline">
+          {t('billing.banner.cta')}
+        </NavLink>
+      ) : (
+        <span>{t('billing.banner.ownerOnly')}</span>
+      )}
     </div>
   )
 }
@@ -173,6 +201,7 @@ export default function AppShell() {
         </header>
 
         <main id="main" className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-7 sm:px-6 lg:px-8">
+          <SubscriptionBanner />
           <Outlet />
         </main>
       </div>

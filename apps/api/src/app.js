@@ -122,13 +122,25 @@ export function createApp({ db, config }) {
   // Apple Wallet devices call this directly and authenticate with per-pass tokens.
   app.use('/api/wallet/apple', appleWebService({ db, config, wallet }))
 
+  const billing = createBilling({ db, config })
+  // The scheduler in server.js reads the billing service from here.
+  app.locals.billing = billing
+
   // Logo uploads carry a base64 PNG, so they get a larger body limit than the rest of the API.
-  app.use('/api/branding', mobileCors(config), express.json({ limit: '600kb' }), csrfGuard(config), loadSession(db), brandingRoutes({ db, wallet }))
+  app.use(
+    '/api/branding',
+    mobileCors(config),
+    express.json({ limit: '600kb' }),
+    csrfGuard(config),
+    loadSession(db),
+    billing.gate(),
+    brandingRoutes({ db, wallet }),
+  )
   installSocialLogin(app, { db, config })
-  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
+  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db), billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
-  app.use('/api/billing', billingRoutes(createBilling({ db, config })))
+  app.use('/api/billing', billingRoutes(billing))
   app.use('/api/auth', authRoutes({ db, config }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))

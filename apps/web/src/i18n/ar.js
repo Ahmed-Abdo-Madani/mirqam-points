@@ -1,5 +1,6 @@
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
+import billing from './ar.billing.js'
 import campaigns from './ar.campaigns.js'
 import wallet from './ar.wallet.js'
 import { mergeDict } from './merge.js'
@@ -369,4 +370,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet, campaigns)
+export default mergeDict(base, wallet, campaigns, billing)

@@ -11,6 +11,15 @@ export function loadConfig(env = process.env) {
   return {
     production,
     moyasarSecretKey: env.MOYASAR_SECRET_KEY || '',
+    // Optional: the secret_token configured on the Moyasar webhook; when set, webhooks without it are refused.
+    moyasarWebhookSecret: env.MOYASAR_WEBHOOK_SECRET || '',
+    // Transactional email (Resend). Without a key subscription emails are skipped; events still show in-app.
+    resendApiKey: env.RESEND_API_KEY || '',
+    emailFrom: env.EMAIL_FROM_ADDRESS || 'Mirqam <no-reply@mirqam.sa>',
+    // Paywall: off unless BILLING_ENFORCE=1. Workspaces that never subscribed get BILLING_TRIAL_DAYS of access.
+    billingEnforce: env.BILLING_ENFORCE === '1',
+    trialDays: Number(env.BILLING_TRIAL_DAYS || 14),
+    lifecycleIntervalMs: Number(env.BILLING_LIFECYCLE_INTERVAL_MS || 3_600_000),
     port: Number(env.PORT || 4100),
     databaseUrl,
     publicUrl,

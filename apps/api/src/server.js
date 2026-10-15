@@ -12,6 +12,15 @@ const server = app.listen(config.port, () => {
   console.log(`[api] listening on http://localhost:${server.address().port} (db: ${db.kind}${config.production ? ', production' : ''})`)
 })
 
+// Subscription lifecycle: expiry reminders, expiry events and the email outbox.
+const runLifecycle = () =>
+  app.locals.billing
+    .runLifecycle()
+    .then((c) => (c.reminded || c.expired || c.emailed) && console.log('[billing] lifecycle', JSON.stringify(c)))
+    .catch((err) => console.warn('[billing] lifecycle failed:', err.message))
+setTimeout(runLifecycle, 30_000).unref()
+setInterval(runLifecycle, config.lifecycleIntervalMs).unref()
+
 let closing = false
 async function shutdown(signal) {
   if (closing) return

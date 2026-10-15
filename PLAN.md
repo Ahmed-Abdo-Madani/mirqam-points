@@ -313,3 +313,16 @@ I proceeded on defaults so the plan is complete; please confirm or change these,
 
 ## 14. Cashier: stamp without a bill amount (shipped)
 `POST /api/ledger/earn` accepts a missing `purchaseMinor` for stamp programs with no minimum purchase (a flat `stampsPerVisit`, stored with a null purchase). Points programs and stamp programs with a minimum answer `purchase_required`. The cashier defaults to this one-tap mode (and to such a program when one exists), with "Enter a bill amount" as the opt-in alternative.
+
+## 15. Subscriptions: Moyasar checkout and lifecycle (shipped)
+Two plans: monthly 69 SAR and yearly 690 SAR, VAT included. Checkout is a Moyasar hosted invoice (no card data touches us); a subscription changes only after the payment is re-fetched from Moyasar and matches amount, currency and invoice.
+
+**Lifecycle (migration 008, `subscription_events`).** Every state change is one idempotent row, which is both the in-app history and the email outbox:
+`activated` (first or lapsed→paid) · `renewed` · `plan_changed` · `payment_failed` (from the `payment_faild`/`payment_failed` webhook, verified by re-fetching the payment) · `expiring_soon` (7 days and 1 day before) · `expired`.
+An hourly job (`BILLING_LIFECYCLE_INTERVAL_MS`) raises reminder and expiry events and drains the email outbox; renewing moves `expires_at`, so old reminders never re-fire.
+
+**Emails** (Resend, `RESEND_API_KEY`, Arabic or English by the owner's locale) go to workspace owners for every event; a failure retries up to 5 times. Without a key emails are skipped and events still show in the Billing page and the renewal banner.
+
+**Paywall (opt-in).** `BILLING_ENFORCE=1` makes a workspace without an active subscription or `BILLING_TRIAL_DAYS` (default 14, from creation) read-only: writes answer `402 subscription_required`; sign-in, billing and public wallet pages keep working. Off by default so nothing locks out existing merchants.
+
+**Config.** `MOYASAR_SECRET_KEY` (a dedicated key; `sk_live_` required in production), optional `MOYASAR_WEBHOOK_SECRET` (the webhook's `secret_token`), webhook URL `https://<host>/api/billing/moyasar/webhook` with events `payment_paid` and `payment_faild`.

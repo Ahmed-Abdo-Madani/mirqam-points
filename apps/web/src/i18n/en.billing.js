@@ -1,0 +1,46 @@
+/* English — subscription lifecycle (state, events, notices). Merged into en.js. */
+export default {
+  billing: {
+    plans: 'Choose your plan',
+    subscribe: 'Subscribe now',
+    renew: 'Renew now',
+    switchPlan: 'Switch to this plan',
+    perMonth: 'per month',
+    perYear: 'per year',
+    currentPlan: 'Your current plan',
+    daysLeft: '{n} days left',
+    trialLeft: 'Free trial: {n} days left',
+    state: {
+      active: 'Active',
+      expiring: 'Ending soon',
+      expired: 'Expired',
+      trial: 'Free trial',
+      none: 'Not subscribed',
+    },
+    banner: {
+      expiring: 'Your subscription ends in {n} days. Renew now to avoid any interruption.',
+      expired: 'Your subscription has expired. Renew to keep recording transactions.',
+      none: 'No active subscription. Subscribe to keep recording transactions.',
+      trial: 'Free trial: {n} days left.',
+      cta: 'Manage subscription',
+      ownerOnly: 'Ask the account owner to renew the subscription.',
+    },
+    history: 'Subscription history',
+    historyEmpty: 'No subscription events yet.',
+    event: {
+      activated: 'Subscription activated',
+      renewed: 'Subscription renewed',
+      plan_changed: 'Plan changed',
+      payment_failed: 'Payment failed',
+      expiring_soon: 'Subscription ending soon',
+      expired: 'Subscription expired',
+    },
+    emailSent: 'Email sent',
+    emailPending: 'Email queued',
+    emailFailed: 'Email could not be sent',
+    failed: 'The payment did not go through. You can try again.',
+  },
+  errors: {
+    subscription_required: 'Your subscription has expired. Renew it from the Billing page to keep recording transactions.',
+  },
+}
