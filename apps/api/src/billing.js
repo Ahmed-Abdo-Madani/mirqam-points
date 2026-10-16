@@ -300,7 +300,9 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
      read-only. Sign-in, billing and the public wallet surfaces keep working. */
   const gate = () => async (req, _res, next) => {
     try {
-      if (!config.billingEnforce || !req.auth) return next()
+      if (!req.auth) return next()
+      if (!config.billingEnforce && !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1', [req.auth.tenantId])).rows.length)
+        return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
       if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
       if ((await entitlement(req.auth.tenantId)).allowed) return next()

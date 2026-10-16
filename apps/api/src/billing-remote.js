@@ -35,7 +35,11 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       if (res.status >= 500) throw new HttpError(502, 'billing_provider_error')
-      throw new HttpError(res.status === 404 ? 404 : res.status === 409 ? 409 : 400, data.error || 'billing_rejected', data.message ? { message: data.message } : undefined)
+      throw new HttpError(
+        res.status === 404 ? 404 : res.status === 409 ? 409 : 400,
+        data.error || 'billing_rejected',
+        data.message ? { message: data.message } : undefined,
+      )
     }
     return data
   }
@@ -43,7 +47,12 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   async function account(tenantId) {
     const t = (await db.query('SELECT id, name FROM tenants WHERE id=$1', [tenantId])).rows[0]
     if (!t) throw new HttpError(404, 'not_found')
-    const owner = (await db.query("SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.tenant_id=$1 AND m.role='owner' ORDER BY m.created_at LIMIT 1", [tenantId])).rows[0]
+    const owner = (
+      await db.query(
+        "SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.tenant_id=$1 AND m.role='owner' ORDER BY m.created_at LIMIT 1",
+        [tenantId],
+      )
+    ).rows[0]
     return { ref: tenantId, name: t.name, email: owner?.email || undefined }
   }
 
@@ -73,15 +82,28 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
          ON CONFLICT(tenant_id) DO UPDATE SET cycle=EXCLUDED.cycle, expires_at=EXCLUDED.expires_at, status=EXCLUDED.status, plan=EXCLUDED.plan,
            auto_renew=EXCLUDED.auto_renew, cancel_at_period_end=EXCLUDED.cancel_at_period_end, payment_method=EXCLUDED.payment_method,
            period_end=EXCLUDED.period_end, billing_version=EXCLUDED.billing_version, updated_at=now()`,
-        [tenantId, ent.cycle === 'yearly' ? 'yearly' : 'monthly', until, ent.status, ent.plan, Boolean(ent.auto_renew), Boolean(ent.cancel_at_period_end), ent.payment_method ? JSON.stringify(ent.payment_method) : null, ent.current_period_end ? new Date(ent.current_period_end) : until, Number(ent.version || 0)],
+        [
+          tenantId,
+          ent.cycle === 'yearly' ? 'yearly' : 'monthly',
+          until,
+          ent.status,
+          ent.plan,
+          Boolean(ent.auto_renew),
+          Boolean(ent.cancel_at_period_end),
+          ent.payment_method ? JSON.stringify(ent.payment_method) : null,
+          ent.current_period_end ? new Date(ent.current_period_end) : until,
+          Number(ent.version || 0),
+        ],
       )
       // In-app history, derived from state changes.
       const periodEnd = ent.current_period_end || ent.active_until
       const wasLive = prior ? LIVE.has(prior.status || 'active') : false
       if (ent.status === 'active') {
         if (!prior || !wasLive) await recordEvent(tx, tenantId, 'activated', `active:${periodEnd}`, { cycle: ent.cycle, expiresAt: periodEnd })
-        else if (prior.cycle !== ent.cycle) await recordEvent(tx, tenantId, 'plan_changed', `cycle:${ent.cycle}:${periodEnd}`, { cycle: ent.cycle, expiresAt: periodEnd })
-        else if (prior.period_end && new Date(periodEnd) > new Date(prior.period_end)) await recordEvent(tx, tenantId, 'renewed', `active:${periodEnd}`, { cycle: ent.cycle, expiresAt: periodEnd })
+        else if (prior.cycle !== ent.cycle)
+          await recordEvent(tx, tenantId, 'plan_changed', `cycle:${ent.cycle}:${periodEnd}`, { cycle: ent.cycle, expiresAt: periodEnd })
+        else if (prior.period_end && new Date(periodEnd) > new Date(prior.period_end))
+          await recordEvent(tx, tenantId, 'renewed', `active:${periodEnd}`, { cycle: ent.cycle, expiresAt: periodEnd })
       } else if (ent.status === 'past_due' && prior?.status !== 'past_due') {
         await recordEvent(tx, tenantId, 'payment_failed', `past_due:${periodEnd}`, { cycle: ent.cycle, graceUntil: ent.active_until })
       } else if (['suspended', 'expired', 'canceled'].includes(ent.status) && wasLive) {
@@ -106,7 +128,11 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     const expected = createHmac('sha256', secret).update(`${m[1]}.${rawBody}`).digest('hex')
     if (!timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(m[2], 'hex'))) throw new HttpError(401, 'unauthenticated')
     let event
-    try { event = JSON.parse(rawBody) } catch { throw new HttpError(400, 'validation_failed') }
+    try {
+      event = JSON.parse(rawBody)
+    } catch {
+      throw new HttpError(400, 'validation_failed')
+    }
     if (event?.type === 'entitlement.updated') await apply(event.data)
   }
 
@@ -137,7 +163,9 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
 
   const gate = () => async (req, _res, next) => {
     try {
-      if (!config.billingEnforce || !req.auth) return next()
+      if (!req.auth) return next()
+      if (!config.billingEnforce && !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1', [req.auth.tenantId])).rows.length)
+        return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
       if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
       if ((await entitlement(req.auth.tenantId)).allowed) return next()
@@ -161,11 +189,25 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       const r = await call(
         'POST',
         'checkout-sessions',
-        { account: await account(tenantId), plan: PLAN, cycle, coupon: opts.coupon || undefined, auto_renew: opts.autoRenew === true, referral: /^[a-f0-9]{32}$/.test(opts.referral || '') ? opts.referral : undefined, return_url: `${opts.returnBase || config.publicUrl}/app/billing` },
+        {
+          account: await account(tenantId),
+          plan: PLAN,
+          cycle,
+          coupon: opts.coupon || undefined,
+          auto_renew: opts.autoRenew === true,
+          referral: /^[a-f0-9]{32}$/.test(opts.referral || '') ? opts.referral : undefined,
+          return_url: `${opts.returnBase || config.publicUrl}/app/billing`,
+        },
         requestKey ? `loyalty-${tenantId}-${requestKey}`.slice(0, 120) : undefined,
       )
       if (r.done || r.completed) await sync(tenantId).catch(() => {})
-      return { id: r.id || null, checkout_url: r.done || r.completed ? null : r.url, status: r.done || r.completed ? 'paid' : 'pending', scheduled: Boolean(r.scheduled), amountMinor: r.amount_minor ?? null }
+      return {
+        id: r.id || null,
+        checkout_url: r.done || r.completed ? null : r.url,
+        status: r.done || r.completed ? 'paid' : 'pending',
+        scheduled: Boolean(r.scheduled),
+        amountMinor: r.amount_minor ?? null,
+      }
     },
     async confirm(tenantId) {
       const ent = await sync(tenantId)
@@ -174,37 +216,78 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     async validateCoupon(tenantId, cycle, code) {
       return call('POST', 'coupons/validate', { account: await account(tenantId), plan: PLAN, cycle, coupon: code })
     },
-    async cancel(tenantId) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/cancel`, {}); await apply(e); return e },
-    async resume(tenantId) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/resume`, {}); await apply(e); return e },
-    async autoRenew(tenantId, enabled) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/auto-renew`, { enabled: Boolean(enabled) }); await apply(e); return e },
-    async paymentMethod(tenantId, base) { return call('POST', `subscriptions/${encodeURIComponent(tenantId)}/payment-method`, { return_url: `${base || config.publicUrl}/app/billing` }) },
+    async cancel(tenantId) {
+      const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/cancel`, {})
+      await apply(e)
+      return e
+    },
+    async resume(tenantId) {
+      const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/resume`, {})
+      await apply(e)
+      return e
+    },
+    async autoRenew(tenantId, enabled) {
+      const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/auto-renew`, { enabled: Boolean(enabled) })
+      await apply(e)
+      return e
+    },
+    async paymentMethod(tenantId, base) {
+      return call('POST', `subscriptions/${encodeURIComponent(tenantId)}/payment-method`, { return_url: `${base || config.publicUrl}/app/billing` })
+    },
     /* Reconciles cached entitlements with billing (missed webhooks, clock edges). Billing does all reminders and emails. */
     async runLifecycle(now = new Date()) {
       const due = (
-        await db.query(
-          "SELECT tenant_id FROM subscriptions WHERE updated_at < $1 OR expires_at < $2 OR status IN ('past_due') ORDER BY updated_at LIMIT 200",
-          [new Date(now.getTime() - 6 * 3_600_000), new Date(now.getTime() + DAY)],
-        )
+        await db.query("SELECT tenant_id FROM subscriptions WHERE updated_at < $1 OR expires_at < $2 OR status IN ('past_due') ORDER BY updated_at LIMIT 200", [
+          new Date(now.getTime() - 6 * 3_600_000),
+          new Date(now.getTime() + DAY),
+        ])
       ).rows
       let synced = 0
       for (const { tenant_id } of due) {
-        try { await sync(tenant_id); synced += 1 } catch {}
+        try {
+          await sync(tenant_id)
+          synced += 1
+        } catch {}
       }
       return { reminded: 0, expired: 0, emailed: 0, synced }
     },
-    async flushEmails() { return 0 },
+    async flushEmails() {
+      return 0
+    },
     async events(tenantId) {
-      return (await db.query('SELECT id, kind, data, email_status, created_at FROM subscription_events WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 30', [tenantId])).rows
+      return (
+        await db.query('SELECT id, kind, data, email_status, created_at FROM subscription_events WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 30', [
+          tenantId,
+        ])
+      ).rows
     },
     async state(tenantId) {
       const e = await entitlement(tenantId)
-      return { state: e.state, daysLeft: e.daysLeft, expiresAt: e.expiresAt ?? null, trialEndsAt: e.trialEndsAt ?? null, enforced: Boolean(config.billingEnforce) }
+      return {
+        state: e.state,
+        daysLeft: e.daysLeft,
+        expiresAt: e.expiresAt ?? null,
+        trialEndsAt: e.trialEndsAt ?? null,
+        enforced: Boolean(config.billingEnforce),
+      }
     },
     async status(tenantId) {
-      let portal = null, prices = {}
-      try { prices = await catalog() } catch {}
-      try { portal = await call('GET', `portal/${encodeURIComponent(tenantId)}`); await apply(portal.entitlement) } catch {}
-      const sub = (await db.query('SELECT cycle,expires_at,expires_at>now() AS active,status,auto_renew,cancel_at_period_end,payment_method,period_end FROM subscriptions WHERE tenant_id=$1', [tenantId])).rows[0] || null
+      let portal = null,
+        prices = {}
+      try {
+        prices = await catalog()
+      } catch {}
+      try {
+        portal = await call('GET', `portal/${encodeURIComponent(tenantId)}`)
+        await apply(portal.entitlement)
+      } catch {}
+      const sub =
+        (
+          await db.query(
+            'SELECT cycle,expires_at,expires_at>now() AS active,status,auto_renew,cancel_at_period_end,payment_method,period_end FROM subscriptions WHERE tenant_id=$1',
+            [tenantId],
+          )
+        ).rows[0] || null
       return {
         ready,
         remote: true,
@@ -213,7 +296,15 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
         currency: 'SAR',
         vatIncluded: true,
         subscription: sub,
-        invoices: (portal?.invoices || []).map((i) => ({ id: i.id, number: i.number, totalMinor: i.total_minor, status: i.status, createdAt: i.created_at, payUrl: i.pay_url, receiptUrl: i.receipt_url })),
+        invoices: (portal?.invoices || []).map((i) => ({
+          id: i.id,
+          number: i.number,
+          totalMinor: i.total_minor,
+          status: i.status,
+          createdAt: i.created_at,
+          payUrl: i.pay_url,
+          receiptUrl: i.receipt_url,
+        })),
       }
     },
     async webhook() {
