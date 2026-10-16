@@ -11,6 +11,10 @@ export function loadConfig(env = process.env) {
   return {
     production,
     moyasarSecretKey: env.MOYASAR_SECRET_KEY || '',
+    // Unified billing (mirqam-billing). When BILLING_URL is set it replaces the direct Moyasar flow.
+    billingUrl: env.BILLING_URL || '',
+    billingApiKey: env.BILLING_API_KEY || '',
+    billingWebhookSecret: env.BILLING_WEBHOOK_SECRET || '',
     // Optional: the secret_token configured on the Moyasar webhook; when set, webhooks without it are refused.
     moyasarWebhookSecret: env.MOYASAR_WEBHOOK_SECRET || '',
     // Transactional email (Resend). Without a key subscription emails are skipped; events still show in-app.

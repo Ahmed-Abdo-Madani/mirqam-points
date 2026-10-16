@@ -7,7 +7,15 @@ import { dateTime, money } from '../../lib/format.js'
 
 const TONE = { active: 'green', expiring: 'amber', expired: 'red', trial: 'blue', none: 'gray' }
 
-/* Subscription state, plans (subscribe / renew / switch) and the lifecycle history. */
+/* Only ever leave the console for the payment page we expect. */
+function safeCheckout(url, host) {
+  const u = new URL(url)
+  const allowed = host ? u.hostname === host : u.hostname === 'checkout.moyasar.com'
+  if (u.protocol !== 'https:' || !allowed) throw new Error('invalid_checkout')
+  return u.href
+}
+
+/* Subscription state, plans (subscribe / renew / switch), auto-renewal, card, invoices and history. */
 export default function Billing() {
   const { t, locale } = useI18n()
   const errorText = useErrorText()
@@ -17,7 +25,11 @@ export default function Billing() {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState(null)
   const [result, setResult] = useState(null)
-  const checkout = new URLSearchParams(window.location.search).get('checkout')
+  const [coupon, setCoupon] = useState('')
+  const [quote, setQuote] = useState(null)
+  const [autoRenew, setAutoRenew] = useState(false)
+  const params = new URLSearchParams(window.location.search)
+  const checkout = params.get('checkout') || (params.get('billing') === 'paid' ? params.get('session') || 'latest' : null)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: confirm once per returned checkout id.
   useEffect(() => {
@@ -40,22 +52,63 @@ export default function Billing() {
     }
   }, [checkout])
 
+  const refresh = () => {
+    reload()
+    state.reload()
+    events.reload()
+  }
+
+  async function run(fn) {
+    setBusy(true)
+    setFailure(null)
+    try {
+      await fn()
+    } catch (e) {
+      setFailure(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function subscribe(cycle) {
     setBusy(true)
     setFailure(null)
     try {
-      const r = await api('/billing/checkout', { method: 'POST', body: { cycle }, idempotencyKey: crypto.randomUUID() })
-      const url = new URL(r.url)
-      if (url.protocol !== 'https:' || url.hostname !== 'checkout.moyasar.com') throw new Error('invalid_checkout')
-      window.location.assign(url.href)
+      const r = await api('/billing/checkout', { method: 'POST', body: { cycle, coupon: coupon.trim() || undefined, autoRenew }, idempotencyKey: crypto.randomUUID() })
+      if (!r.url) {
+        setResult(r.status)
+        refresh()
+        setBusy(false)
+        return
+      }
+      window.location.assign(safeCheckout(r.url, data?.checkoutHost))
     } catch (e) {
       setFailure(e)
       setBusy(false)
     }
   }
 
+  const checkCoupon = (cycle) =>
+    run(async () => {
+      setQuote(null)
+      setQuote(await api('/billing/coupon', { method: 'POST', body: { cycle, coupon: coupon.trim() } }))
+    })
+
+  const updateCard = () =>
+    run(async () => {
+      const r = await api('/billing/payment-method', { method: 'POST', body: {} })
+      if (r.url) window.location.assign(safeCheckout(r.url, data?.checkoutHost))
+    })
+
+  const post = (path, body = {}) =>
+    run(async () => {
+      await api(path, { method: 'POST', body })
+      refresh()
+    })
+
   const s = state.data
   const current = data?.subscription
+  const remote = Boolean(data?.remote)
   return (
     <>
       <PageHeader title={t('billing.title')} subtitle={t('billing.vat')} />
@@ -85,20 +138,80 @@ export default function Billing() {
                 </p>
               )}
               {s?.state === 'trial' && <p>{t('billing.trialLeft', { n: s.daysLeft })}</p>}
+              {remote && current?.status === 'past_due' && <p className="mt-2 text-err">{t('billing.pastDue')}</p>}
+              {remote && current?.active && (
+                <div className="mt-4 grid gap-3">
+                  <p className="text-sm">
+                    {t(current.auto_renew ? 'billing.autoRenewOn' : 'billing.autoRenewOff')}
+                    {current.payment_method && (
+                      <span className="text-muted">
+                        {' '}
+                        · {t('billing.card', { brand: current.payment_method.brand || '', last4: current.payment_method.last4 || '' })}
+                      </span>
+                    )}
+                  </p>
+                  {current.cancel_at_period_end && <p className="text-sm text-err">{t('billing.endsAtPeriodEnd')}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {current.payment_method && (
+                      <Button variant="outline" disabled={busy} onClick={() => post('/billing/auto-renew', { enabled: !current.auto_renew })}>
+                        {t(current.auto_renew ? 'billing.turnOffAutoRenew' : 'billing.turnOnAutoRenew')}
+                      </Button>
+                    )}
+                    <Button variant="outline" disabled={busy} onClick={updateCard}>
+                      {t(current.payment_method ? 'billing.updateCard' : 'billing.addCard')}
+                    </Button>
+                    {current.cancel_at_period_end ? (
+                      <Button variant="outline" disabled={busy} onClick={() => post('/billing/resume')}>
+                        {t('billing.resume')}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" disabled={busy} onClick={() => window.confirm(t('billing.cancelConfirm')) && post('/billing/cancel')}>
+                        {t('billing.cancel')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
               {!data.ready && <p className="text-err">{t('errors.billing_unavailable')}</p>}
             </Card>
 
             <div>
               <h2 className="mb-3 text-[17px] font-bold">{t('billing.plans')}</h2>
+              {remote && (
+                <Card className="mb-4">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <label className="grid gap-1 text-sm">
+                      {t('billing.coupon')}
+                      <input
+                        className="rounded-lg border border-line bg-surface px-3 py-2 uppercase"
+                        value={coupon}
+                        maxLength={40}
+                        onChange={(e) => {
+                          setCoupon(e.target.value)
+                          setQuote(null)
+                        }}
+                      />
+                    </label>
+                    <Button variant="outline" disabled={busy || !coupon.trim()} onClick={() => checkCoupon(current?.cycle || 'monthly')}>
+                      {t('billing.applyCoupon')}
+                    </Button>
+                  </div>
+                  {quote && <p className="mt-2 text-sm text-ok">{t('billing.couponOk', { amount: money(quote.discount_minor, locale) })}</p>}
+                  <label className="mt-3 flex items-start gap-2 text-sm">
+                    <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="mt-1" />
+                    <span>{t('billing.autoRenewConsent')}</span>
+                  </label>
+                </Card>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 {['monthly', 'yearly'].map((cycle) => {
                   const mine = current?.active && current.cycle === cycle
                   const label = mine ? 'billing.renew' : current?.active ? 'billing.switchPlan' : 'billing.subscribe'
                   return (
                     <Card key={cycle} title={t(`billing.${cycle}`)} action={mine && <Badge tone="teal">{t('billing.currentPlan')}</Badge>}>
-                      <p className="mb-1 text-2xl font-bold tnum">{money(data.prices[cycle], locale)}</p>
+                      <p className="mb-1 text-2xl font-bold tnum">{data.prices[cycle] != null ? money(data.prices[cycle], locale) : '—'}</p>
                       <p className="mb-4 text-xs text-muted">{t(cycle === 'monthly' ? 'billing.perMonth' : 'billing.perYear')}</p>
-                      <Button disabled={busy || !data.ready} loading={busy} onClick={() => subscribe(cycle)}>
+                      <Button disabled={busy || !data.ready || data.prices[cycle] == null} loading={busy} onClick={() => subscribe(cycle)}>
                         {t(label)}
                       </Button>
                     </Card>
@@ -106,6 +219,39 @@ export default function Billing() {
                 })}
               </div>
             </div>
+
+            {remote && (
+              <Card title={t('billing.invoices')} bodyClass="">
+                {data.invoices?.length ? (
+                  <ul className="divide-y divide-line">
+                    {data.invoices.map((i) => (
+                      <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-6 py-3">
+                        <div>
+                          <p className="font-semibold tnum">{i.number}</p>
+                          <p className="text-xs text-muted">
+                            {dateTime(i.createdAt, locale)} · {money(i.totalMinor, locale)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {i.payUrl && (
+                            <a className="text-accent underline" href={i.payUrl}>
+                              {t('billing.payNow')}
+                            </a>
+                          )}
+                          {i.receiptUrl && (
+                            <a className="text-accent underline" href={i.receiptUrl} target="_blank" rel="noopener noreferrer">
+                              {t('billing.receipt')}
+                            </a>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-6 py-5 text-sm text-muted">{t('billing.invoicesEmpty')}</p>
+                )}
+              </Card>
+            )}
 
             <Card title={t('billing.history')} bodyClass="">
               {events.data?.items.length ? (

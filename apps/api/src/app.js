@@ -4,6 +4,7 @@ import express from 'express'
 import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
 import { createBilling } from './billing.js'
+import { createRemoteBilling } from './billing-remote.js'
 import { errorHandler, HttpError } from './http.js'
 import authRoutes from './routes/auth.js'
 import billingRoutes from './routes/billing.js'
@@ -122,9 +123,20 @@ export function createApp({ db, config }) {
   // Apple Wallet devices call this directly and authenticate with per-pass tokens.
   app.use('/api/wallet/apple', appleWebService({ db, config, wallet }))
 
-  const billing = createBilling({ db, config })
+  // Unified billing service when configured; the legacy direct-Moyasar flow otherwise.
+  const billing = config.billingUrl ? createRemoteBilling({ db, config, HttpError }) : createBilling({ db, config })
   // The scheduler in server.js reads the billing service from here.
   app.locals.billing = billing
+  // Signed entitlement updates from mirqam-billing. Raw body: the signature covers the exact bytes.
+  app.post('/api/billing/hooks', express.text({ type: '*/*', limit: '256kb' }), async (req, res, next) => {
+    try {
+      if (!billing.remote) throw new HttpError(404, 'not_found')
+      await billing.hook(typeof req.body === 'string' ? req.body : '', req.get('x-mirqam-signature'))
+      res.json({ ok: true })
+    } catch (err) {
+      next(err)
+    }
+  })
 
   // Logo uploads carry a base64 PNG, so they get a larger body limit than the rest of the API.
   app.use(
