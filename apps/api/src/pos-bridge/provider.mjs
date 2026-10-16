@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import rateLimit from 'express-rate-limit'
 import { bridgeCopy } from './copy.mjs'
 
 const digest = (s) => createHash('sha256').update(String(s)).digest('base64url')
@@ -8,8 +9,9 @@ const failure = (status, message) => Object.assign(new Error(message), { status 
 const safeEqual = (a, b) => typeof a === 'string' && typeof b === 'string' && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 export const POS_ORIGIN = 'https://pos.mirqam.sa'
 export const POS_API = 'https://mirqam-api.onrender.com/v1/mirqam-apps'
-/** Account association only. This does not mint an application session, API key,
- * data export or billing entitlement. Native authentication remains mandatory. */
+/** Existing accounts require native owner consent. New trials use a short-lived
+ * POS owner proof; native adapters create their own session and billing state.
+ * No native session credential is ever returned to POS. */
 export function installPosBridge({
   app,
   store,
@@ -20,6 +22,7 @@ export function installPosBridge({
   register,
   tokenKey = '',
   assets,
+  trialDays = 0,
   fetcher = fetch,
   posApi = POS_API,
   posOrigin = POS_ORIGIN,
@@ -31,16 +34,78 @@ export function installPosBridge({
     if (origin && origin !== `${req.protocol}://${req.get('host')}`) return res.status(403).json({ error: 'origin_denied' })
     next()
   }
-  const config = { product, home, login, register, tokenKey, posOrigin, copy: bridgeCopy }
+  const config = {
+    product,
+    home,
+    login,
+    register,
+    tokenKey,
+    posOrigin,
+    copy: bridgeCopy,
+    installReady: Boolean(store.provision && store.startSession),
+    trialDays,
+  }
   app.get('/pos/font.otf', (_req, res) => res.type('font/otf').sendFile(assets.font))
   app.get('/pos/logo.svg', (_req, res) => res.type('svg').sendFile(assets.logo))
   app.get('/pos/bridge.js', (_req, res) => res.type('js').sendFile(assets.script))
   app.get('/pos/bridge.css', (_req, res) => res.type('css').sendFile(assets.style))
-  app.get(['/pos/connect', '/pos/embedded'], (_req, res) => {
+  app.get(['/pos/connect', '/pos/embedded', '/pos/install'], (_req, res) => {
     res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' })
     res.sendFile(assets.html)
   })
   app.get('/pos/config', (_req, res) => res.set('Cache-Control', 'no-store').json(config))
+  const installing = new Set()
+  app.post(
+    '/api/pos/install',
+    ownOrigin,
+    rateLimit({ windowMs: 900000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false }),
+    wrap(async (req, res) => {
+      const { state, proof } = req.body ?? {}
+      if (!valid(state) || !valid(proof) || !config.installReady) throw failure(400, 'invalid_request')
+      if (installing.has(state)) throw failure(409, 'install_busy')
+      installing.add(state)
+      try {
+        // The proof is issued only after a POS owner confirms installation. Resolve
+        // identity from the fixed POS server, never from browser-supplied email/IDs.
+        const r = await fetcher(`${posApi}/install-requests/${state}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app: product, proof }),
+          signal: AbortSignal.timeout(8000),
+          redirect: 'error',
+        })
+        if (!r.ok) throw failure(400, 'expired_request')
+        const request = await r.json()
+        if (
+          request.app !== product ||
+          !valid(request.challenge) ||
+          request.expiresAt <= Date.now() ||
+          typeof request.subject !== 'string' ||
+          request.subject.length > 240 ||
+          typeof request.email !== 'string' ||
+          request.email.length > 254 ||
+          !/^\S+@\S+\.\S+$/.test(request.email)
+        )
+          throw failure(400, 'invalid_request')
+        const identity = await store.provision(request)
+        if (!identity?.canLink) throw failure(403, 'owner_required')
+        const code = random()
+        await store.put(`code:${digest(code)}`, {
+          state,
+          challenge: request.challenge,
+          posTenant: request.tenantRef,
+          identity: { id: identity.id, name: identity.name },
+          expiresAt: Date.now() + 120000,
+        })
+        const session = await store.startSession(req, res, identity)
+        res
+          .set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' })
+          .json({ ...session, returnUrl: `${posOrigin}/marketplace/callback?app=${product}&state=${state}&code=${code}` })
+      } finally {
+        installing.delete(state)
+      }
+    }),
+  )
   app.get(
     '/api/pos/identity',
     authenticate,
@@ -128,7 +193,8 @@ export function installPosBridge({
       if (!valid(id)) throw failure(400, 'invalid_request')
       const record = await store.get(`link:${id}`)
       if (!record?.active || String(record.identity.id) !== String(identity.id) || !identity.canLink) throw failure(403, 'wrong_account')
-      res.json({ ok: true, home, accountName: identity.name })
+      const access = store.access ? await store.access(identity) : null
+      res.json({ ok: true, home: access?.allowed === false ? access.billingUrl : home, accountName: identity.name, access })
     }),
   )
 }

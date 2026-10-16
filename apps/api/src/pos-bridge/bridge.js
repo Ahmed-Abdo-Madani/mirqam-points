@@ -3,6 +3,8 @@
 ;(async () => {
   const $ = (id) => document.getElementById(id),
     params = new URLSearchParams(location.search)
+  const installProof = new URLSearchParams(location.hash.slice(1)).get('proof')
+  if (installProof) history.replaceState(null, '', location.pathname + location.search)
   const config = await fetch('/pos/config', { cache: 'no-store' }).then((r) => r.json())
   const locale = new URLSearchParams(location.search).get('locale') === 'en' ? 'en' : 'ar',
     t = config.copy[locale]
@@ -109,7 +111,22 @@
       busy = false
     }
   }
-  await check()
+  if (location.pathname === '/pos/install' && installProof) {
+    try {
+      message(t.installing)
+      const d = await api('install', { state: request, proof: installProof })
+      if (config.tokenKey && d.token) localStorage.setItem(config.tokenKey, d.token)
+      const u = new URL(d.returnUrl)
+      if (u.origin !== config.posOrigin || u.pathname !== '/marketplace/callback') throw Error(t.invalidDestination)
+      location.replace(u.href)
+      return
+    } catch (e) {
+      message(e.message)
+      action(t.login, config.login)
+      action(t.back, config.posOrigin + '/marketplace')
+      if (e.status !== 409) return
+    }
+  } else await check()
   window.addEventListener('focus', check)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void check()
