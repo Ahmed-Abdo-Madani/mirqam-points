@@ -95,6 +95,7 @@ export function installPosBridge({
           challenge: request.challenge,
           posTenant: request.tenantRef,
           identity: { id: identity.id, name: identity.name },
+          provisioned: true,
           expiresAt: Date.now() + 120000,
         })
         const session = await store.startSession(req, res, identity)
@@ -170,7 +171,14 @@ export function installPosBridge({
         createdAt: Date.now(),
         active: true,
       })
-      res.json({ id, accountName: record.identity.name, accountRef: record.identity.id, revoke, embeddedUrl: `/pos/embedded?link=${id}` })
+      res.json({
+        id,
+        accountName: record.identity.name,
+        accountRef: record.identity.id,
+        provisioned: record.provisioned === true,
+        revoke,
+        embeddedUrl: `/pos/embedded?link=${id}`,
+      })
     }),
   )
   app.post(
