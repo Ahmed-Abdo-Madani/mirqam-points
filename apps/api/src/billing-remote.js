@@ -161,7 +161,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       const r = await call(
         'POST',
         'checkout-sessions',
-        { account: await account(tenantId), plan: PLAN, cycle, coupon: opts.coupon || undefined, auto_renew: opts.autoRenew === true, return_url: `${opts.returnBase || config.publicUrl}/app/billing` },
+        { account: await account(tenantId), plan: PLAN, cycle, coupon: opts.coupon || undefined, auto_renew: opts.autoRenew === true, referral: /^[a-f0-9]{32}$/.test(opts.referral || '') ? opts.referral : undefined, return_url: `${opts.returnBase || config.publicUrl}/app/billing` },
         requestKey ? `loyalty-${tenantId}-${requestKey}`.slice(0, 120) : undefined,
       )
       if (r.done || r.completed) await sync(tenantId).catch(() => {})
