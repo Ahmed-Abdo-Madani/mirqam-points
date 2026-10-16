@@ -3,6 +3,16 @@ import rateLimit from 'express-rate-limit'
 import { requireAuth, requireRole } from '../auth.js'
 import { HttpError, idempotencyKey } from '../http.js'
 
+// After paying, the customer must come back to the same address they signed in on: the
+// session cookie is host-only, so returning to another Loyalty domain would ask them to log in again.
+const RETURN_HOSTS = /^https:\/\/(loyalty\.mirqam\.sa|points\.mirqam\.sa|mirqam-points\.onrender\.com)$/
+export function returnBase(req) {
+  const origin = String(req.get('origin') || '')
+  if (RETURN_HOSTS.test(origin)) return origin
+  const own = `${req.protocol}://${req.get('host')}`
+  return RETURN_HOSTS.test(own) ? own : undefined
+}
+
 export default function billingRoutes(billing) {
   const r = Router()
   r.post('/moyasar/webhook', rateLimit({ windowMs: 60000, limit: 120 }), async (req, res) => {
@@ -18,7 +28,7 @@ export default function billingRoutes(billing) {
     res.json({ items: rows.map((e) => ({ id: e.id, kind: e.kind, data: e.data, emailStatus: e.email_status, createdAt: e.created_at })) })
   })
   r.post('/checkout', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
-    const opts = { coupon: typeof req.body.coupon === 'string' ? req.body.coupon.slice(0, 40) : undefined, autoRenew: req.body.autoRenew === true }
+    const opts = { coupon: typeof req.body.coupon === 'string' ? req.body.coupon.slice(0, 40) : undefined, autoRenew: req.body.autoRenew === true, returnBase: returnBase(req) }
     const c = await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), opts)
     res.json({ id: c.id, url: c.checkout_url, status: c.status, scheduled: Boolean(c.scheduled) })
   })
@@ -32,7 +42,7 @@ export default function billingRoutes(billing) {
   r.post('/resume', remote, async (req, res) => res.json(await billing.resume(req.auth.tenantId)))
   r.post('/auto-renew', remote, async (req, res) => res.json(await billing.autoRenew(req.auth.tenantId, req.body.enabled === true)))
   r.post('/payment-method', remote, rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
-    const r2 = await billing.paymentMethod(req.auth.tenantId)
+    const r2 = await billing.paymentMethod(req.auth.tenantId, returnBase(req))
     res.json({ url: r2.url, completed: Boolean(r2.completed) })
   })
   r.post('/checkout/:id/confirm', rateLimit({ windowMs: 60000, limit: 30 }), async (req, res) => {

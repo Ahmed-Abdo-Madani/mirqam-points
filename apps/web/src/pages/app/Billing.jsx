@@ -27,7 +27,7 @@ export default function Billing() {
   const [result, setResult] = useState(null)
   const [coupon, setCoupon] = useState('')
   const [quote, setQuote] = useState(null)
-  const [autoRenew, setAutoRenew] = useState(false)
+  const [autoRenew, setAutoRenew] = useState(true)
   const params = new URLSearchParams(window.location.search)
   const checkout = params.get('checkout') || (params.get('billing') === 'paid' ? params.get('session') || 'latest' : null)
 

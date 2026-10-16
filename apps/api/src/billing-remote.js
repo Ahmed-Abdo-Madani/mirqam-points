@@ -161,7 +161,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       const r = await call(
         'POST',
         'checkout-sessions',
-        { account: await account(tenantId), plan: PLAN, cycle, coupon: opts.coupon || undefined, auto_renew: opts.autoRenew === true, return_url: `${config.publicUrl}/app/billing` },
+        { account: await account(tenantId), plan: PLAN, cycle, coupon: opts.coupon || undefined, auto_renew: opts.autoRenew === true, return_url: `${opts.returnBase || config.publicUrl}/app/billing` },
         requestKey ? `loyalty-${tenantId}-${requestKey}`.slice(0, 120) : undefined,
       )
       if (r.done || r.completed) await sync(tenantId).catch(() => {})
@@ -177,7 +177,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     async cancel(tenantId) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/cancel`, {}); await apply(e); return e },
     async resume(tenantId) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/resume`, {}); await apply(e); return e },
     async autoRenew(tenantId, enabled) { const e = await call('POST', `subscriptions/${encodeURIComponent(tenantId)}/auto-renew`, { enabled: Boolean(enabled) }); await apply(e); return e },
-    async paymentMethod(tenantId) { return call('POST', `subscriptions/${encodeURIComponent(tenantId)}/payment-method`, { return_url: `${config.publicUrl}/app/billing` }) },
+    async paymentMethod(tenantId, base) { return call('POST', `subscriptions/${encodeURIComponent(tenantId)}/payment-method`, { return_url: `${base || config.publicUrl}/app/billing` }) },
     /* Reconciles cached entitlements with billing (missed webhooks, clock edges). Billing does all reminders and emails. */
     async runLifecycle(now = new Date()) {
       const due = (
