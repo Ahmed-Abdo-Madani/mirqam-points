@@ -128,3 +128,10 @@ iframe {
   display: block;
   margin-bottom: 10px;
 }
+
+/* Keep the official wordmark legible on the dark connection surface. */
+@media (prefers-color-scheme: dark) {
+  .brand img {
+    filter: brightness(0) invert(1);
+  }
+}
