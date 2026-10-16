@@ -38,7 +38,12 @@ export default function billingRoutes(billing) {
     const coupon = typeof req.body.coupon === 'string' ? req.body.coupon.slice(0, 40) : ''
     const referral = String(req.headers.cookie || '').match(/(?:^|;\s*)__Secure-mirqam-ref-loyalty=([a-f0-9]{32})(?:;|$)/)?.[1] || ''
     const c = billing.remote
-      ? await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), { coupon: coupon || undefined, autoRenew: req.body.autoRenew === true, returnBase: returnBase(req), referral: referral || undefined })
+      ? await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), {
+          coupon: coupon || undefined,
+          autoRenew: req.body.autoRenew === true,
+          returnBase: returnBase(req),
+          referral: referral || undefined,
+        })
       : await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), coupon, referral)
     res.json({ id: c.id, url: c.checkout_url, status: c.status, scheduled: Boolean(c.scheduled) })
   })
