@@ -1,4 +1,5 @@
 import { createApp } from './app.js'
+import { startCommerceWorker } from './commerce.js'
 import { loadConfig } from './config.js'
 import { openDb } from './db/index.js'
 import { migrate } from './db/migrate.js'
@@ -8,6 +9,7 @@ const db = await openDb(config.databaseUrl)
 await migrate(db, { log: console.log })
 
 const app = createApp({ db, config })
+const stopCommerce = startCommerceWorker(app.locals.commerceBilling)
 const server = app.listen(config.port, () => {
   console.log(`[api] listening on http://localhost:${server.address().port} (db: ${db.kind}${config.production ? ', production' : ''})`)
 })
@@ -26,6 +28,7 @@ async function shutdown(signal) {
   if (closing) return
   closing = true
   console.log(`[api] ${signal} — shutting down`)
+  stopCommerce()
   server.close()
   await db.close().catch(() => {})
   process.exit(0)

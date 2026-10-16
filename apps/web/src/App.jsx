@@ -7,6 +7,7 @@ import { useI18n } from './i18n/index.jsx'
 import { NATIVE } from './lib/api.js'
 import { useSession } from './lib/session.jsx'
 import Auth from './pages/Auth.jsx'
+import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
 import Landing from './pages/Landing.jsx'
 
 const Dashboard = lazy(() => import('./pages/app/Dashboard.jsx'))
@@ -57,6 +58,8 @@ export default function App() {
   return (
     <Suspense fallback={<Skeleton className="p-10" rows={2} />}>
       <Routes>
+        <Route path="/hq-entry" element={<HqEntry />} />
+        <Route path="/hq-admin" element={<HqAdmin />} />
         {/* The native app is the merchant console: it opens straight into it. */}
         <Route path="/" element={NATIVE ? <Navigate to="/app" replace /> : <Landing />} />
         <Route path="/p/:token" element={<PassPage />} />

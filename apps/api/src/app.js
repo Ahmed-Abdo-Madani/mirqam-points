@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
 import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
+import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError } from './http.js'
 import authRoutes from './routes/auth.js'
 import billingRoutes from './routes/billing.js'
@@ -127,6 +128,8 @@ export function createApp({ db, config }) {
   const billing = config.billingUrl ? createRemoteBilling({ db, config, HttpError }) : createBilling({ db, config })
   // The scheduler in server.js reads the billing service from here.
   app.locals.billing = billing
+  // Employee/referral attribution outbox of direct-Moyasar checkouts keeps draining after the switch.
+  app.locals.commerceBilling = billing.remote ? createBilling({ db, config }) : billing
   // Signed entitlement updates from mirqam-billing. Raw body: the signature covers the exact bytes.
   app.post('/api/billing/hooks', express.text({ type: '*/*', limit: '256kb' }), async (req, res, next) => {
     try {
@@ -149,7 +152,9 @@ export function createApp({ db, config }) {
     brandingRoutes({ db, wallet }),
   )
   installSocialLogin(app, { db, config })
-  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db), billing.gate())
+  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
+  installHqAdmin(app, { db, config, wallet })
+  app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
   app.use('/api/billing', billingRoutes(billing))

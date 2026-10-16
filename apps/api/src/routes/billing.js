@@ -24,12 +24,22 @@ export default function billingRoutes(billing) {
   r.use(requireAuth, requireRole('owner'))
   r.get('/', async (req, res) => res.json(await billing.status(req.auth.tenantId)))
   r.get('/events', async (req, res) => {
+    if (!billing.events) return res.json({ items: [] })
     const rows = await billing.events(req.auth.tenantId)
     res.json({ items: rows.map((e) => ({ id: e.id, kind: e.kind, data: e.data, emailStatus: e.email_status, createdAt: e.created_at })) })
   })
+  r.post('/quote', rateLimit({ windowMs: 60000, limit: 20 }), async (req, res) => {
+    if (!billing.remote) return res.json(await billing.preview(req.auth.tenantId, req.body.cycle, req.body.coupon))
+    if (typeof req.body.coupon !== 'string' || !['monthly', 'yearly'].includes(req.body.cycle)) throw new HttpError(400, 'coupon_invalid')
+    const v = await billing.validateCoupon(req.auth.tenantId, req.body.cycle, req.body.coupon.slice(0, 40))
+    res.json({ subtotalMinor: v.subtotal_minor, discountMinor: v.discount_minor, amountMinor: v.total_minor, currency: 'SAR' })
+  })
   r.post('/checkout', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
-    const opts = { coupon: typeof req.body.coupon === 'string' ? req.body.coupon.slice(0, 40) : undefined, autoRenew: req.body.autoRenew === true, returnBase: returnBase(req) }
-    const c = await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), opts)
+    const coupon = typeof req.body.coupon === 'string' ? req.body.coupon.slice(0, 40) : ''
+    const referral = String(req.headers.cookie || '').match(/(?:^|;\s*)__Secure-mirqam-ref-loyalty=([a-f0-9]{32})(?:;|$)/)?.[1] || ''
+    const c = billing.remote
+      ? await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), { coupon: coupon || undefined, autoRenew: req.body.autoRenew === true, returnBase: returnBase(req) })
+      : await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), coupon, referral)
     res.json({ id: c.id, url: c.checkout_url, status: c.status, scheduled: Boolean(c.scheduled) })
   })
   // Unified billing only: coupons, auto-renew, cancel/resume and card updates.

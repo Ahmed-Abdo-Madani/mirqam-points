@@ -6,7 +6,39 @@ import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  hq: {
+    title: 'Mirqam Loyalty · Platform administration',
+    entering: 'Verifying platform administrator access…',
+    failed: 'Access could not be verified or the link expired. Return to Mirqam Center and try again.',
+    back: 'Mirqam Center',
+    refresh: 'Refresh',
+    clients: 'Businesses',
+    programs: 'Loyalty programs',
+    members: 'Program members',
+    collected: 'Confirmed subscription collections',
+    name: 'Business',
+    subscription: 'Subscription',
+    expires: 'Subscription expiry',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+    none: 'No paid subscription',
+    closed: 'Closed',
+    active: 'Open',
+    status: 'Status',
+    search: 'Search businesses',
+    wallet: 'Wallet service status',
+    empty: 'No matching businesses.',
+    updated: 'Last updated',
+    note: 'Collections include confirmed subscription payments only. Points, stamps and stored-value balances are not combined.',
+    loading: 'Loading platform data…',
+    denied: 'This page is restricted to platform administrators.',
+    home: 'Platform administration',
+  },
   billing: {
+    coupon: 'Discount code',
+    applyCoupon: 'Apply code',
+    couponApplied: 'Discount applied. Review the price before paying.',
+    discount: 'Discount',
     title: 'Subscription and payments',
     vat: 'All prices are in SAR and include VAT.',
     monthly: 'Monthly subscription',
@@ -317,6 +349,8 @@ const base = {
   },
 
   errors: {
+    coupon_invalid: 'The coupon is invalid for this plan or has expired.',
+    http_error: 'The service could not be reached. Please try again shortly.',
     social_reauth_required: 'Confirmation expired. Sign in through Google or GitHub again, then return to Settings.',
     billing_unavailable: 'Payments are currently unavailable. Please try later.',
     billing_provider_error: 'Unable to reach the payment provider. Try again.',
