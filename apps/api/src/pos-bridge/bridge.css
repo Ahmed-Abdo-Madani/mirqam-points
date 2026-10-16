@@ -1,0 +1,130 @@
+@font-face {
+  font-family: Watad;
+  src:
+    local("Watad"),
+    url("/pos/font.otf") format("opentype");
+  font-display: swap;
+}
+:root {
+  font-family: Watad, Tahoma, sans-serif;
+  color: #142739;
+  background: #f3f6f8;
+  color-scheme: light dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+.bridge {
+  max-width: 580px;
+  margin: 8vh auto;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid #dfe6ec;
+  border-radius: 22px;
+  box-shadow: 0 12px 35px #14273909;
+}
+.brand {
+  font-size: 32px;
+  font-weight: 700;
+  color: #16384b;
+}
+.brand span {
+  display: block;
+  color: #69808f;
+  font-size: 13px;
+  font-weight: 400;
+}
+h1 {
+  font-size: 24px;
+  margin: 28px 0 12px;
+}
+p {
+  line-height: 1.9;
+  color: #526878;
+  white-space: pre-line;
+}
+a,
+button {
+  font: inherit;
+  display: inline-block;
+  text-decoration: none;
+  border: 1px solid #dfe6ec;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin: 8px 0 8px 8px;
+  background: #fff;
+  color: #16384b;
+  cursor: pointer;
+}
+button {
+  background: #16384b;
+  color: white;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid #42a6a8;
+  outline-offset: 3px;
+}
+small {
+  display: block;
+  color: #69808f;
+  line-height: 1.8;
+}
+#workspace {
+  height: 100dvh;
+}
+iframe {
+  height: 100%;
+  width: 100%;
+  border: 0;
+  background: #f3f6f8;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 620px) {
+  .bridge {
+    margin: 18px;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 21px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    background: #0e1d29;
+    color: #edf3f7;
+  }
+  .bridge {
+    background: #152b3b;
+    border-color: #304656;
+  }
+  .brand,
+  a {
+    color: #dcecf3;
+  }
+  a {
+    background: #21394b;
+    border-color: #304656;
+  }
+  p,
+  small,
+  .brand span {
+    color: #a6bac8;
+  }
+}
+
+.brand img {
+  width: 150px;
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}

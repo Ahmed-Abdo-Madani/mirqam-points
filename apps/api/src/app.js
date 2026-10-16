@@ -7,6 +7,7 @@ import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
 import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError } from './http.js'
+import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import authRoutes from './routes/auth.js'
 import billingRoutes from './routes/billing.js'
 import brandingRoutes from './routes/branding.js'
@@ -61,6 +62,7 @@ export function createApp({ db, config }) {
   app.set('trust proxy', config.trustProxy)
   app.use(
     helmet({
+      xFrameOptions: false,
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
@@ -69,7 +71,7 @@ export function createApp({ db, config }) {
           fontSrc: ["'self'", 'data:'],
           imgSrc: ["'self'", 'data:', 'blob:'],
           connectSrc: ["'self'"],
-          frameAncestors: ["'none'"],
+          frameAncestors: ["'self'", 'https://pos.mirqam.sa'],
           formAction: ["'self'"],
           upgradeInsecureRequests: config.production ? [] : null,
         },
@@ -153,6 +155,7 @@ export function createApp({ db, config }) {
   )
   installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
+  installLoyaltyPosBridge({ app, db })
   installHqAdmin(app, { db, config, wallet })
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))

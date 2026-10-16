@@ -30,7 +30,7 @@ await check('unknown API routes return JSON 404', async () => {
 await check('security headers are present', async () => {
   const res = await new Agent().get('/api/health')
   expect(res.headers.get('x-content-type-options')).toBe('nosniff')
-  expect(res.headers.get('content-security-policy') || '').toMatch(/frame-ancestors 'none'/)
+  expect(res.headers.get('content-security-policy') || '').toMatch(/frame-ancestors 'self' https:\/\/pos\.mirqam\.sa(?:;|$)/)
   expect(res.headers.get('x-powered-by')).toBe(null)
 })
 

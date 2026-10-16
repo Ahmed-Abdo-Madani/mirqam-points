@@ -1,3 +1,4 @@
+import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
 import billing from './ar.billing.js'
@@ -6,6 +7,7 @@ import wallet from './ar.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  posBridge: bridgeCopy.ar,
   hq: {
     title: 'مرقام ولاء · الإدارة العليا',
     entering: 'جارٍ التحقق من دخول الإدارة العليا…',
