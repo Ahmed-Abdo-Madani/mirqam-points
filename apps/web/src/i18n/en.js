@@ -34,6 +34,10 @@ const base = {
     home: 'Platform administration',
   },
   billing: {
+    coupon: 'Discount code',
+    applyCoupon: 'Apply code',
+    couponApplied: 'Discount applied. Review the price before paying.',
+    discount: 'Discount',
     title: 'Subscription and payments',
     vat: 'All prices are in SAR and include VAT.',
     monthly: 'Monthly subscription',
@@ -344,6 +348,7 @@ const base = {
   },
 
   errors: {
+    coupon_invalid: 'The coupon is invalid for this plan or has expired.',
     http_error: 'The service could not be reached. Please try again shortly.',
     social_reauth_required: 'Confirmation expired. Sign in through Google or GitHub again, then return to Settings.',
     billing_unavailable: 'Payments are currently unavailable. Please try later.',
