@@ -74,7 +74,11 @@ export default function Billing() {
     setBusy(true)
     setFailure(null)
     try {
-      const r = await api('/billing/checkout', { method: 'POST', body: { cycle, coupon: coupon.trim() || undefined, autoRenew }, idempotencyKey: crypto.randomUUID() })
+      const r = await api('/billing/checkout', {
+        method: 'POST',
+        body: { cycle, coupon: coupon.trim() || undefined, autoRenew },
+        idempotencyKey: crypto.randomUUID(),
+      })
       if (!r.url) {
         setResult(r.status)
         refresh()
