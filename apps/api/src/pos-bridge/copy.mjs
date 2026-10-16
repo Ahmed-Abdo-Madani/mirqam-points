@@ -1,5 +1,6 @@
 export const bridgeCopy = {
   ar: {
+    installing: 'جارٍ إنشاء حسابك التجريبي وربطه…',
     title: 'ربط حسابك بمحاسبي',
     brand: 'تطبيقات متصلة بمنشأتك',
     loading: 'جارٍ التحقق من الحساب…',
@@ -22,6 +23,8 @@ export const bridgeCopy = {
     failed: 'تعذّر الربط؛ حاول مرة أخرى',
     invalidDestination: 'وجهة غير صالحة',
     errors: {
+      account_exists: 'البريد مسجّل في التطبيق بالفعل؛ سجّل الدخول بحساب المالك ثم عد للموافقة على الربط.',
+      install_busy: 'التثبيت قيد التنفيذ؛ انتظر قليلًا ثم أعد المحاولة.',
       origin_denied: 'المصدر غير مصرح',
       invalid_request: 'طلب الربط غير صالح',
       expired_request: 'انتهى طلب الربط؛ ابدأ من متجر تطبيقات محاسبي',
@@ -34,6 +37,7 @@ export const bridgeCopy = {
     },
   },
   en: {
+    installing: 'Creating and connecting your trial account…',
     title: 'Connect your account to Mirqam POS',
     brand: 'Apps connected to your business',
     loading: 'Checking your account…',
@@ -56,6 +60,8 @@ export const bridgeCopy = {
     failed: 'Unable to connect; try again',
     invalidDestination: 'Invalid destination',
     errors: {
+      account_exists: 'This email already has an account. Sign in as its owner, then return to approve the connection.',
+      install_busy: 'Installation is in progress. Try again shortly.',
       origin_denied: 'Origin not allowed',
       invalid_request: 'Invalid connection request',
       expired_request: 'The request expired. Start again from the POS marketplace.',

@@ -11,13 +11,15 @@ it('loyalty links use native owner sessions, survive SQL persistence and reject 
     verifier = randomBytes(32).toString('base64url'),
     db = await freshDb()
   global.fetch = async (url, options) =>
-    String(url).startsWith('https://mirqam-api.onrender.com/v1/mirqam-apps/requests/')
+    /^https:\/\/mirqam-api\.onrender\.com\/v1\/mirqam-apps\/(?:install-)?requests\//.test(String(url))
       ? new Response(
           JSON.stringify({
             app: 'loyalty',
             challenge: createHash('sha256').update(verifier).digest('base64url'),
             tenantRef: 'synthetic-pos',
             tenantName: 'Synthetic POS',
+            subject: 'synthetic-pos:owner',
+            email: 'new-pos@example.test',
             expiresAt: Date.now() + 600000,
           }),
         )
@@ -71,6 +73,21 @@ it('loyalty links use native owner sessions, survive SQL persistence and reject 
     cookie = ownerCookie
     expect((await call('/api/pos/revoke', { id: link.id, revoke: link.revoke })).status).toBe(200)
     expect((await call('/api/pos/links/' + link.id + '/check')).status).toBe(403)
+    r = await call('/api/pos/install', { state, proof: verifier, email: 'forged@example.test' })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('set-cookie')).toContain('HttpOnly')
+    cookie = r.headers.get('set-cookie').split(';')[0]
+    const created = (await db.query("SELECT * FROM users WHERE email='new-pos@example.test'")).rows[0]
+    expect(created).toBeTruthy()
+    expect((await db.query("SELECT * FROM users WHERE email='forged@example.test'")).rows.length).toBe(0)
+    const provisioned = (await db.query('SELECT * FROM pos_provisioned_accounts WHERE subject=$1', ['synthetic-pos:owner'])).rows[0]
+    expect(provisioned.user_id).toBe(created.id)
+    const start = (await db.query('SELECT created_at FROM tenants WHERE id=$1', [provisioned.tenant_id])).rows[0].created_at.toISOString()
+    expect((await call('/api/pos/install', { state, proof: verifier })).status).toBe(200)
+    expect((await db.query('SELECT created_at FROM tenants WHERE id=$1', [provisioned.tenant_id])).rows[0].created_at.toISOString()).toBe(start)
+    await db.query("UPDATE tenants SET created_at=now()-interval '90 days' WHERE id=$1", [provisioned.tenant_id])
+    expect((await call('/api/programs', { name: 'Should fail', kind: 'points' })).status).toBe(402)
+    expect((await call('/api/billing/state')).status).toBe(200)
   } finally {
     await new Promise((r) => server.close(r))
     await db.close()

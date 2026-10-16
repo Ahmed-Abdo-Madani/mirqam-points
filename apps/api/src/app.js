@@ -155,7 +155,7 @@ export function createApp({ db, config }) {
   )
   installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
-  installLoyaltyPosBridge({ app, db })
+  installLoyaltyPosBridge({ app, db, config, billing })
   installHqAdmin(app, { db, config, wallet })
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))

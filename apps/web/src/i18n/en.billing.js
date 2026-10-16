@@ -16,7 +16,8 @@ export default {
     coupon: 'Discount code',
     applyCoupon: 'Check code',
     couponOk: 'Code applied: {amount} off.',
-    autoRenewConsent: 'Renew my subscription automatically each period at the same price using the card I pay with. I will get a reminder before every renewal and can turn this off anytime.',
+    autoRenewConsent:
+      'Renew my subscription automatically each period at the same price using the card I pay with. I will get a reminder before every renewal and can turn this off anytime.',
     invoices: 'Invoices',
     invoicesEmpty: 'No invoices yet.',
     payNow: 'Pay now',
