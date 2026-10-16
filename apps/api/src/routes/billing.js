@@ -10,8 +10,11 @@ export default function billingRoutes(billing) {
   })
   r.use(requireAuth, requireRole('owner'))
   r.get('/', async (req, res) => res.json(await billing.status(req.auth.tenantId)))
+  r.post('/quote', rateLimit({ windowMs: 60000, limit: 20 }), async (req, res) =>
+    res.json(await billing.preview(req.auth.tenantId, req.body.cycle, req.body.coupon)),
+  )
   r.post('/checkout', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
-    const c = await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req))
+    const c = await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), req.body.coupon)
     res.json({ id: c.id, url: c.checkout_url, status: c.status })
   })
   r.post('/checkout/:id/confirm', rateLimit({ windowMs: 60000, limit: 30 }), async (req, res) => {
