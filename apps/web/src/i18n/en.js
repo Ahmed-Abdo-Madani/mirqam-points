@@ -1,3 +1,4 @@
+import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
 
 import billing from './en.billing.js'
@@ -6,6 +7,7 @@ import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  posBridge: bridgeCopy.en,
   hq: {
     title: 'Mirqam Loyalty · Platform administration',
     entering: 'Verifying platform administrator access…',
