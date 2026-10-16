@@ -12,13 +12,14 @@ beforeAll(async () => {
   commerce = {
     enabled: true,
     quote: vi.fn(async (body) => {
-      if (body.coupon !== 'STAFF10') throw Object.assign(new Error('coupon_invalid'), { status: 400 })
+      if (body.coupon !== 'STAFF10' && !(body.coupon === '' && /^[a-f0-9]{32}$/.test(body.referral)))
+        throw Object.assign(new Error('coupon_invalid'), { status: 400 })
       return {
         ...body,
         id: 'a'.repeat(64),
         platform: 'loyalty',
-        discountMinor: Math.round(body.subtotalMinor / 10),
-        amountMinor: body.subtotalMinor - Math.round(body.subtotalMinor / 10),
+        discountMinor: body.coupon ? Math.round(body.subtotalMinor / 10) : 0,
+        amountMinor: body.subtotalMinor - (body.coupon ? Math.round(body.subtotalMinor / 10) : 0),
         expiresAt: Date.now() + 86400000,
       }
     }),
@@ -91,4 +92,22 @@ it('central client fails closed on tampered prices and mismatched receipts', asy
   })
   await expect(client.quote(q)).rejects.toMatchObject({ status: 502 })
   await expect(client.confirm({ quoteId: 'q', paymentRef: 'p' })).rejects.toMatchObject({ status: 502 })
+})
+it('attributes referral-only payment at full price without double delivery', async () => {
+  const referral = 'c'.repeat(32),
+    before = commerce.confirm.mock.calls.length
+  const row = await service.checkout(b.tenantId, 'monthly', 'referral-order', '', referral)
+  expect(row.amount).toBe(6900)
+  expect(row.commerce_quote.referral).toBe(referral)
+  expect((await service.checkout(b.tenantId, 'monthly', 'referral-order', '', referral)).id).toBe(row.id)
+  await expect(service.checkout(b.tenantId, 'monthly', 'referral-order', '', 'd'.repeat(32))).rejects.toMatchObject({ status: 409 })
+  invoice.payments = [
+    { id: randomUUID(), invoice_id: invoice.id, status: 'paid', amount: 6900, currency: 'SAR', refunded: 0, updated_at: new Date().toISOString() },
+  ]
+  await service.confirm(b.tenantId, row.id)
+  await service.reconcileCommerce()
+  await service.confirm(b.tenantId, row.id)
+  await service.reconcileCommerce()
+  expect(commerce.confirm.mock.calls.length - before).toBe(1)
+  expect((await db.query('SELECT commerce_state FROM subscription_checkouts WHERE id=$1', [row.id])).rows[0].commerce_state).toBe('delivered')
 })

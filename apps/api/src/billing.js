@@ -32,9 +32,9 @@ export function createBilling({ db, config, fetcher = fetch, commerce = createCo
     if (code && !/^[A-Z0-9_-]{3,40}$/.test(code)) throw new HttpError(400, 'coupon_invalid')
     return code
   }
-  async function quote(tenantId, cycle, coupon, orderRef) {
+  async function quote(tenantId, cycle, coupon, orderRef, referral = '') {
     if (!Object.hasOwn(PRICES, cycle)) throw new HttpError(400, 'validation_failed')
-    return commerce.quote({ orderRef, accountRef: tenantId, plan: 'loyalty', cycle, currency: 'SAR', subtotalMinor: PRICES[cycle], coupon, referral: '' })
+    return commerce.quote({ orderRef, accountRef: tenantId, plan: 'loyalty', cycle, currency: 'SAR', subtotalMinor: PRICES[cycle], coupon, referral })
   }
   async function preview(tenantId, cycle, value) {
     const coupon = couponCode(value)
@@ -42,27 +42,29 @@ export function createBilling({ db, config, fetcher = fetch, commerce = createCo
     const q = await quote(tenantId, cycle, coupon, randomUUID())
     return { subtotalMinor: q.subtotalMinor, discountMinor: q.discountMinor, amountMinor: q.amountMinor, currency: 'SAR' }
   }
-  async function checkout(tenantId, cycle, requestKey, value = '') {
+  async function checkout(tenantId, cycle, requestKey, value = '', referralValue = '') {
     const coupon = couponCode(value)
+    const referral = /^[a-f0-9]{32}$/.test(referralValue) ? referralValue : ''
     if (!Object.hasOwn(PRICES, cycle)) throw new HttpError(400, 'validation_failed')
     if (!ready) throw new HttpError(503, 'billing_unavailable')
     // Serialize creation for this tenant, including retries with the same key.
     return db.tx(async (tx) => {
       await tx.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE', [tenantId])
       let row = (await tx.query('SELECT * FROM subscription_checkouts WHERE tenant_id=$1 AND request_key=$2', [tenantId, requestKey])).rows[0]
-      if (row && (row.cycle !== cycle || row.coupon_code !== coupon)) throw new HttpError(409, 'billing_request_conflict')
+      if (row && (row.cycle !== cycle || row.coupon_code !== coupon || (row.commerce_quote?.referral || '') !== referral))
+        throw new HttpError(409, 'billing_request_conflict')
       if (row?.checkout_url) return row
       // Reuse an unpaid invoice to avoid duplicate invoices on rapid clicks.
       if (!row)
         row = (
           await tx.query(
-            "SELECT * FROM subscription_checkouts WHERE tenant_id=$1 AND cycle=$2 AND coupon_code=$3 AND (commerce_quote IS NULL OR (commerce_quote->>'expiresAt')::numeric > extract(epoch from now())*1000) AND status='pending' AND created_at > now() - interval '23 hours' ORDER BY created_at DESC LIMIT 1",
-            [tenantId, cycle, coupon],
+            "SELECT * FROM subscription_checkouts WHERE tenant_id=$1 AND cycle=$2 AND coupon_code=$3 AND COALESCE(commerce_quote->>'referral','')=$4 AND (commerce_quote IS NULL OR (commerce_quote->>'expiresAt')::numeric > extract(epoch from now())*1000) AND status='pending' AND created_at > now() - interval '23 hours' ORDER BY created_at DESC LIMIT 1",
+            [tenantId, cycle, coupon, referral],
           )
         ).rows[0]
       if (row?.checkout_url) return row
       const id = randomUUID()
-      const q = coupon ? await quote(tenantId, cycle, coupon, id) : null
+      const q = coupon || referral ? await quote(tenantId, cycle, coupon, id, referral) : null
       row = (
         await tx.query(
           'INSERT INTO subscription_checkouts(id,tenant_id,request_key,cycle,amount,coupon_code,commerce_quote,commerce_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',

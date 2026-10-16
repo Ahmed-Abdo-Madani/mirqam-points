@@ -14,7 +14,13 @@ export default function billingRoutes(billing) {
     res.json(await billing.preview(req.auth.tenantId, req.body.cycle, req.body.coupon)),
   )
   r.post('/checkout', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
-    const c = await billing.checkout(req.auth.tenantId, req.body.cycle, idempotencyKey(req), req.body.coupon)
+    const c = await billing.checkout(
+      req.auth.tenantId,
+      req.body.cycle,
+      idempotencyKey(req),
+      req.body.coupon,
+      String(req.headers.cookie || '').match(/(?:^|;\s*)__Secure-mirqam-ref-loyalty=([a-f0-9]{32})(?:;|$)/)?.[1] || '',
+    )
     res.json({ id: c.id, url: c.checkout_url, status: c.status })
   })
   r.post('/checkout/:id/confirm', rateLimit({ windowMs: 60000, limit: 30 }), async (req, res) => {
