@@ -23,6 +23,7 @@ export function installPosBridge({
   tokenKey = '',
   assets,
   trialDays = 0,
+  loyaltyOperations = false,
   fetcher = fetch,
   posApi = POS_API,
   posOrigin = POS_ORIGIN,
@@ -42,6 +43,7 @@ export function installPosBridge({
     tokenKey,
     posOrigin,
     copy: bridgeCopy,
+    loyaltyOperations,
     installReady: Boolean(store.provision && store.startSession),
     trialDays,
   }
@@ -162,12 +164,14 @@ export function installPosBridge({
       if (!record || record.expiresAt <= Date.now() || record.state !== state || !safeEqual(record.challenge, digest(verifier)))
         throw failure(401, 'invalid_code')
       const id = random(),
-        revoke = random()
+        revoke = random(),
+        loyaltyAccess = loyaltyOperations ? random() : null
       await store.put(`link:${id}`, {
         id,
         identity: record.identity,
         posTenant: record.posTenant,
         revokeHash: digest(revoke),
+        ...(loyaltyAccess ? { loyaltyAccessHash: digest(loyaltyAccess) } : {}),
         createdAt: Date.now(),
         active: true,
       })
@@ -177,6 +181,7 @@ export function installPosBridge({
         accountRef: record.identity.id,
         provisioned: record.provisioned === true,
         revoke,
+        ...(loyaltyAccess ? { loyaltyAccess } : {}),
         embeddedUrl: `/pos/embedded?link=${id}`,
       })
     }),

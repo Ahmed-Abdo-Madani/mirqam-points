@@ -10,6 +10,7 @@ export function installLoyaltyPosBridge({ app, db, config, billing }) {
     app,
     authenticate: requireAuth,
     product: 'loyalty',
+    loyaltyOperations: true,
     trialDays: config.trialDays,
     home: '/app',
     login: '/login',
