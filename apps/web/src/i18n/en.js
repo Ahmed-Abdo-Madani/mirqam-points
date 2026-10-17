@@ -351,6 +351,15 @@ const base = {
   },
 
   errors: {
+    pos_loyalty_not_configured: 'Complete loyalty connection setup first',
+    pos_discount_exceeds_sale: 'Reward exceeds the eligible sale amount',
+    pos_link_unavailable: 'Loyalty connection unavailable; reconnect from the marketplace',
+    pos_link_conflict: 'Loyalty account is connected to another business',
+    pos_program_type_mismatch: 'Program type does not match the imported balance',
+    pos_sale_reversed: 'Loyalty transaction was reversed',
+    pos_quote_changed: 'Loyalty settings changed; reprice the order',
+    pos_sale_not_open: 'Loyalty transaction is not ready',
+
     coupon_invalid: 'The coupon is invalid for this plan or has expired.',
     http_error: 'The service could not be reached. Please try again shortly.',
     social_reauth_required: 'Confirmation expired. Sign in through Google or GitHub again, then return to Settings.',

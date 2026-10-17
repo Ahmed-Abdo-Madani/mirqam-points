@@ -350,6 +350,15 @@ const base = {
   },
 
   errors: {
+    pos_loyalty_not_configured: 'أكمل إعداد ربط الولاء أولًا',
+    pos_discount_exceeds_sale: 'قيمة المكافأة تتجاوز المبلغ المؤهل للخصم',
+    pos_link_unavailable: 'ربط الولاء غير متاح؛ أعد تفويضه من المتجر',
+    pos_link_conflict: 'حساب الولاء مرتبط بمنشأة أخرى',
+    pos_program_type_mismatch: 'نوع البرنامج لا يطابق الرصيد المنقول',
+    pos_sale_reversed: 'تم عكس عملية الولاء لهذه الفاتورة',
+    pos_quote_changed: 'تغير إعداد الولاء؛ أعد تسعير الطلب',
+    pos_sale_not_open: 'عملية الولاء لم تجهز بعد',
+
     coupon_invalid: 'الكوبون غير صالح لهذه الباقة أو انتهت صلاحيته.',
     http_error: 'تعذر الاتصال بالخدمة. حاول مجددًا بعد قليل.',
     social_reauth_required: 'انتهت مهلة التأكيد. أعد الدخول عبر Google أو GitHub ثم ارجع إلى الإعدادات.',

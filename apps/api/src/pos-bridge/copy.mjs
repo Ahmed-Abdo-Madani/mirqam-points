@@ -11,6 +11,8 @@ export const bridgeCopy = {
     linkTitle: 'ربط {app} بمحاسبي',
     consent:
       'حساب التطبيق: {account}\nمنشأة محاسبي: {tenant}\nسيُحفظ ارتباط الحسابين، ويمكنك فتح التطبيق داخل محاسبي بصلاحيات حسابك واشتراكك الحاليين. تسجيل الدخول يظل على موقع التطبيق نفسه.\nلا يرسل الربط رسائل، ولا يفعّل حملات، ولا ينسخ بيانات العملاء أو المبيعات تلقائيًا. يمكنك فك الربط من متجر التطبيقات.',
+    loyaltyConsent:
+      'حساب الولاء: {account}\nمنشأة محاسبي: {tenant}\nبعد تفعيل الربط من صفحة النمو والولاء، يشارك محاسبي اسم العميل ورقم جواله ومرجع الفاتورة ومبلغها مع مرقام ولاء لعرض الرصيد والكسب والاستبدال وعكس العمليات عند الاسترجاع. الرصيد موحد، ولا تُرسل رسائل ولا تُمنح موافقة تسويقية تلقائيًا. نقل الأرصدة الحالية يتطلب مراجعة المالك وتأكيده. يمكنك فك الربط من المتجر بعد تسوية العمليات المعلقة.',
     ownerOnly: 'مالك حساب التطبيق فقط يستطيع ربطه بمحاسبي. سجّل الدخول بحساب المالك.',
     open: 'فتح حساب التطبيق',
     approve: 'الموافقة وربط الحساب',
@@ -48,6 +50,8 @@ export const bridgeCopy = {
     linkTitle: 'Connect {app} to POS',
     consent:
       'App account: {account}\nPOS business: {tenant}\nYour accounts will be associated. Open the app inside POS using your existing app permissions and subscription. Sign-in stays on the app website.\nConnecting does not send messages, start campaigns, or automatically copy customer or sales data. Disconnect anytime from the marketplace.',
+    loyaltyConsent:
+      'Loyalty account: {account}\nPOS business: {tenant}\nAfter enabling the connection in Growth & loyalty, POS shares customer name, phone, invoice reference and amount with Mirqam Loyalty for one balance, earning, redemption and refunds. No messages or marketing consent are created automatically. Existing balances require owner review before transfer. Disconnect after pending operations have settled.',
     ownerOnly: 'Only the app account owner can connect it to POS. Sign in as the owner.',
     open: 'Open app account',
     approve: 'Approve and connect',

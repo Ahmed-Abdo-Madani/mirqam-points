@@ -68,7 +68,7 @@
       }
       const data = await api('requests/' + encodeURIComponent(request || ''))
       $('title').textContent = format(t.linkTitle, { app: names[config.product] })
-      message(format(t.consent, { account: me.name, tenant: data.tenantName }))
+      message(format(config.loyaltyOperations ? t.loyaltyConsent : t.consent, { account: me.name, tenant: data.tenantName }))
       if (!me.canLink) {
         message(t.ownerOnly)
         action(t.open, config.home)
