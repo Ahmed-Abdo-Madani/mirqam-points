@@ -135,7 +135,7 @@ export default function AppShell() {
       </aside>
 
       {drawer && (
-        <div className="fixed inset-0 z-[70] bg-navy-950/50 lg:hidden" onClick={() => setDrawer(false)} aria-hidden="true">
+        <div className="fixed inset-0 z-[70] bg-navy-950/50 lg:hidden" onClick={() => setDrawer(false)}>
           <aside
             className="mp-sidebar fade-in absolute inset-y-3 start-3 w-[min(280px,85vw)] rounded-[26px]"
             onClick={(e) => e.stopPropagation()}
@@ -144,7 +144,7 @@ export default function AppShell() {
             <button
               type="button"
               onClick={() => setDrawer(false)}
-              className="absolute end-3 top-4 rounded-lg p-1.5 text-navy-100"
+              className="absolute end-3 top-4 flex h-11 w-11 items-center justify-center rounded-lg text-navy-100"
               aria-label={t('common.close')}
             >
               <MqX className="h-5 w-5" />
