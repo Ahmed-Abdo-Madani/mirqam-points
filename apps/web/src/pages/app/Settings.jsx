@@ -1,4 +1,5 @@
 import { Badge, Button, Card, Field, Input, Modal, useToast } from '@mirqam/ui'
+import { normalizePhone } from '@mirqam-points/shared'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader, RoleBadge } from '../../components/AppShell.jsx'
@@ -103,6 +104,72 @@ async function toLogoPng(file) {
   return btoa(binary)
 }
 
+/* Owner's WhatsApp number for subscription reminders. Billing sends them through Mirqam Bot with a
+   link to the website's billing page — the app itself never offers purchases (App Store 3.1.1). */
+function BillingWhatsApp() {
+  const { t } = useI18n()
+  const errorText = useErrorText()
+  const toast = useToast()
+  const contact = useApi('/billing/contact')
+  const [value, setValue] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const shown = value ?? contact.data?.phone ?? ''
+  const invalid = Boolean(shown.trim()) && !normalizePhone(shown)
+
+  async function save(phone) {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await api('/billing/contact', { method: 'PUT', body: { phone } })
+      setValue(null)
+      contact.reload()
+      toast(t(r.phone ? 'billing.whatsapp.saved' : 'billing.whatsapp.removed'))
+    } catch (err) {
+      setError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title={t('billing.whatsapp.title')} subtitle={t('billing.whatsapp.subtitle')}>
+      <form
+        className="grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save(shown.trim() || null)
+        }}
+      >
+        <Field label={t('billing.whatsapp.label')} hint={t('billing.whatsapp.hint')} error={invalid ? t('validation.phone') : error && errorText(error)}>
+          {(p) => (
+            <Input
+              {...p}
+              type="tel"
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="05XXXXXXXX"
+              value={shown}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          )}
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" loading={busy} disabled={contact.loading || invalid}>
+            {t('common.save')}
+          </Button>
+          {contact.data?.phone && (
+            <Button variant="ghost" disabled={busy} onClick={() => save(null)}>
+              {t('billing.whatsapp.remove')}
+            </Button>
+          )}
+        </div>
+      </form>
+    </Card>
+  )
+}
+
 function Logo() {
   const { t } = useI18n()
   const errorText = useErrorText()
@@ -161,7 +228,7 @@ function Logo() {
 
 export default function Settings() {
   const { t } = useI18n()
-  const { me } = useSession()
+  const { me, can } = useSession()
   const wallet = useApi('/wallet/status')
   const status = (on) => <Badge tone={on ? 'green' : 'amber'}>{t(on ? 'settings.connected' : 'settings.notConnected')}</Badge>
   return (
@@ -193,6 +260,7 @@ export default function Settings() {
           </dl>
         </Card>
         <Logo />
+        {can('owner') && <BillingWhatsApp />}
         <Card title={t('settings.wallets')} subtitle={t('settings.walletsSubtitle')}>
           <ul className="grid gap-3 text-sm">
             <li className="flex items-center justify-between gap-3">

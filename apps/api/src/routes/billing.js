@@ -1,3 +1,4 @@
+import { normalizePhone } from '@mirqam-points/shared'
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { requireAuth, requireRole } from '../auth.js'
@@ -13,7 +14,7 @@ export function returnBase(req) {
   return RETURN_HOSTS.test(own) ? own : undefined
 }
 
-export default function billingRoutes(billing) {
+export default function billingRoutes(billing, { db } = {}) {
   const r = Router()
   r.post('/moyasar/webhook', rateLimit({ windowMs: 60000, limit: 120 }), async (req, res) => {
     await billing.webhook(req.body)
@@ -23,6 +24,27 @@ export default function billingRoutes(billing) {
   r.get('/state', requireAuth, async (req, res) => res.json(await billing.state(req.auth.tenantId)))
   r.use(requireAuth, requireRole('owner'))
   r.get('/', async (req, res) => res.json(await billing.status(req.auth.tenantId)))
+  // WhatsApp number for subscription reminders. Billing sends them through Mirqam Bot with a link
+  // to the website's billing page (the iOS app cannot offer purchases itself).
+  r.get('/contact', async (req, res) => {
+    const { rows } = await db.query('SELECT billing_phone FROM tenants WHERE id = $1', [req.auth.tenantId])
+    res.json({ phone: rows[0]?.billing_phone ?? null })
+  })
+  r.put('/contact', async (req, res) => {
+    const raw = req.body?.phone
+    const phone = raw == null || raw === '' ? null : normalizePhone(String(raw).slice(0, 32))
+    if (raw != null && raw !== '' && !phone) throw new HttpError(400, 'validation_failed', [{ path: 'phone', message: 'invalid_phone' }])
+    await db.query('UPDATE tenants SET billing_phone = $2 WHERE id = $1', [req.auth.tenantId, phone])
+    let synced = false
+    if (billing.remote && billing.ready && billing.syncAccount) {
+      // Best effort: the number also travels with every later billing call.
+      synced = await billing.syncAccount(req.auth.tenantId).then(
+        () => true,
+        () => false,
+      )
+    }
+    res.json({ phone, synced })
+  })
   r.get('/events', async (req, res) => {
     if (!billing.events) return res.json({ items: [] })
     const rows = await billing.events(req.auth.tenantId)

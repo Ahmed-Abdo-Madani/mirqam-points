@@ -53,6 +53,15 @@ export default {
       cta: 'Manage subscription',
       ownerOnly: 'Ask the account owner to renew the subscription.',
     },
+    whatsapp: {
+      title: 'Subscription reminders on WhatsApp',
+      subtitle: 'We remind you before your subscription ends or when a renewal fails, with a link to the billing page on the website.',
+      label: 'WhatsApp number',
+      hint: 'For example 05XXXXXXXX. Leave it empty to stop reminders.',
+      saved: 'WhatsApp number saved for reminders',
+      removed: 'WhatsApp reminders turned off',
+      remove: 'Stop reminders',
+    },
     history: 'Subscription history',
     historyEmpty: 'No subscription events yet.',
     event: {

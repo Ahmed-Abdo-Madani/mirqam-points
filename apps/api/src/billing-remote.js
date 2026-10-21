@@ -45,7 +45,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   }
 
   async function account(tenantId) {
-    const t = (await db.query('SELECT id, name FROM tenants WHERE id=$1', [tenantId])).rows[0]
+    const t = (await db.query('SELECT id, name, billing_phone FROM tenants WHERE id=$1', [tenantId])).rows[0]
     if (!t) throw new HttpError(404, 'not_found')
     const owner = (
       await db.query(
@@ -53,7 +53,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
         [tenantId],
       )
     ).rows[0]
-    return { ref: tenantId, name: t.name, email: owner?.email || undefined }
+    // The phone is where billing sends WhatsApp reminders (pay links); owners set it in Settings.
+    return { ref: tenantId, name: t.name, email: owner?.email || undefined, phone: t.billing_phone || undefined }
   }
 
   async function recordEvent(q, tenantId, kind, ref, data) {
@@ -181,6 +182,12 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     checkoutHost: base ? new URL(base).hostname : null,
     apply,
     sync,
+    /** Pushes the current owner contact (email, WhatsApp number) to billing right away. */
+    async syncAccount(tenantId) {
+      const acc = await account(tenantId)
+      // Only this explicit save may clear the number in billing; ordinary calls never send null.
+      return call('POST', 'accounts', { account: { ...acc, phone: acc.phone ?? null } })
+    },
     hook,
     entitlement,
     gate,

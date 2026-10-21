@@ -162,7 +162,7 @@ export function createApp({ db, config }) {
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
-  app.use('/api/billing', billingRoutes(billing))
+  app.use('/api/billing', billingRoutes(billing, { db }))
   app.use('/api/auth', authRoutes({ db, config }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))
