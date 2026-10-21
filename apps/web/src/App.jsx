@@ -5,6 +5,7 @@ import AppShell from './components/AppShell.jsx'
 import PublicShell from './components/PublicShell.jsx'
 import { useI18n } from './i18n/index.jsx'
 import { NATIVE } from './lib/api.js'
+import { PURCHASES_IN_APP } from './lib/platform.js'
 import { useSession } from './lib/session.jsx'
 import Auth from './pages/Auth.jsx'
 import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
@@ -105,9 +106,13 @@ export default function App() {
           <Route
             path="billing"
             element={
-              <RequireAuth capability="owner">
-                <Billing />
-              </RequireAuth>
+              PURCHASES_IN_APP ? (
+                <RequireAuth capability="owner">
+                  <Billing />
+                </RequireAuth>
+              ) : (
+                <Navigate to="/app" replace />
+              )
             }
           />
           <Route

@@ -21,13 +21,14 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
 import { useApi } from '../lib/api.js'
+import { PURCHASES_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
 function SideNav({ onNavigate }) {
   const { t } = useI18n()
   const { me, can } = useSession()
   const nav = [
-    { to: '/app/billing', icon: MqCoins, label: t('billing.title'), show: can('owner') },
+    { to: '/app/billing', icon: MqCoins, label: t('billing.title'), show: can('owner') && PURCHASES_IN_APP },
     { to: '/app', end: true, icon: MqDashboard, label: t('nav.dashboard') },
     { to: '/app/cashier', icon: MqScan, label: t('nav.cashier'), show: can('transact') },
     { to: '/app/members', icon: MqUsers, label: t('nav.members') },
@@ -98,13 +99,15 @@ function SubscriptionBanner() {
   const show = state === 'expiring' || state === 'expired' || (enforced && (state === 'none' || state === 'trial'))
   if (!show) return null
   const bad = state === 'expired' || state === 'none'
+  // The iOS app shows status only (no renewal call to action); see lib/platform.js.
+  const copyKey = PURCHASES_IN_APP ? `billing.banner.${state}` : `billing.status.${state}`
   return (
     <div
       role={bad ? 'alert' : 'status'}
       className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${bad ? 'border-err/20 bg-err-bg text-err' : 'border-warn/20 bg-warn-bg text-warn'}`}
     >
-      <span className="font-semibold">{t(`billing.banner.${state}`, { n: daysLeft })}</span>
-      {can('owner') ? (
+      <span className="font-semibold">{t(copyKey, { n: daysLeft })}</span>
+      {!PURCHASES_IN_APP ? null : can('owner') ? (
         <NavLink to="/app/billing" className="font-bold underline">
           {t('billing.banner.cta')}
         </NavLink>

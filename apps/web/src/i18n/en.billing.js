@@ -38,6 +38,13 @@ export default {
       trial: 'Free trial',
       none: 'Not subscribed',
     },
+    // iOS app (App Store Guideline 3.1.1): status only, no renewal call to action.
+    status: {
+      expiring: "This workspace's subscription ends in {n} days.",
+      expired: "This workspace's subscription is not active.",
+      none: "This workspace's subscription is not active.",
+      trial: 'Free trial: {n} days left.',
+    },
     banner: {
       expiring: 'Your subscription ends in {n} days. Renew now to avoid any interruption.',
       expired: 'Your subscription has expired. Renew to keep recording transactions.',
@@ -76,6 +83,6 @@ export default {
     coupon_first_only: 'This discount code is for first subscriptions only.',
     card_required: 'Add a card to turn on automatic renewal.',
     not_active: 'There is no active subscription to change.',
-    subscription_required: 'Your subscription has expired. Renew it from the Billing page to keep recording transactions.',
+    subscription_required: "This workspace's subscription is not active, so recording transactions is paused.",
   },
 }
