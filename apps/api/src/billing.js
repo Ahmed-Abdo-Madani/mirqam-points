@@ -3,6 +3,7 @@ import { renderSubscriptionEmail } from './billing-emails.js'
 import { createCommerceClient, paymentEvent } from './commerce.js'
 import { createMailer } from './email.js'
 import { HttpError } from './http.js'
+import { posManagedEntitlement } from './pos-bridge/native.mjs'
 import { safeEqual } from './secrets.js'
 
 export const PRICES = Object.freeze({ monthly: 6900, yearly: 69000 })
@@ -282,6 +283,8 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
   /* active | expiring (7 days or fewer left) | expired | trial | none. A trial applies only to a
      workspace that never subscribed, counted from its creation. */
   async function entitlement(tenantId, now = new Date()) {
+    const managed = await posManagedEntitlement(db, tenantId, now)
+    if (managed) return managed
     const sub = (await db.query('SELECT cycle, expires_at FROM subscriptions WHERE tenant_id=$1', [tenantId])).rows[0]
     if (sub) {
       const left = sub.expires_at.getTime() - now.getTime()
@@ -301,7 +304,10 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
   const gate = () => async (req, _res, next) => {
     try {
       if (!req.auth) return next()
-      if (!config.billingEnforce && !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1', [req.auth.tenantId])).rows.length)
+      if (
+        !config.billingEnforce &&
+        !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1 UNION ALL SELECT 1 FROM pos_native_tenants WHERE tenant_id=$1', [req.auth.tenantId])).rows.length
+      )
         return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
       if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
