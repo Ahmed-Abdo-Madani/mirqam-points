@@ -84,3 +84,30 @@ workflows:
     artifacts:
       - apps/mobile/android/app/build/outputs/**/*.apk
       - apps/mobile/android/app/build/outputs/**/*.aab
+
+  verify-ios-icon:
+    name: Verify and build iOS icon update
+    max_build_duration: 20
+    instance_type: mac_mini_m2
+    environment:
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install locked dependencies
+        script: npm ci
+      - name: Run full isolated verification gate
+        script: node scripts/verify.mjs
+      - name: Build mobile bundle and sync iOS
+        script: |
+          npm run build:mobile -w @mirqam-points/web
+          cd apps/mobile && npx cap sync ios
+      - name: Validate app icon
+        script: |
+          sips -g pixelWidth -g pixelHeight -g hasAlpha apps/mobile/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+      - name: Compile iOS simulator app without signing
+        script: |
+          set -o pipefail
+          xcodebuild -project apps/mobile/ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination "generic/platform=iOS Simulator" -derivedDataPath build/verify-ios CODE_SIGNING_ALLOWED=NO build | tee ios-verify.log
+    artifacts:
+      - build/verify-ios/Build/Products/Release-iphonesimulator/*.app
+      - ios-verify.log
