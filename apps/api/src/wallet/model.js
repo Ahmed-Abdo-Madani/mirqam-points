@@ -1,9 +1,15 @@
 /* Platform-neutral pass model. Apple and Google renderers consume this, so a
    pass looks and reads the same in both wallets. */
-import { DEFAULT_DESIGN, normalizeDesign } from '@mirqam-points/shared'
+import { DEFAULT_DESIGN, DEFAULT_NEARBY_TEXT, mapsUrl, normalizeDesign } from '@mirqam-points/shared'
 import { int } from '../db/index.js'
 
 export { DEFAULT_DESIGN, normalizeDesign }
+
+/** Branches with their Google Maps link, in the order the merchant set. */
+export const branchLinks = (design) => design.locations.map((l, i) => ({ key: `branch${i}`, name: l.name, url: mapsUrl(l), latitude: l.latitude, longitude: l.longitude }))
+
+/** Lock-screen text Wallet shows near a branch (Apple only); null when the merchant turned it off. */
+export const nearbyText = (design) => (design.nearby && design.locations.length ? design.nearbyText || DEFAULT_NEARBY_TEXT : null)
 
 export const rgb = (hex) => `rgb(${Number.parseInt(hex.slice(1, 3), 16)}, ${Number.parseInt(hex.slice(3, 5), 16)}, ${Number.parseInt(hex.slice(5, 7), 16)})`
 
@@ -117,6 +123,7 @@ export const PASS_TEXT = {
     lifetime: 'إجمالي المكتسب',
     info: 'معلومات',
     rewardReady: 'المكافأة جاهزة',
+    directions: 'الاتجاهات في خرائط Google',
   },
   en: {
     points: 'Points',
@@ -141,6 +148,7 @@ export const PASS_TEXT = {
     lifetime: 'Lifetime earned',
     info: 'Info',
     rewardReady: 'Reward ready',
+    directions: 'Directions in Google Maps',
   },
 }
 
@@ -165,5 +173,6 @@ export function loyaltyFields(model, tx) {
     if (k === 'link') back.push({ key: 'link', label: tx.details, value: model.url })
   }
   for (const [i, n] of d.notes.entries()) back.push({ key: `note${i}`, label: n.label, value: n.value })
+  for (const b of branchLinks(d)) back.push({ key: b.key, label: b.name, value: b.url, link: true })
   return { front, back }
 }

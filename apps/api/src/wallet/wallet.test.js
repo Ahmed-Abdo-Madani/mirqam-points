@@ -147,6 +147,28 @@ describe('card design', () => {
     expect(json.storeCard.backFields.map((f) => f.key)).toEqual(['code', 'note0'])
   })
 
+  it('branches become Google Maps links on the back and Apple "nearby" locations', () => {
+    const branches = [
+      { name: 'Olaya', latitude: 24.7136, longitude: 46.6753 },
+      { name: 'Jeddah', mapsUrl: 'https://www.google.com/maps/place/X/@21.5,39.2,17z' },
+    ]
+    const json = passJson(designed({ back: ['code'], locations: branches, nearby: true, nearbyText: 'Visit us, we miss you' }), ctx)
+    const back = json.storeCard.backFields
+    expect(back.map((f) => f.key)).toEqual(['code', 'branch0', 'branch1'])
+    expect(back[1]).toMatchObject({ label: 'Olaya', value: 'https://www.google.com/maps/search/?api=1&query=24.7136,46.6753' })
+    expect(back[1].attributedValue).toMatch(/^<a href="https:\/\/www\.google\.com\/maps\/search\/.+">.+<\/a>$/)
+    expect(back[2].value).toBe('https://www.google.com/maps/place/X/@21.5,39.2,17z')
+    expect(json.locations).toEqual([
+      { latitude: 24.7136, longitude: 46.6753, relevantText: 'Visit us, we miss you' },
+      { latitude: 21.5, longitude: 39.2, relevantText: 'Visit us, we miss you' },
+    ])
+    // Nearby notices off: links stay, no lock-screen locations.
+    expect(passJson(designed({ locations: branches, nearby: false }), ctx).locations).toBeUndefined()
+    const obj = _loyaltyObjectForTests(designed({ locations: branches }), { issuerId: '1' }, 'https://points.example')
+    expect(obj.linksModuleData.uris.map((u) => u.id)).toEqual(['card', 'branch0', 'branch1'])
+    expect(obj.textModulesData.some((t) => t.id.startsWith('branch'))).toBe(false)
+  })
+
   it('layouts rearrange the card face', () => {
     expect(passJson(designed({ layout: 'balance' }), ctx).storeCard.primaryFields[0].key).toBe('balance')
     const strip = passJson(designed({ layout: 'strip' }), ctx).storeCard

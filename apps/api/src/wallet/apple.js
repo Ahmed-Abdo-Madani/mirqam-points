@@ -8,7 +8,7 @@ import http2 from 'node:http2'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import forge from 'node-forge'
-import { loyaltyFields, PASS_TEXT, rgb } from './model.js'
+import { branchLinks, loyaltyFields, nearbyText, PASS_TEXT, rgb } from './model.js'
 import { renderStrip } from './strip.js'
 import { zip } from './zip.js'
 
@@ -75,7 +75,16 @@ export function passJson(model, { apple, publicUrl }) {
   const balanceValue = stamps ? `${model.balance} / ${model.stampsRequired}` : model.balance
   const { front, back: backFields } = loyaltyFields(model, tx)
   // A changed message field with changeMessage is what makes Wallet raise a lock-screen notification.
-  const back = backFields.map((f) => (f.key === 'message' ? { ...f, changeMessage: '%@' } : f))
+  const back = backFields.map(({ link, ...f }) =>
+    f.key === 'message'
+      ? { ...f, changeMessage: '%@' }
+      : link
+        ? { ...f, attributedValue: `<a href="${f.value.replace(/[<>"'\s]/g, encodeURIComponent)}">${tx.directions}</a>` }
+        : f,
+  )
+  // Near a branch, Wallet surfaces the card on the lock screen with this text.
+  const relevant = nearbyText(model.design)
+  const locations = relevant ? branchLinks(model.design).map((b) => ({ latitude: b.latitude, longitude: b.longitude, relevantText: relevant })) : []
   const balanceField = { key: 'balance', label: unit, value: balanceValue, changeMessage: tx.balanceNow }
   const layout = model.design.layout === 'strip' && !stamps ? 'classic' : model.design.layout
   const card =
@@ -84,7 +93,7 @@ export function passJson(model, { apple, publicUrl }) {
       : layout === 'strip'
         ? { headerFields: [balanceField], secondaryFields: front }
         : { headerFields: [balanceField], primaryFields: [{ key: 'program', label: tx.program, value: model.programName }], secondaryFields: front }
-  return { ...base, storeCard: { ...card, backFields: back } }
+  return { ...base, ...(locations.length ? { locations } : {}), storeCard: { ...card, backFields: back } }
 }
 
 function signManifest(manifest, apple) {

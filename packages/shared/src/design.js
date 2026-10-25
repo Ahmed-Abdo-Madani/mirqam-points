@@ -9,6 +9,10 @@ export const STAMP_SHAPES = ['circle', 'star', 'heart', 'square']
 export const FRONT_FIELDS = ['member', 'remaining', 'lifetime', 'code']
 export const BACK_FIELDS = ['code', 'reward', 'terms', 'link']
 export const MAX_NOTES = 6
+/* Branch locations: shown on the back of the card as Google Maps links, and on
+   Apple Wallet used for "nearby" lock-screen notices (Wallet allows 10). */
+export const MAX_LOCATIONS = 10
+export const DEFAULT_NEARBY_TEXT = 'زرنا اليوم، اشتقنا لك! 💚'
 
 export const DEFAULT_DESIGN = {
   layout: 'classic',
@@ -21,6 +25,9 @@ export const DEFAULT_DESIGN = {
   front: ['member'],
   back: ['code', 'reward', 'terms', 'link'],
   notes: [],
+  locations: [],
+  nearby: false,
+  nearbyText: '',
 }
 
 /* Starting points the merchant can then tweak. */
@@ -81,6 +88,27 @@ export const TEMPLATES = [
 const HEX = /^#[0-9a-fA-F]{6}$/
 const pick = (list, v, fallback) => (list.includes(v) ? v : fallback)
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+const num = (v, min, max) => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
+  return typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max ? Math.round(n * 1e6) / 1e6 : null
+}
+
+/** Google Maps link for a branch: the merchant's own maps link when given, else one built from the coordinates. */
+export function mapsUrl(loc) {
+  if (typeof loc?.mapsUrl === 'string' && /^https:\/\/(www\.)?(google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)\S*$/i.test(loc.mapsUrl)) return loc.mapsUrl
+  return `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`
+}
+
+/** Reads coordinates out of a pasted Google Maps link (…/@lat,lng…, ?q=lat,lng, !3dlat!4dlng). Null when absent (e.g. short links). */
+export function coordsFromMapsUrl(url) {
+  const s = String(url || '')
+  const m = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/.exec(s) || /[?&](?:q|query|ll|destination)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/.exec(s) || /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(s)
+  if (!m) return null
+  const latitude = num(m[1], -90, 90)
+  const longitude = num(m[2], -180, 180)
+  return latitude === null || longitude === null ? null : { latitude, longitude }
+}
+
 const subset = (list, raw, max, fallback) => {
   if (!Array.isArray(raw)) return fallback
   return [...new Set(raw.filter((v) => list.includes(v)))].slice(0, max)
@@ -102,6 +130,20 @@ export function normalizeDesign(raw = {}) {
       .filter((n) => n.label && n.value)
       .slice(0, MAX_NOTES)
   }
+  if (Array.isArray(raw?.locations)) {
+    d.locations = raw.locations
+      .map((l) => {
+        const fromUrl = coordsFromMapsUrl(l?.mapsUrl)
+        const latitude = num(l?.latitude, -90, 90) ?? fromUrl?.latitude ?? null
+        const longitude = num(l?.longitude, -180, 180) ?? fromUrl?.longitude ?? null
+        const url = text(l?.mapsUrl, 500)
+        return { name: text(l?.name, 40), latitude, longitude, ...(url ? { mapsUrl: url } : {}) }
+      })
+      .filter((l) => l.name && l.latitude !== null && l.longitude !== null)
+      .slice(0, MAX_LOCATIONS)
+  }
+  d.nearby = raw?.nearby === true && d.locations.length > 0
+  d.nearbyText = text(raw?.nearbyText, 100)
   const reward = text(raw?.rewardText, 140)
   if (reward) d.rewardText = reward
   return d

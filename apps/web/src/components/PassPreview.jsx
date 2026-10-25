@@ -82,6 +82,7 @@ export default function PassPreview({
       if (k === 'link') rows.push([labels.link, 'points.mirqam.sa/p/…'])
     }
     for (const n of d.notes ?? []) rows.push([n.label, n.value])
+    for (const l of d.locations ?? []) if (l.name) rows.push([l.name, labels.directions ?? 'Google Maps'])
     return (
       <div className={`mp-pass w-full max-w-[340px] overflow-hidden ${className}`} dir="auto" style={style}>
         <p className="px-5 pt-5 text-sm font-bold">{merchant}</p>
