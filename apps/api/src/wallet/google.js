@@ -122,8 +122,10 @@ function loyaltyObject(model, google, publicUrl) {
     ...(secondary ? { secondaryLoyaltyPoints: { label: secondary.label, balance: { string: secondary.value } } } : {}),
     barcode: { type: BARCODES[model.design.barcode] ?? 'QR_CODE', value: model.barcode, alternateText: model.code },
     ...(heroImage ? { heroImage } : {}),
-    linksModuleData: { uris: [{ uri: model.url, description: tx.open, id: 'card' }] },
-    textModulesData: [...extra, ...back.filter((f) => f.key !== 'link' && f.key !== 'code')].map((f) => ({ id: f.key, header: f.label, body: f.value })),
+    linksModuleData: {
+      uris: [{ uri: model.url, description: tx.open, id: 'card' }, ...back.filter((f) => f.link).map((f) => ({ uri: f.value, description: f.label, id: f.key }))],
+    },
+    textModulesData: [...extra, ...back.filter((f) => f.key !== 'link' && f.key !== 'code' && !f.link)].map((f) => ({ id: f.key, header: f.label, body: f.value })),
   }
 }
 

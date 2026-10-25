@@ -1,5 +1,5 @@
 import { Button, Field, Input } from '@mirqam/ui'
-import { BACK_FIELDS, BARCODES, FRONT_FIELDS, LAYOUTS, MAX_NOTES, STAMP_SHAPES, TEMPLATES } from '@mirqam-points/shared'
+import { BACK_FIELDS, BARCODES, coordsFromMapsUrl, DEFAULT_NEARBY_TEXT, FRONT_FIELDS, LAYOUTS, MAX_LOCATIONS, MAX_NOTES, STAMP_SHAPES, TEMPLATES } from '@mirqam-points/shared'
 import PassPreview from '../../components/PassPreview.jsx'
 import { useI18n } from '../../i18n/index.jsx'
 
@@ -16,6 +16,7 @@ export function passLabels(t, type) {
     link: t('design.back.link'),
     termsText: t('design.termsText'),
     rewardReady: t('members.rewardReady'),
+    directions: t('design.branchDirections'),
   }
 }
 
@@ -63,6 +64,21 @@ export function CardDesignForm({ design, type, onChange }) {
   const notes = design.notes ?? []
   const setNote = (i, patch) => set({ notes: notes.map((n, j) => (j === i ? { ...n, ...patch } : n)) })
   const layouts = LAYOUTS.filter((l) => l !== 'strip' || stamps)
+  const locations = design.locations ?? []
+  const setLocation = (i, patch) => {
+    const next = locations.map((l, j) => {
+      if (j !== i) return l
+      const merged = { ...l, ...patch }
+      // A pasted full Google Maps link fills the coordinates.
+      if ('mapsUrl' in patch) {
+        const c = coordsFromMapsUrl(patch.mapsUrl)
+        if (c) Object.assign(merged, c)
+      }
+      return merged
+    })
+    set({ locations: next })
+  }
+  const coord = (v) => (v === '' || v == null ? null : Number(v))
 
   return (
     <div className="grid gap-5">
@@ -209,6 +225,55 @@ export function CardDesignForm({ design, type, onChange }) {
             {t('design.noteAdd')}
           </Button>
         )}
+      </fieldset>
+
+      <fieldset>
+        <legend className="text-sm font-semibold">{t('design.branchesLabel')}</legend>
+        <p className="mb-2 text-xs text-muted">{t('design.branchesHint')}</p>
+        <div className="grid gap-2">
+          {locations.map((l, i) => {
+            const missing = l.name && (l.latitude == null || l.longitude == null || Number.isNaN(l.latitude) || Number.isNaN(l.longitude))
+            return (
+              <div key={i} className="grid gap-2 rounded-2xl border border-line p-3">
+                <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                  <Input aria-label={t('design.branchName')} placeholder={t('design.branchName')} value={l.name ?? ''} maxLength={40} onChange={(e) => setLocation(i, { name: e.target.value })} />
+                  <Input
+                    aria-label={t('design.branchMapsUrl')}
+                    placeholder={t('design.branchMapsUrl')}
+                    dir="ltr"
+                    value={l.mapsUrl ?? ''}
+                    maxLength={500}
+                    onChange={(e) => setLocation(i, { mapsUrl: e.target.value })}
+                  />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => set({ locations: locations.filter((_, j) => j !== i) })}>
+                    {t('design.branchRemove')}
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Input aria-label={t('design.branchLat')} placeholder={t('design.branchLat')} dir="ltr" inputMode="decimal" value={l.latitude ?? ''} onChange={(e) => setLocation(i, { latitude: coord(e.target.value) })} />
+                  <Input aria-label={t('design.branchLng')} placeholder={t('design.branchLng')} dir="ltr" inputMode="decimal" value={l.longitude ?? ''} onChange={(e) => setLocation(i, { longitude: coord(e.target.value) })} />
+                </div>
+                {missing && <p className="text-xs text-red-600">{t('design.branchNeedsCoords')}</p>}
+              </div>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-xs text-muted">{t('design.branchCoordsHint')}</p>
+        {locations.length < MAX_LOCATIONS && (
+          <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => set({ locations: [...locations, { name: '', mapsUrl: '', latitude: null, longitude: null }] })}>
+            {t('design.branchAdd')}
+          </Button>
+        )}
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-1.5 text-sm font-semibold">{t('design.nearbyLabel')}</legend>
+        <Check checked={Boolean(design.nearby)} disabled={!locations.length} onChange={() => set({ nearby: !design.nearby })}>
+          {t('design.nearbyToggle')}
+        </Check>
+        <Field label={t('design.nearbyText')} hint={t('design.nearbyHint')} className="mt-3">
+          {(p) => <Input {...p} value={design.nearbyText ?? ''} placeholder={DEFAULT_NEARBY_TEXT} maxLength={100} disabled={!design.nearby} onChange={(e) => set({ nearbyText: e.target.value })} />}
+        </Field>
       </fieldset>
     </div>
   )

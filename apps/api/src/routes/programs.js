@@ -1,4 +1,4 @@
-import { BACK_FIELDS, BARCODES, FRONT_FIELDS, LAYOUTS, MAX_NOTES, PROGRAM_TYPES, STAMP_SHAPES, validateProgramConfig } from '@mirqam-points/shared'
+import { BACK_FIELDS, BARCODES, FRONT_FIELDS, LAYOUTS, MAX_LOCATIONS, MAX_NOTES, PROGRAM_TYPES, STAMP_SHAPES, validateProgramConfig } from '@mirqam-points/shared'
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth.js'
@@ -21,6 +21,21 @@ const design = z
     back: z.array(z.enum(BACK_FIELDS)).max(BACK_FIELDS.length),
     notes: z.array(z.object({ label: z.string().trim().min(1).max(40), value: z.string().trim().min(1).max(400) }).strict()).max(MAX_NOTES),
     rewardText: z.string().trim().max(140),
+    // Branches: Google Maps links on the back; Apple Wallet "nearby" notices.
+    locations: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().max(40),
+            latitude: z.number().min(-90).max(90).nullable().optional(),
+            longitude: z.number().min(-180).max(180).nullable().optional(),
+            mapsUrl: z.string().trim().max(500).url().optional().or(z.literal('')),
+          })
+          .strict(),
+      )
+      .max(MAX_LOCATIONS),
+    nearby: z.boolean(),
+    nearbyText: z.string().trim().max(100),
   })
   .partial()
   .strict()
