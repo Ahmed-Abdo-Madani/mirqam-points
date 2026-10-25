@@ -5,6 +5,7 @@ import { LocaleToggle } from '../components/AppShell.jsx'
 import PassPreview from '../components/PassPreview.jsx'
 import { useErrorText, useI18n } from '../i18n/index.jsx'
 import { api } from '../lib/api.js'
+import { REGISTRATION_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
 function fieldErrors(err, t) {
@@ -35,6 +36,8 @@ export default function Auth({ mode }) {
       .catch(() => {})
   }, [])
   const register = mode === 'register'
+
+  if (register && !REGISTRATION_IN_APP) return <Navigate to="/login" replace />
 
   if (session.status === 'auth') return <Navigate to={safeNext(params.get('next'))} replace />
 
@@ -149,12 +152,12 @@ export default function Auth({ mode }) {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted">
+          {REGISTRATION_IN_APP && <p className="mt-6 text-center text-sm text-muted">
             {t(register ? 'auth.haveAccount' : 'auth.noAccount')}{' '}
             <Link to={register ? '/login' : '/register'} className="font-semibold text-accent hover:underline">
               {t(register ? 'auth.login' : 'auth.startFree')}
             </Link>
-          </p>
+          </p>}
         </main>
       </section>
     </div>
