@@ -9,6 +9,7 @@ import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError } from './http.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
+import { installPosNative, posLinkAuth } from './pos-bridge/native.mjs'
 import authRoutes from './routes/auth.js'
 import billingRoutes from './routes/billing.js'
 import brandingRoutes from './routes/branding.js'
@@ -155,7 +156,8 @@ export function createApp({ db, config }) {
     brandingRoutes({ db, wallet }),
   )
   installSocialLogin(app, { db, config })
-  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db))
+  app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db), posLinkAuth(db))
+  installPosNative({ app, db })
   installLoyaltyPosBridge({ app, db, config, billing })
   installPosLoyalty({ app, db, billing, wallet })
   installHqAdmin(app, { db, config, wallet })
