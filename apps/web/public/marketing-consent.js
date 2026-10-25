@@ -1,6 +1,8 @@
 /* Public-site measurement only. Never inspect forms, identity, or application data. */
 ;(() => {
   'use strict'
+  // Website measurement must never execute in a native WebView, even from a copied public page.
+  if (['capacitor:', 'ionic:'].includes(location.protocol) || window.Capacitor?.isNativePlatform?.() || (location.hostname === 'localhost' && window.Capacitor)) return
   const script = document.currentScript
   const container = script?.dataset.container
   const measurement = script?.dataset.measurement
