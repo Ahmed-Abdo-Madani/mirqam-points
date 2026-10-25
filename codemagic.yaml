@@ -25,6 +25,7 @@ workflows:
         script: |
           set -euo pipefail
           npm run build:mobile -w @mirqam-points/web
+          node --input-type=module -e 'import {readFileSync} from "node:fs";import assert from "node:assert/strict";const html=readFileSync("apps/web/dist-mobile/index.html","utf8");assert(!/marketing-consent|GTM-WMVG4768|G-EZK7YY6DV3/.test(html));assert(html.includes("id=\"root\""));console.log("Mobile artifact has no website measurement or custom consent")'
           cd apps/mobile
           npx cap sync ios
       - name: Apply the dedicated provisioning profile
