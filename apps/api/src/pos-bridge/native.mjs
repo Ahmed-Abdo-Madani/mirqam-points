@@ -83,8 +83,9 @@ export function posLinkAuth(db) {
 }
 
 export function installPosNative({ app, db, env = process.env }) {
-  const key = env.MIRQAM_POS_BRIDGE_KEY || ''
-  const enabled = /^[a-f0-9]{64,}$/i.test(key)
+  // Any long random value works (hex, base64…); whitespace from a paste is ignored.
+  const key = (env.MIRQAM_POS_BRIDGE_KEY || '').trim()
+  const enabled = key.length >= 32 && !/\s/.test(key)
   const gate = (req, res, next) => {
     res.set('Cache-Control', 'no-store')
     if (!enabled) return res.status(503).json({ error: 'bridge_disabled' })
