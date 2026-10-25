@@ -2,6 +2,7 @@ import { CompanyIdentity, Logo, ThemeToggle } from '@mirqam/ui'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
 import { useSession } from '../lib/session.jsx'
+import { REGISTRATION_IN_APP } from '../lib/platform.js'
 import { LocaleToggle } from './AppShell.jsx'
 
 export default function PublicShell({ children }) {
@@ -17,9 +18,9 @@ export default function PublicShell({ children }) {
           <Link to="/" className="me-auto" aria-label={t('brand.name')}>
             <Logo className="h-10 sm:h-12" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
           </Link>
-          <a href="/blog/index.html" className="hidden text-sm font-semibold text-muted hover:text-accent sm:inline">
+          {REGISTRATION_IN_APP && <a href="/blog/index.html" className="hidden text-sm font-semibold text-muted hover:text-accent sm:inline">
             {t('footer.blog')}
-          </a>
+          </a>}
           <LocaleToggle className="hidden sm:inline-flex" />
           <ThemeToggle labels={{ toDark: t('common.darkMode'), toLight: t('common.lightMode') }} />
           {status === 'auth' ? (
@@ -31,14 +32,14 @@ export default function PublicShell({ children }) {
             </Link>
           ) : (
             <>
-              <Link to="/login" className="hidden px-2 text-sm font-semibold text-muted hover:text-ink sm:inline">
+              {REGISTRATION_IN_APP && <Link to="/login" className="hidden px-2 text-sm font-semibold text-muted hover:text-ink sm:inline">
                 {t('auth.login')}
-              </Link>
+              </Link>}
               <Link
-                to="/register"
+                to={REGISTRATION_IN_APP ? "/register" : "/login"}
                 className="inline-flex min-h-10 items-center rounded-[var(--radius-control)] bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-hover"
               >
-                {t('auth.startFree')}
+                {t(REGISTRATION_IN_APP ? 'auth.startFree' : 'auth.login')}
               </Link>
             </>
           )}
@@ -53,7 +54,7 @@ export default function PublicShell({ children }) {
         <div className="mx-auto grid max-w-[1240px] gap-8 px-6 py-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <Logo className="h-10" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
-            <nav aria-label={t('footer.family')} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
+            {REGISTRATION_IN_APP && <nav aria-label={t('footer.family')} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
               <span className="font-semibold text-ink">{t('footer.family')}</span>
               <a href="/blog/index.html" className="hover:text-accent">
                 {t('footer.blog')}
@@ -67,7 +68,7 @@ export default function PublicShell({ children }) {
               <a href="https://mirqam.sa" className="hover:text-accent">
                 mirqam.sa
               </a>
-            </nav>
+            </nav>}
           </div>
           <CompanyIdentity />
           <p className="text-center text-xs text-muted">{t('footer.rights', { year: new Date().getFullYear() })}</p>

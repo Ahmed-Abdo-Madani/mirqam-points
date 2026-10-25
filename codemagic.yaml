@@ -1,51 +1,46 @@
-# Codemagic CI — native builds of the Mirqam Points merchant app.
-# Prerequisite (one-time, Codemagic UI → Team settings → Integrations →
-# Developer Portal): an App Store Connect API key named "Mirqam ASC".
-# The key must be created by the Account Holder or an Admin (Team key).
+# Manual free-M2 iOS release using the dedicated Mirqam Codemagic identity.
 workflows:
   ios-app-store:
-    name: iOS — TestFlight / App Store
-    max_build_duration: 60
+    name: Points signed iOS upload
+    max_build_duration: 35
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: Mirqam ASC
+      app_store_connect: Mirqam Codemagic Upload
     environment:
       node: 22
       xcode: latest
+      ios_signing:
+        provisioning_profiles:
+          - mirqam-points-app-store
+        certificates:
+          - mirqam-codemagic-ios-distribution
       vars:
-        APP_STORE_APPLE_ID: 6821140365
-    triggering:
-      events: [tag]
-      tag_patterns:
-        - pattern: 'ios-v*'
+        APP_STORE_APPLE_ID: "6821140365"
     scripts:
-      - name: Install dependencies
+      - name: Install locked dependencies
         script: npm ci
-      - name: Build web bundle and sync iOS project
+      - name: Run the complete repository verification gate
+        script: node scripts/verify.mjs
+      - name: Build mobile bundle and sync iOS
         script: |
+          set -euo pipefail
           npm run build:mobile -w @mirqam-points/web
-          cd apps/mobile && npx cap sync ios
-      - name: Create/fetch signing files and apply them
+          node --input-type=module -e 'import {readFileSync} from "node:fs";import assert from "node:assert/strict";const html=readFileSync("apps/web/dist-mobile/index.html","utf8");assert(!/marketing-consent|GTM-WMVG4768|G-EZK7YY6DV3/.test(html));assert(html.includes("id=\"root\""));console.log("Mobile artifact has no website measurement or custom consent")'
+          cd apps/mobile
+          npx cap sync ios
+      - name: Apply the dedicated provisioning profile
         script: |
-          # ios_signing only *fetches* existing profiles; this creates the distribution
-          # certificate + App Store profile through the "Mirqam ASC" API key when missing.
-          # Optional: set a secure CERTIFICATE_PRIVATE_KEY var (RSA PEM) to reuse one
-          # distribution certificate across builds (Apple allows only a few).
-          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
-            ssh-keygen -t rsa -b 2048 -m PEM -f /tmp/cm_dist_key -q -N ""
-            export CERTIFICATE_PRIVATE_KEY="$(cat /tmp/cm_dist_key)"
-          fi
-          keychain initialize
-          app-store-connect fetch-signing-files "sa.mirqam.points" --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Set build number
-        script: |
+          set -euo pipefail
           cd apps/mobile/ios/App
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
-          agvtool new-version -all $((LATEST + 1))
-      - name: Build IPA
-        script: xcode-project build-ipa --project "apps/mobile/ios/App/App.xcodeproj" --scheme "App"
+          xcode-project use-profiles
+      - name: Sign and verify the new Points IPA
+        script: |
+          set -euo pipefail
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
+          NEXT=$(python3 -c 'import re,sys;v=sys.argv[1].strip();assert re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}",v);print(int(v.split(".")[0])+1)' "$LATEST")
+          test "$NEXT" -le 9999
+          xcode-project build-ipa --project apps/mobile/ios/App/App.xcodeproj --scheme App --config Release --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$NEXT MARKETING_VERSION=1.1.0 DEVELOPMENT_TEAM=L8MHB4V9AW"
+          python3 -c 'import glob,zipfile,plistlib,sys;files=glob.glob("build/ios/ipa/*.ipa");assert len(files)==1;z=zipfile.ZipFile(files[0]);paths=[n for n in z.namelist() if n.startswith("Payload/") and n.endswith(".app/Info.plist") and n.count("/")==2];assert len(paths)==1;info=plistlib.loads(z.read(paths[0]));assert info["CFBundleIdentifier"]=="sa.mirqam.points";assert info["CFBundleShortVersionString"]=="1.1.0";assert info["CFBundleVersion"]==sys.argv[1];print("Points signed IPA identity and version verified")' "$NEXT"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
