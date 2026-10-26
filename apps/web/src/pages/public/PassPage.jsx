@@ -35,6 +35,7 @@ export default function PassPage() {
               labels={passLabels(t, data.type)}
               design={data.design}
               logoUrl={data.logoUrl}
+              stampImage={data.stampImage}
             />
           </div>
           {data.type === 'stamps' && data.stampsRequired && (

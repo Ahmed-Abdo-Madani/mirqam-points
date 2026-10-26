@@ -12,7 +12,7 @@ const SHAPES = {
   heart: <path d="M12 21s-8.5-5.2-8.5-11A4.7 4.7 0 0 1 12 7.4 4.7 4.7 0 0 1 20.5 10c0 5.8-8.5 11-8.5 11z" />,
 }
 
-function Stamps({ total, filled, shape, color }) {
+function Stamps({ total, filled, shape, color, image }) {
   const rows = total <= 6 ? 1 : Math.ceil(total / 7)
   const perRow = Math.ceil(total / rows)
   return (
@@ -20,9 +20,13 @@ function Stamps({ total, filled, shape, color }) {
       {Array.from({ length: rows }, (_, r) => (
         <div key={r} className="flex justify-center gap-3">
           {Array.from({ length: Math.min(perRow, total - r * perRow) }, (_, c) => (
-            <svg key={c} viewBox="0 0 24 24" role="presentation" className="h-7 w-7" fill={color} fillOpacity={r * perRow + c < filled ? 1 : 0.27}>
-              {SHAPES[shape] ?? SHAPES.circle}
-            </svg>
+            shape === 'custom' && image ? (
+              <img key={c} src={image} alt="" className="h-7 w-7 object-contain" style={{ opacity: r * perRow + c < filled ? 1 : 0.27 }} />
+            ) : (
+              <svg key={c} viewBox="0 0 24 24" role="presentation" className="h-7 w-7" fill={color} fillOpacity={r * perRow + c < filled ? 1 : 0.27}>
+                {SHAPES[shape] ?? SHAPES.circle}
+              </svg>
+            )
           ))}
         </div>
       ))}
@@ -43,6 +47,7 @@ export default function PassPreview({
   design,
   logoUrl,
   side = 'front',
+  stampImage = null,
   className = '',
 }) {
   const d = {
@@ -116,7 +121,7 @@ export default function PassPreview({
       </div>
       {layout === 'strip' ? (
         <div className="mt-3 py-3">
-          <Stamps total={Math.min(stampsRequired, 21)} filled={balance} shape={d.stampShape} color={d.stampColor} />
+          <Stamps total={Math.min(stampsRequired, 21)} filled={balance} shape={d.stampShape} color={d.stampColor} image={stampImage} />
         </div>
       ) : (
         <div className="mt-4 border-y border-white/10 bg-white/[0.04] px-5 py-4" dir="auto">
@@ -131,7 +136,7 @@ export default function PassPreview({
               <p className="text-lg font-bold leading-snug">{programName}</p>
               {stamps && (
                 <div className="mt-3">
-                  <Stamps total={Math.min(stampsRequired, 21)} filled={balance} shape={d.stampShape} color={d.stampColor} />
+                  <Stamps total={Math.min(stampsRequired, 21)} filled={balance} shape={d.stampShape} color={d.stampColor} image={stampImage} />
                 </div>
               )}
             </>
