@@ -27,7 +27,8 @@ export default function Billing() {
   const [result, setResult] = useState(null)
   const [coupon, setCoupon] = useState('')
   const [quote, setQuote] = useState(null)
-  const [autoRenew, setAutoRenew] = useState(true)
+  // Automatic renewal is part of subscribing (it can be turned off from the subscription card).
+  const autoRenew = true
   const params = new URLSearchParams(window.location.search)
   const checkout = params.get('checkout') || (params.get('billing') === 'paid' ? params.get('session') || 'latest' : null)
 
@@ -201,10 +202,6 @@ export default function Billing() {
                     </Button>
                   </div>
                   {quote && <p className="mt-2 text-sm text-ok">{t('billing.couponOk', { amount: money(quote.discount_minor, locale) })}</p>}
-                  <label className="mt-3 flex items-start gap-2 text-sm">
-                    <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="mt-1" />
-                    <span>{t('billing.autoRenewConsent')}</span>
-                  </label>
                 </Card>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
