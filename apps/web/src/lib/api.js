@@ -33,6 +33,10 @@ export const sessionToken = {
 }
 
 export async function api(path, { method = 'GET', body, idempotencyKey, signal } = {}) {
+  // Billing is website-only. Block native requests before tokens or fetch are touched.
+  if (NATIVE && /^\/billing(?:\/|[?#]|$)/i.test(path) && !(method.toUpperCase() === 'GET' && path === '/billing/state')) {
+    throw new ApiError(403, 'forbidden')
+  }
   const headers = { accept: 'application/json' }
   const write = method !== 'GET'
   if (write) headers['content-type'] = 'application/json'

@@ -26,6 +26,7 @@ workflows:
           set -euo pipefail
           npm run build:mobile -w @mirqam-points/web
           node --input-type=module -e 'import {readFileSync} from "node:fs";import assert from "node:assert/strict";const html=readFileSync("apps/web/dist-mobile/index.html","utf8");assert(!/marketing-consent|GTM-WMVG4768|G-EZK7YY6DV3/.test(html));assert(html.includes("id=\"root\""));console.log("Mobile artifact has no website measurement or custom consent")'
+          node --input-type=module -e 'import {readdirSync,readFileSync} from "node:fs";import assert from "node:assert/strict";const dir="apps/web/dist-mobile/assets";const files=readdirSync(dir);assert(!files.some(f=>/^Billing-/i.test(f)),"Native bundle contains checkout page");for(const f of files.filter(f=>f.endsWith(".js"))){const s=readFileSync(dir+"/"+f,"utf8");for(const forbidden of ["checkout.moyasar.com","/billing/checkout","/billing/payment-method"])assert(!s.includes(forbidden),"Native payment code: "+f);}console.log("Native bundle contains no checkout module or gateway endpoints")'
           cd apps/mobile
           npx cap sync ios
       - name: Apply the dedicated provisioning profile

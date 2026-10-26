@@ -9,13 +9,13 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { getPlatform: () => runtime.plat
 afterEach(() => { vi.resetModules() })
 
 describe('merchant account policy', () => {
-  it.each([[true, 'ios', false], [true, 'android', true], [false, 'web', true]])(
-    'keeps registration and purchases correct for native=%s platform=%s', async (native, platform, allowed) => {
+  it.each([[true, 'ios', false, false], [true, 'android', true, false], [false, 'web', true, true]])(
+    'keeps registration and purchases correct for native=%s platform=%s', async (native, platform, registration, purchases) => {
       runtime.native = native
       runtime.platform = platform
       const policy = await import('./platform.js')
-      expect(policy.REGISTRATION_IN_APP).toBe(allowed)
-      expect(policy.PURCHASES_IN_APP).toBe(allowed)
+      expect(policy.REGISTRATION_IN_APP).toBe(registration)
+      expect(policy.PURCHASES_IN_APP).toBe(purchases)
     },
   )
 })

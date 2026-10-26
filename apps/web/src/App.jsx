@@ -21,7 +21,7 @@ const Campaigns = lazy(() => import('./pages/app/Campaigns.jsx'))
 const Staff = lazy(() => import('./pages/app/Staff.jsx'))
 const Design = lazy(() => import('./pages/Design.jsx'))
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
-const Billing = lazy(() => import('./pages/app/Billing.jsx'))
+const Billing = PURCHASES_IN_APP ? lazy(() => import('./pages/app/Billing.jsx')) : null
 const Settings = lazy(() => import('./pages/app/Settings.jsx'))
 const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
 const GiftPage = lazy(() => import('./pages/public/GiftPage.jsx'))
