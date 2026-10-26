@@ -3,6 +3,7 @@ import { computeEarn, DEFAULT_CONFIG, formatMinor, normalizeDesign, parseMoneyTo
 import { useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
 import Qr from '../../components/Qr.jsx'
+import { downloadJoinPoster } from '../../lib/joinPoster.js'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, publicOrigin, useApi } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
@@ -304,8 +305,21 @@ export default function Programs() {
             <p className="text-sm text-muted">{t('programs.joinPosterHint')}</p>
             <div className="flex gap-2">
               <CopyButton value={`${publicOrigin()}/join/${me.tenant.slug}/${poster.id}`} />
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
-                {t('common.print')}
+              <Button
+                size="sm"
+                onClick={() => {
+                  const d = normalizeDesign(poster.design)
+                  downloadJoinPoster({
+                    url: `${publicOrigin()}/join/${me.tenant.slug}/${poster.id}`,
+                    merchant: me.tenant.name || poster.name,
+                    programName: poster.name,
+                    scanText: t('programs.posterScan'),
+                    colors: { background: d.background, foreground: d.foreground, label: d.label },
+                    fileName: `join-${poster.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'qr'}.png`,
+                  }).catch(() => toast(t('errors.generic'), 'err'))
+                }}
+              >
+                {t('programs.downloadPoster')}
               </Button>
             </div>
           </div>

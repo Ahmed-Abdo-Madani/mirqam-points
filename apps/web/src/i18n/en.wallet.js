@@ -49,7 +49,9 @@ export default {
     selfEnroll: 'Allow self sign-up',
     selfEnrollHint: 'A QR code at the counter lets customers sign up and get their card themselves (new numbers only).',
     joinPoster: 'Join QR',
-    joinPosterHint: 'Print it and place it at the counter or on tables.',
+    joinPosterHint: 'Download it in your card colours, print it and place it at the counter or on tables.',
+    downloadPoster: 'Download image',
+    posterScan: 'Scan to get your loyalty card in your wallet',
   },
   join: {
     unavailable: 'Sign-up is not available for this program',
