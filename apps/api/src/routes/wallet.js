@@ -12,7 +12,7 @@ import { UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, id, parse } from '../http.js'
 import { safeEqual } from '../secrets.js'
 import { parseSerial } from '../wallet/model.js'
-import { renderStrip } from '../wallet/strip.js'
+import { decodePng, renderStrip } from '../wallet/strip.js'
 
 // Apple's web service posts JSON outside the console's CSRF rules; it gets its own small parser.
 const express_json = express.json({ limit: '8kb' })
@@ -136,6 +136,7 @@ export function publicRoutes({ db, wallet }) {
       code: m.code,
       barcode: m.barcode,
       design: m.design,
+      stampImage: m.design.stampShape === 'custom' && m.stampPng ? `data:image/png;base64,${Buffer.from(m.stampPng).toString('base64')}` : null,
       logoUrl: m.logoUrl ? new URL(m.logoUrl).pathname + new URL(m.logoUrl).search : null,
       wallet: walletLinks(`/api/public/pass/${req.params.token}`),
     })
@@ -155,6 +156,7 @@ export function publicRoutes({ db, wallet }) {
         filled: Math.min(m.balance, m.stampsRequired),
         shape: m.design.stampShape,
         color: m.design.stampColor,
+        image: m.design.stampShape === 'custom' && m.stampPng ? decodePng(m.stampPng) : null,
       }),
     )
   })

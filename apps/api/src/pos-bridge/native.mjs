@@ -30,6 +30,7 @@ export const POS_LINK_PATHS = [
   ['*', '/api/ledger'],
   ['*', '/api/campaigns'],
   ['*', '/api/gift-cards'],
+  ['*', '/api/program-stamps'],
 ]
 
 function pathAllowed(method, path) {

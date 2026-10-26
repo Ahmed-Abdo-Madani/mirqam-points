@@ -1,6 +1,6 @@
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqPencil, MqPlus, MqQrCode, MqStamp, Skeleton, useToast } from '@mirqam/ui'
 import { computeEarn, DEFAULT_CONFIG, formatMinor, normalizeDesign, parseMoneyToMinor, validateProgramConfig } from '@mirqam-points/shared'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
 import Qr from '../../components/Qr.jsx'
 import { downloadJoinPoster } from '../../lib/joinPoster.js'
@@ -55,6 +55,17 @@ function ProgramModal({ open, onClose, program, onSaved }) {
   const [tab, setTab] = useState('program')
   const [side, setSide] = useState('front')
   const editing = Boolean(program)
+  const [stampImage, setStampImage] = useState(null)
+  useEffect(() => {
+    if (!program?.id) return
+    let alive = true
+    api(`/program-stamps/${program.id}`)
+      .then((r) => alive && setStampImage(r.png))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [program?.id])
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const config = toConfig(form)
   const sample = 10_000 // 100 SAR preview purchase
@@ -128,7 +139,12 @@ function ProgramModal({ open, onClose, program, onSaved }) {
       </div>
       <div className="grid gap-6 md:grid-cols-[1fr_auto]">
         <div className="grid content-start gap-4">
-          {tab === 'card' && <CardDesignForm design={form.design} type={form.type} onChange={(design) => setForm((f) => ({ ...f, design }))} />}
+          {tab === 'card' && <CardDesignForm
+              design={form.design}
+              type={form.type}
+              onChange={(design) => setForm((f) => ({ ...f, design }))}
+              stamp={{ programId: program?.id ?? null, image: stampImage, setImage: setStampImage }}
+            />}
           <div className={tab === 'card' ? 'hidden' : 'contents'}>
             <Field label={t('programs.name')}>
               {(p) => <Input {...p} value={form.name} onChange={set('name')} placeholder={t('programs.namePlaceholder')} maxLength={80} />}
@@ -196,6 +212,7 @@ function ProgramModal({ open, onClose, program, onSaved }) {
             stampsRequired={Math.min(Number(form.stampsRequired) || 10, 20)}
             memberName={t('landing.demoMember')}
             design={designOf(form)}
+            stampImage={stampImage}
           />
         </div>
       </div>

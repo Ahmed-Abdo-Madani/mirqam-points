@@ -4,7 +4,8 @@
 
 export const LAYOUTS = ['classic', 'strip', 'balance']
 export const BARCODES = ['qr', 'pdf417', 'aztec', 'code128']
-export const STAMP_SHAPES = ['circle', 'star', 'heart', 'square']
+/* 'custom' draws the merchant's uploaded stamp image (falls back to a circle until one is uploaded). */
+export const STAMP_SHAPES = ['circle', 'star', 'heart', 'square', 'custom']
 /* What the member sees on the card face (max 3) and in the details section. */
 export const FRONT_FIELDS = ['member', 'remaining', 'lifetime', 'code']
 export const BACK_FIELDS = ['code', 'reward', 'terms', 'link']

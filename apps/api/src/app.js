@@ -19,6 +19,7 @@ import ledgerRoutes from './routes/ledger.js'
 import memberRoutes from './routes/members.js'
 import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
+import stampRoutes from './routes/stamps.js'
 import { appleWebService, publicRoutes } from './routes/wallet.js'
 import { installSocialLogin } from './social-login.js'
 import { createWallet } from './wallet/index.js'
@@ -154,6 +155,17 @@ export function createApp({ db, config }) {
     loadSession(db),
     billing.gate(),
     brandingRoutes({ db, wallet }),
+  )
+  // Custom stamp artwork is a small base64 PNG: its own body limit, like logos.
+  app.use(
+    '/api/program-stamps',
+    mobileCors(config),
+    express.json({ limit: '128kb' }),
+    csrfGuard(config),
+    loadSession(db),
+    posLinkAuth(db),
+    billing.gate(),
+    stampRoutes({ db, wallet }),
   )
   installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db), posLinkAuth(db))

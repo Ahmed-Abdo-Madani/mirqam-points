@@ -1,6 +1,8 @@
 import { Button, Field, Input } from '@mirqam/ui'
 import { BACK_FIELDS, BARCODES, coordsFromMapsUrl, DEFAULT_NEARBY_TEXT, FRONT_FIELDS, LAYOUTS, MAX_LOCATIONS, MAX_NOTES, STAMP_SHAPES, TEMPLATES } from '@mirqam-points/shared'
+import { useState } from 'react'
 import PassPreview from '../../components/PassPreview.jsx'
+import { api } from '../../lib/api.js'
 import { useI18n } from '../../i18n/index.jsx'
 
 /* Labels the wallet card prints, in the console's language. */
@@ -52,7 +54,59 @@ function Check({ checked, disabled, onChange, children }) {
   )
 }
 
-export function CardDesignForm({ design, type, onChange }) {
+/** Upload / replace / remove the program's custom stamp image (PNG). */
+function StampUpload({ stamp }) {
+  const { t } = useI18n()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  if (!stamp?.programId) return <p className="mt-2 text-xs text-muted">{t('design.stampSaveFirst')}</p>
+  const upload = (file) => {
+    if (!file) return
+    setError('')
+    const reader = new FileReader()
+    reader.onload = async () => {
+      setBusy(true)
+      try {
+        const r = await api(`/program-stamps/${stamp.programId}`, { method: 'PUT', body: { png: String(reader.result) } })
+        stamp.setImage(r.png)
+      } catch (err) {
+        setError(t(`errors.${err?.code ?? 'generic'}`))
+      } finally {
+        setBusy(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+  const remove = async () => {
+    setBusy(true)
+    try {
+      await api(`/program-stamps/${stamp.programId}`, { method: 'DELETE' })
+      stamp.setImage(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="mt-3 grid gap-2 rounded-2xl border border-line p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {stamp.image && <img src={stamp.image} alt="" className="h-12 w-12 rounded-lg object-contain" />}
+        <label className={`inline-flex cursor-pointer items-center rounded-xl border border-line px-3 py-1.5 text-sm font-semibold ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+          {t(stamp.image ? 'design.stampReplace' : 'design.stampUpload')}
+          <input type="file" accept="image/png" className="hidden" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = '' }} />
+        </label>
+        {stamp.image && (
+          <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={remove}>
+            {t('design.stampRemove')}
+          </Button>
+        )}
+      </div>
+      <p className="text-xs text-muted">{t('design.stampHint')}</p>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+export function CardDesignForm({ design, type, onChange, stamp }) {
   const { t } = useI18n()
   const stamps = type === 'stamps'
   const set = (patch) => onChange({ ...design, ...patch })
@@ -148,6 +202,7 @@ export function CardDesignForm({ design, type, onChange }) {
               </Button>
             ))}
           </div>
+          {design.stampShape === 'custom' && <StampUpload stamp={stamp} />}
         </fieldset>
       )}
 
@@ -280,7 +335,7 @@ export function CardDesignForm({ design, type, onChange }) {
 }
 
 /** Front/back preview of the card with a side switch. */
-export function CardPreview({ side, onSide, merchant, logoUrl, programName, type, stampsRequired, memberName, design }) {
+export function CardPreview({ side, onSide, merchant, logoUrl, programName, type, stampsRequired, memberName, design, stampImage }) {
   const { t } = useI18n()
   return (
     <div>
@@ -306,6 +361,7 @@ export function CardPreview({ side, onSide, merchant, logoUrl, programName, type
         memberName={memberName}
         labels={passLabels(t, type)}
         design={design}
+        stampImage={stampImage}
       />
       <p className="mt-2 max-w-[340px] text-xs text-muted">{t('design.previewNote')}</p>
     </div>

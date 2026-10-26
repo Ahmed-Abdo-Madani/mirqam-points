@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import forge from 'node-forge'
 import { branchLinks, loyaltyFields, nearbyText, PASS_TEXT, rgb } from './model.js'
-import { renderStrip } from './strip.js'
+import { decodePng, renderStrip } from './strip.js'
 import { zip } from './zip.js'
 
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../../assets/pass')
@@ -126,6 +126,7 @@ export function buildPkpass(model, ctx, { logo } = {}) {
     for (const name of ['logo.png', 'logo@2x.png', 'logo@3x.png', 'icon.png', 'icon@2x.png', 'icon@3x.png']) files[name] = logo
   }
   if (model.kind === 'loyalty' && model.design.layout === 'strip' && model.type === 'stamps' && model.stampsRequired) {
+    const image = model.design.stampShape === 'custom' && model.stampPng ? decodePng(model.stampPng) : null
     for (const [name, scale] of [
       ['strip.png', 1],
       ['strip@2x.png', 2],
@@ -138,6 +139,7 @@ export function buildPkpass(model, ctx, { logo } = {}) {
         filled: Math.min(model.balance, model.stampsRequired),
         shape: model.design.stampShape,
         color: model.design.stampColor,
+        image,
       })
     }
   }

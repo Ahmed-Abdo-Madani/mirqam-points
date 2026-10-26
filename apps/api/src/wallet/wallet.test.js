@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { buildPkpass, passJson, pushToDevices } from './apple.js'
 import { _loyaltyObjectForTests, _signJwtForTests, addMessage, loyaltyObjectId } from './google.js'
 import { normalizeDesign, parseSerial } from './model.js'
-import { inspectLogo, renderStrip } from './strip.js'
+import { decodePng, inspectLogo, renderStrip } from './strip.js'
 import { testAppleCredentials } from './test-certs.js'
 
 /* Reads our STORE-only zip back into { name: Buffer }. */
@@ -167,6 +167,19 @@ describe('card design', () => {
     const obj = _loyaltyObjectForTests(designed({ locations: branches }), { issuerId: '1' }, 'https://points.example')
     expect(obj.linksModuleData.uris.map((u) => u.id)).toEqual(['card', 'branch0', 'branch1'])
     expect(obj.textModulesData.some((t) => t.id.startsWith('branch'))).toBe(false)
+  })
+
+  it('custom stamps: PNGs decode and are drawn on the strip, faded when not earned; no image falls back to circles', () => {
+    const art = decodePng(renderStrip({ width: 64, height: 64, total: 1, filled: 1, shape: 'star', color: '#ff0000' }))
+    expect(art).toMatchObject({ width: 64, height: 64 })
+    const strip = decodePng(renderStrip({ width: 300, height: 100, total: 3, filled: 1, shape: 'custom', image: art }))
+    const alphaAt = (x, y) => strip.rgba[(y * 300 + x) * 4 + 3]
+    expect(alphaAt(50, 50)).toBeGreaterThan(200) // earned: full colour
+    expect(alphaAt(150, 50)).toBeGreaterThan(0)
+    expect(alphaAt(150, 50)).toBeLessThan(100) // not yet: faded
+    expect(strip.rgba[(50 * 300 + 50) * 4]).toBe(255) // keeps the artwork's own colour
+    expect(decodePng(renderStrip({ width: 60, height: 20, total: 2, filled: 1, shape: 'custom' }))).not.toBeNull()
+    expect(decodePng(Buffer.from('not a png'))).toBeNull()
   })
 
   it('layouts rearrange the card face', () => {
