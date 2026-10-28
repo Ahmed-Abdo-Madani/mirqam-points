@@ -9,7 +9,9 @@ COPY packages/ui/package.json packages/ui/
 COPY packages/shared/package.json packages/shared/
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build
+# The console, plus the Points Business app's screens packed as a live update
+# (served at /live-update/, offered by POST /api/mobile/live-update).
+RUN npm run build && npm run build:mobile -w @mirqam-points/web && node scripts/pack-live-update.mjs
 
 # ---- runtime: API production deps only ----
 FROM node:22-alpine
