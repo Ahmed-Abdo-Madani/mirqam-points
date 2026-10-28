@@ -1,0 +1,4 @@
+{
+  "//": "Live updates (screens downloaded by the app, see scripts/pack-live-update.mjs). minNative = the oldest store build that can run the current web app. Raise it (and ship a store build) when a change needs new native code, e.g. a new Capacitor plugin.",
+  "minNative": "1.1.0"
+}

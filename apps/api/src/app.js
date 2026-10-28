@@ -7,6 +7,7 @@ import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
 import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError } from './http.js'
+import { liveUpdateHandler } from './live-update.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
 import { installPosNative, posLinkAuth } from './pos-bridge/native.mjs'
@@ -128,6 +129,8 @@ export function createApp({ db, config }) {
   const wallet = createWallet({ db, config })
   // Apple Wallet devices call this directly and authenticate with per-pass tokens.
   app.use('/api/wallet/apple', appleWebService({ db, config, wallet }))
+  // Live updates of the Points Business app's screens (no session: the app asks before sign-in).
+  app.post('/api/mobile/live-update', express.json({ limit: '16kb' }), liveUpdateHandler(config))
 
   // Unified billing service when configured; the legacy direct-Moyasar flow otherwise.
   const billing = config.billingUrl ? createRemoteBilling({ db, config, HttpError }) : createBilling({ db, config })

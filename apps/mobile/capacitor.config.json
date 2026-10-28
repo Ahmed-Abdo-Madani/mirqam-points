@@ -17,6 +17,14 @@
       "launchShowDuration": 800,
       "backgroundColor": "#172740",
       "showSpinner": false
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": true,
+      "updateUrl": "https://mirqam-points.onrender.com/api/mobile/live-update",
+      "statsUrl": "",
+      "channelUrl": "",
+      "appReadyTimeout": 10000,
+      "resetWhenUpdate": true
     }
   }
 }

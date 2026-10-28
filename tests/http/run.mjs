@@ -27,6 +27,19 @@ await check('unknown API routes return JSON 404', async () => {
   expectStatus(res, 404, 'not_found')
 })
 
+await check('live update check answers the app without a session', async () => {
+  const res = await new Agent().post('/api/mobile/live-update', {
+    app_id: 'sa.mirqam.points',
+    version_build: '1.1.0',
+    version_name: 'builtin',
+    platform: 'ios',
+  })
+  expectStatus(res, 200)
+  // Without a packed bundle (no web build) the app is told it is up to date.
+  if (res.body.kind) expect(res.body.kind).toBe('up_to_date')
+  else expect(res.body.version).toMatch(/^1\.1\.0\+[0-9a-f]{12}$/)
+})
+
 await check('security headers are present', async () => {
   const res = await new Agent().get('/api/health')
   expect(res.headers.get('x-content-type-options')).toBe('nosniff')
