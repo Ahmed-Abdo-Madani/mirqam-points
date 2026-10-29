@@ -27,6 +27,9 @@ import { createWallet } from './wallet/index.js'
 
 export const VERSION = '0.2.0'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+// Demo deployment (demo branch only): sample data, no links to production systems.
+const DEMO = process.env.MIRQAM_DEMO === '1'
+const DEMO_CUSTOMER_EMAIL = 'customer@loyalty.demo.mirqam.sa'
 
 /* CSRF defence for cookie sessions: a cross-site form cannot send
    application/json without a CORS preflight, and any browser-supplied Origin
@@ -64,6 +67,12 @@ export function createApp({ db, config }) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.trustProxy)
+  // The demo copy is never indexed.
+  if (DEMO)
+    app.use((_req, res, next) => {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow')
+      next()
+    })
   app.use(
     helmet({
       xFrameOptions: false,
@@ -173,9 +182,10 @@ export function createApp({ db, config }) {
   installSocialLogin(app, { db, config })
   app.use('/api', mobileCors(config), express.json({ limit: '64kb' }), csrfGuard(config), loadSession(db), posLinkAuth(db))
   installPosNative({ app, db })
-  installLoyaltyPosBridge({ app, db, config, billing })
+  // The demo never reaches the production POS or HQ servers: their bridges are not installed.
+  if (!DEMO) installLoyaltyPosBridge({ app, db, config, billing })
   installPosLoyalty({ app, db, billing, wallet })
-  installHqAdmin(app, { db, config, wallet })
+  if (!DEMO) installHqAdmin(app, { db, config, wallet })
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
@@ -188,6 +198,20 @@ export function createApp({ db, config }) {
   app.use('/api/gift-cards', giftCardRoutes({ db, config, wallet }))
   app.use('/api/staff', staffRoutes({ db }))
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }))
+
+  /* Demo only: a stable link to the sample customer's own card. Customers have no
+     sign-in — they open their card from its link (SMS, WhatsApp or the join QR). */
+  if (DEMO) {
+    app.get(['/demo/customer', '/demo/customer/:card'], async (req, res) => {
+      const type = req.params.card === 'stamps' ? 'stamps' : 'points'
+      const { rows } = await db.query(
+        `SELECT a.pass_token FROM accounts a JOIN members m ON m.id = a.member_id JOIN programs p ON p.id = a.program_id
+          WHERE lower(m.email) = $1 AND p.type = $2 AND p.status = 'active' ORDER BY a.created_at LIMIT 1`,
+        [DEMO_CUSTOMER_EMAIL, type],
+      )
+      res.redirect(302, rows[0] ? `/p/${rows[0].pass_token}` : '/')
+    })
+  }
 
   // Production: the API also serves the built console (one Render service, like the bot).
   if (existsSync(join(config.webDist, 'index.html'))) {

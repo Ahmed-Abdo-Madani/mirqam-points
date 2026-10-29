@@ -1,0 +1,48 @@
+# Mirqam Loyalty — DEMO image (demo branch only; never used for production).
+# One container: Express API + the built web console + a private Postgres that is
+# created and freshly seeded with Arabic sample data on every start (demo/start.sh).
+# Render: Docker runtime, dockerfilePath ./Dockerfile.demo, no database or secrets needed.
+
+# ---- build: install everything, build the console (demo flavour) ----
+# Same build stage as the production Dockerfile; the built files are platform-neutral.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/ui/package.json packages/ui/
+COPY packages/shared/package.json packages/shared/
+RUN npm ci --no-audit --no-fund
+COPY . .
+# The demo site carries no marketing analytics tags, no store APK and no blog,
+# and asks search engines to stay away.
+RUN sed -i -E 's#<link[^>]*marketing-consent\.css[^>]*>##; s#<script[^>]*marketing-consent\.js[^>]*></script>##' apps/web/index.html \
+ && ! grep -q marketing-consent apps/web/index.html \
+ && rm -rf apps/web/public/blog apps/web/public/downloads apps/web/public/marketing-* apps/web/public/sitemap.xml \
+ && printf 'User-agent: *\nDisallow: /\n' > apps/web/public/robots.txt \
+ && npm run build
+
+# ---- runtime: API production deps + Postgres ----
+FROM node:22-bookworm-slim
+# Debian's postgresql package; start.sh creates the demo cluster itself (no default cluster).
+RUN mkdir -p /etc/postgresql-common/createcluster.d \
+ && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.d/no-main-cluster.conf \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql \
+ && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production PORT=10000 MIRQAM_DEMO=1
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/ui/package.json packages/ui/
+COPY packages/shared/package.json packages/shared/
+RUN npm ci --omit=dev --no-audit --no-fund --workspace @mirqam-points/api && npm cache clean --force
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+COPY demo demo
+COPY --from=build /app/apps/web/dist apps/web/dist
+# Runs as root: start.sh initialises Postgres and runs it as the postgres user.
+EXPOSE 10000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||10000)+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+CMD ["bash", "demo/start.sh"]

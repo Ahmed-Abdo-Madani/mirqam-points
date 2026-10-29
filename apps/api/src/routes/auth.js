@@ -126,6 +126,8 @@ export default function authRoutes({ db, config }) {
      workspace is closed: staff lose access, and the business's transaction
      records are retained only as the merchant's accounting history. */
   r.post('/delete-account', requireAuth, limiter, async (req, res) => {
+    // Demo copy: the shared sample logins cannot be deleted (it would break the demo for everyone).
+    if (process.env.MIRQAM_DEMO === '1' && /@loyalty\.demo\.mirqam\.sa$/i.test(req.auth.user.email)) throw new HttpError(403, 'forbidden')
     const { password: pw, socialConfirmation } = parse(
       z.object({ password: z.string().min(1).max(200).optional(), socialConfirmation: z.literal(true).optional() }),
       req.body,
