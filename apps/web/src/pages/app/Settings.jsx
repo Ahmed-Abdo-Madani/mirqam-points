@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader, RoleBadge } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
-import { api, assetUrl, useApi } from '../../lib/api.js'
+import { api, assetUrl, NATIVE, useApi } from '../../lib/api.js'
 import { useSession } from '../../lib/session.jsx'
 
 /* In-app account deletion (App Store guideline 5.1.1(v)): no email round-trip, confirmed by password or a recent social login. */
@@ -35,6 +35,11 @@ function DeleteAccount() {
   return (
     <Card title={t('settings.deleteTitle')} subtitle={t('settings.deleteSubtitle')}>
       <p className="text-sm leading-relaxed text-muted">{t(me.role === 'owner' ? 'settings.deleteOwnerBody' : 'settings.deleteStaffBody')}</p>
+      <p className="mt-2 text-sm">
+        <Link to="/delete-account" className="font-semibold text-accent hover:underline">
+          {t('settings.deleteDetails')}
+        </Link>
+      </p>
       <Button variant="danger" className="mt-4" onClick={() => setOpen(true)}>
         {t('settings.deleteButton')}
       </Button>
@@ -105,7 +110,8 @@ async function toLogoPng(file) {
 }
 
 /* Owner's WhatsApp number for subscription reminders. Billing sends them through Mirqam Bot with a
-   link to the website's billing page — the app itself never offers purchases (App Store 3.1.1). */
+   link to the website's billing page — the app itself never offers purchases (App Store 3.1.1), and
+   billing requests are website-only (lib/api.js), so the native app does not show this card. */
 function BillingWhatsApp() {
   const { t } = useI18n()
   const errorText = useErrorText()
@@ -260,7 +266,7 @@ export default function Settings() {
           </dl>
         </Card>
         <Logo />
-        {can('owner') && <BillingWhatsApp />}
+        {can('owner') && !NATIVE && <BillingWhatsApp />}
         <Card title={t('settings.wallets')} subtitle={t('settings.walletsSubtitle')}>
           <ul className="grid gap-3 text-sm">
             <li className="flex items-center justify-between gap-3">
@@ -279,6 +285,7 @@ export default function Settings() {
             <Link to="/privacy">{t('legal.privacy')}</Link>
             <Link to="/terms">{t('legal.terms')}</Link>
             <Link to="/support">{t('legal.support')}</Link>
+            <Link to="/delete-account">{t('legal.deleteAccount')}</Link>
           </nav>
         </Card>
         <DeleteAccount />

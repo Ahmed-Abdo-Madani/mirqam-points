@@ -20,6 +20,13 @@ export default {
     keepPrivate: 'This is your personal card — do not share the link.',
   },
   members: {
+    erase: 'Delete member',
+    eraseTitle: 'Delete member data',
+    eraseBody:
+      'Use this when a customer asks for their data to be deleted. Their phone number, name, email and marketing consent are erased, their cards stop working and any remaining balance is forfeited. Transaction amounts stay in your records without anything that identifies them. This cannot be undone.',
+    eraseConfirm: 'Delete permanently',
+    erased: 'Deleted member',
+    erasedDone: 'Member data deleted',
     unverified: 'Unverified number',
     unverifiedHint: 'This member signed up from the join QR. Check they have the phone, then reissue the card to confirm the number.',
   },
@@ -112,7 +119,7 @@ export default {
     redeemed: '{amount} charged',
     remaining: 'Remaining balance',
   },
-  legal: { privacy: 'Privacy Policy', terms: 'Terms', support: 'Support' },
+  legal: { privacy: 'Privacy Policy', terms: 'Terms', support: 'Support', deleteAccount: 'Delete account' },
   settings: {
     deleteSocialConfirm: 'Confirm deletion with recent sign-in',
     deleteSocialAgain: 'For linked accounts: sign in again below, then return to Settings to confirm deletion within five minutes.',
@@ -128,8 +135,10 @@ export default {
     deleteTitle: 'Delete account',
     deleteSubtitle: 'Permanent and cannot be undone.',
     deleteOwnerBody:
-      'Your account will be deleted. If you are the only owner, the store is closed and staff lose access; transaction records are kept only for the legally required period.',
-    deleteStaffBody: 'Your account will be deleted and your access to this store ends. Transactions you recorded stay in the store’s history.',
+      'Your account is deleted immediately. If you are the only owner, all of the store’s data goes with it: members and their balances, points history, programs, campaigns, gift cards, staff accounts and the logo. Only subscription invoices are kept, for six years, as the law requires.',
+    deleteStaffBody:
+      'Your account will be deleted and your access to this store ends. Transactions you recorded stay in the store’s history without your name.',
+    deleteDetails: 'What is deleted and what is kept',
     deleteButton: 'Delete my account',
     deleteConfirmTitle: 'Confirm account deletion',
     deleteConfirmBody: 'Enter your password to confirm permanent deletion.',

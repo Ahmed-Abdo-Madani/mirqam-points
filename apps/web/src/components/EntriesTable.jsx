@@ -29,9 +29,14 @@ export default function EntriesTable({ items, compact = false, showMember = true
               <td className="td-base whitespace-nowrap text-muted">{dateTime(e.createdAt, locale)}</td>
               {showMember && (
                 <td className="td-base">
-                  <Link to={`/app/members/${e.member.id}`} className="font-semibold hover:text-accent">
-                    {e.member.name || <span dir="ltr">{e.member.phone}</span>}
-                  </Link>
+                  {e.member.phone ? (
+                    <Link to={`/app/members/${e.member.id}`} className="font-semibold hover:text-accent">
+                      {e.member.name || <span dir="ltr">{e.member.phone}</span>}
+                    </Link>
+                  ) : (
+                    // Erased at the member's request: the amounts stay, the person does not.
+                    <span className="text-muted">{t('members.erased')}</span>
+                  )}
                 </td>
               )}
               <td className="td-base">

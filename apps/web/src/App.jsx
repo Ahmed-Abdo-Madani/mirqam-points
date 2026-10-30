@@ -27,6 +27,7 @@ const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
 const GiftPage = lazy(() => import('./pages/public/GiftPage.jsx'))
 const JoinPage = lazy(() => import('./pages/public/JoinPage.jsx'))
 const Legal = lazy(() => import('./pages/public/Legal.jsx'))
+const DeleteAccount = lazy(() => import('./pages/public/DeleteAccount.jsx'))
 
 function RequireAuth({ children, capability }) {
   const session = useSession()
@@ -69,6 +70,8 @@ export default function App() {
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/support" element={<Legal doc="support" />} />
+        {/* Public account-deletion page (Google Play). No sign-in, on the website and in the app. */}
+        <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/register" element={<Auth mode="register" />} />
         <Route path="/design" element={<Design />} />
