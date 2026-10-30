@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
+import { eraseUser, purgeTenant } from '../account-deletion.js'
 import {
   clearedCookie,
   createSession,
@@ -32,7 +33,7 @@ export function me(auth) {
   return { user: auth.user, tenant: auth.tenant, role: auth.role, recentSocialLogin: recentSocialLogin(auth), socialProviders: auth.socialProviders || [] }
 }
 
-export default function authRoutes({ db, config }) {
+export default function authRoutes({ db, config, billing, wallet }) {
   const r = Router()
   const limiter = rateLimit({
     windowMs: 60_000,
@@ -121,10 +122,11 @@ export default function authRoutes({ db, config }) {
 
   r.get('/me', requireAuth, (req, res) => res.json(me(req.auth)))
 
-  /* Account deletion (App Store guideline 5.1.1(v)). Requires the password or a recent server-verified social login.
-     The login is erased. If the user is the workspace's only owner, the
-     workspace is closed: staff lose access, and the business's transaction
-     records are retained only as the merchant's accounting history. */
+  /* Account deletion (App Store 5.1.1(v), Google Play account deletion; explained publicly at
+     /delete-account). Requires the password or a recent server-verified social login.
+     The login is erased. Every workspace this user alone owns is closed (staff lose
+     access at once) and purged right away; only billing records are kept, for the
+     legal retention period (see account-deletion.js). */
   r.post('/delete-account', requireAuth, limiter, async (req, res) => {
     const { password: pw, socialConfirmation } = parse(
       z.object({ password: z.string().min(1).max(200).optional(), socialConfirmation: z.literal(true).optional() }),
@@ -138,7 +140,7 @@ export default function authRoutes({ db, config }) {
       } = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.auth.userId])
       if (!pw || !user || !(await verifyPassword(pw, user.password_hash))) throw new HttpError(401, 'invalid_credentials')
     }
-    await db.tx(async (tx) => {
+    const closed = await db.tx(async (tx) => {
       // Workspaces where this user is the only owner.
       const { rows: owned } = await tx.query(
         `SELECT m.tenant_id FROM memberships m WHERE m.user_id = $1 AND m.role = 'owner'
@@ -146,14 +148,21 @@ export default function authRoutes({ db, config }) {
         [req.auth.userId],
       )
       for (const { tenant_id } of owned) {
-        await tx.query('UPDATE tenants SET closed_at = now() WHERE id = $1', [tenant_id])
+        await tx.query('UPDATE tenants SET closed_at = now(), purge_after = now() WHERE id = $1', [tenant_id])
         await tx.query('DELETE FROM sessions WHERE tenant_id = $1', [tenant_id])
         await tx.query("INSERT INTO audit_log (tenant_id, action) VALUES ($1, 'tenant.closed_by_owner_deletion')", [tenant_id])
       }
-      await tx.query('DELETE FROM users WHERE id = $1', [req.auth.userId])
+      await eraseUser(tx, req.auth.userId)
+      return owned.map((o) => o.tenant_id)
     })
+    for (const tenantId of closed) {
+      // No renewal charges after deletion (unified billing keeps its own invoices). Best effort.
+      if (billing?.remote && billing.ready) billing.cancel(tenantId).catch(() => {})
+      // The hourly sweep retries a purge that fails here.
+      await purgeTenant(db, tenantId, { wallet }).catch((err) => console.warn(`[deletion] purge of ${tenantId} deferred: ${err.message}`))
+    }
     res.setHeader('Set-Cookie', clearedCookie({ production: config.production }))
-    res.json({ ok: true })
+    res.json({ ok: true, workspaceDeleted: closed.length > 0 })
   })
 
   return r

@@ -1,6 +1,7 @@
 import { normalizePhone } from '@mirqam-points/shared'
 import { Router } from 'express'
 import { z } from 'zod'
+import { eraseMember } from '../account-deletion.js'
 import { requireAuth, requireRole } from '../auth.js'
 import { int, UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, id, pageQuery, parse } from '../http.js'
@@ -52,7 +53,8 @@ export default function memberRoutes({ db, wallet }) {
     // Phone-like queries search the normalized form; anything else searches the name.
     const phone = q ? normalizePhone(q) : null
     const digits = q?.replace(/\D/g, '')
-    const where = ['m.tenant_id = $1']
+    // Erased members are anonymous rows that only keep the store's history consistent.
+    const where = ['m.tenant_id = $1', 'm.erased_at IS NULL']
     const params = [req.auth.tenantId]
     if (phone) {
       params.push(phone)
@@ -112,7 +114,7 @@ export default function memberRoutes({ db, wallet }) {
       const {
         rows: [row],
       } = await db.query(
-        'SELECT m.*, a.program_id AS matched_program_id FROM accounts a JOIN members m ON m.id = a.member_id WHERE a.tenant_id = $1 AND a.code = $2',
+        'SELECT m.*, a.program_id AS matched_program_id FROM accounts a JOIN members m ON m.id = a.member_id WHERE a.tenant_id = $1 AND a.code = $2 AND m.erased_at IS NULL',
         [req.auth.tenantId, code],
       )
       if (!row) throw new HttpError(404, 'member_not_found')
@@ -130,7 +132,7 @@ export default function memberRoutes({ db, wallet }) {
     const memberId = parse(id, req.params.id)
     const {
       rows: [row],
-    } = await db.query('SELECT * FROM members WHERE id = $1 AND tenant_id = $2', [memberId, req.auth.tenantId])
+    } = await db.query('SELECT * FROM members WHERE id = $1 AND tenant_id = $2 AND erased_at IS NULL', [memberId, req.auth.tenantId])
     if (!row) throw new HttpError(404, 'member_not_found')
     const [{ rows: accounts }, { rows: entries }] = await Promise.all([
       db.query(
@@ -173,7 +175,7 @@ export default function memberRoutes({ db, wallet }) {
     if (!program) throw new HttpError(422, 'program_not_active')
     const {
       rows: [member],
-    } = await db.query('SELECT id FROM members WHERE id = $1 AND tenant_id = $2', [memberId, req.auth.tenantId])
+    } = await db.query('SELECT id FROM members WHERE id = $1 AND tenant_id = $2 AND erased_at IS NULL', [memberId, req.auth.tenantId])
     if (!member) throw new HttpError(404, 'member_not_found')
     const account = await ensureAccount(db, { tenantId: req.auth.tenantId, programId, memberId })
     res.status(201).json({ id: account.id, code: account.code, passPath: `/p/${account.pass_token}` })
@@ -187,7 +189,11 @@ export default function memberRoutes({ db, wallet }) {
     const accountId = parse(id, req.params.accountId)
     const {
       rows: [old],
-    } = await db.query(`${LOYALTY_SQL} WHERE a.id = $1 AND a.member_id = $2 AND a.tenant_id = $3`, [accountId, memberId, req.auth.tenantId])
+    } = await db.query(`${LOYALTY_SQL} WHERE a.id = $1 AND a.member_id = $2 AND a.tenant_id = $3 AND m.erased_at IS NULL`, [
+      accountId,
+      memberId,
+      req.auth.tenantId,
+    ])
     if (!old) throw new HttpError(404, 'account_not_found')
     const {
       rows: [account],
@@ -218,12 +224,22 @@ export default function memberRoutes({ db, wallet }) {
          marketing_consent = COALESCE($6, marketing_consent),
          consent_at = CASE WHEN $6 IS TRUE AND NOT marketing_consent THEN now()
                            WHEN $6 IS FALSE THEN NULL ELSE consent_at END
-       WHERE id = $1 AND tenant_id = $2 RETURNING *`,
+       WHERE id = $1 AND tenant_id = $2 AND erased_at IS NULL RETURNING *`,
       [memberId, req.auth.tenantId, body.name ?? null, body.email ?? null, body.locale ?? null, body.marketingConsent ?? null],
     )
     if (!row) throw new HttpError(404, 'member_not_found')
     await audit(db, req, 'member.updated', memberId, Object.keys(body))
     res.json(mapMember(row))
+  })
+
+  /* Erasure at the member's request (PDPL), made through the store: phone, name, email
+     and consent are wiped, every card the member holds stops working, and any balance
+     is forfeited as an `expire` entry. Amounts stay in the store's history, anonymously. */
+  r.delete('/:id', requireRole('manager'), async (req, res) => {
+    const memberId = parse(id, req.params.id)
+    const erased = await eraseMember(db, { tenantId: req.auth.tenantId, memberId, actorUserId: req.auth.userId, wallet })
+    if (!erased) throw new HttpError(404, 'member_not_found')
+    res.json({ ok: true, ...erased })
   })
 
   return r

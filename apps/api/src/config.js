@@ -24,6 +24,8 @@ export function loadConfig(env = process.env) {
     billingEnforce: env.BILLING_ENFORCE === '1',
     trialDays: Number(env.BILLING_TRIAL_DAYS || 14),
     lifecycleIntervalMs: Number(env.BILLING_LIFECYCLE_INTERVAL_MS || 3_600_000),
+    // Account deletion sweep (account-deletion.js). Hourly keeps the public promise of "within 24 hours".
+    purgeIntervalMs: Number(env.DELETION_SWEEP_INTERVAL_MS || 3_600_000),
     port: Number(env.PORT || 4100),
     databaseUrl,
     publicUrl,

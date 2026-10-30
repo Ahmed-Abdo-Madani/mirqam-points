@@ -21,7 +21,8 @@ const createBody = z.object({
 })
 const audienceQuery = z.object({ programId: id, audience: z.enum(AUDIENCES).default('consented') })
 
-const AUDIENCE_WHERE = { consented: 'AND m.marketing_consent', all: '' }
+// Erased members have no consent and are never messaged.
+const AUDIENCE_WHERE = { consented: 'AND m.marketing_consent AND m.erased_at IS NULL', all: 'AND m.erased_at IS NULL' }
 const RECENT_SQL = "SELECT count(*) AS n FROM campaigns WHERE tenant_id = $1 AND program_id = $2 AND created_at > now() - interval '24 hours'"
 
 export function mapCampaign(row) {

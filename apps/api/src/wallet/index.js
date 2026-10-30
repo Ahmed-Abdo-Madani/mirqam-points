@@ -5,7 +5,7 @@
 import { HttpError } from '../http.js'
 import { unseal } from '../secrets.js'
 import { appleConfigured, buildPkpass, pushToDevices } from './apple.js'
-import { addMessage, deactivateLoyalty, googleConfigured, saveUrl, updateClass, updateObject } from './google.js'
+import { addMessage, deactivateLoyalty, eraseGift, eraseLoyalty, googleConfigured, saveUrl, updateClass, updateObject } from './google.js'
 import { GIFT_SQL, giftModel, LOYALTY_SQL, loyaltyModel } from './model.js'
 
 export function createWallet({ db, config }) {
@@ -124,6 +124,17 @@ export function createWallet({ db, config }) {
             : []),
         ])
       }
+    },
+    /** After a member's erasure or a workspace purge. Google keeps its copy of a saved card,
+        so it is marked inactive without the member's name. Apple passes live on the device;
+        their registrations are already deleted, so they simply stop updating.
+        loyalty: [{ id, version, code }] (the card versions that were live), gifts: [{ id }]. */
+    forget({ loyalty = [], gifts = [] }) {
+      if (!status().google || (!loyalty.length && !gifts.length)) return
+      const jobs = [...loyalty.map((ref) => () => eraseLoyalty(ref, ctx)), ...gifts.map((ref) => () => eraseGift(ref, ctx))]
+      background(`forget ${jobs.length} cards`, async () => {
+        for (let i = 0; i < jobs.length; i += 10) await Promise.allSettled(jobs.slice(i, i + 10).map((job) => job()))
+      })
     },
     /** After reissue: the superseded pass is retired on both platforms. */
     retire(previousModel) {
