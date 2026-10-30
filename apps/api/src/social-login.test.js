@@ -78,7 +78,8 @@ it('account deletion accepts explicit fresh social confirmation, rejects stale o
     expect((await request(fresh, { socialConfirmation: true })).status).toBe(200)
     expect((await db.query('SELECT id FROM users WHERE id=$1', [target.userId])).rowCount).toBe(0)
     expect((await db.query('SELECT id FROM users WHERE id=$1', [other.userId])).rowCount).toBe(1)
-    expect((await db.query('SELECT closed_at FROM tenants WHERE id=$1', [target.tenantId])).rows[0].closed_at).toBeTruthy()
+    // The sole owner's workspace is purged with the account (no billing records, so nothing is kept).
+    expect((await db.query('SELECT id FROM tenants WHERE id=$1', [target.tenantId])).rowCount).toBe(0)
     expect((await db.query('SELECT closed_at FROM tenants WHERE id=$1', [other.tenantId])).rows[0].closed_at).toBeNull()
   } finally {
     await new Promise((r) => server.close(r))

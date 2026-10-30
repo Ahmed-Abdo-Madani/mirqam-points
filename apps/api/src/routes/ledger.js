@@ -39,7 +39,7 @@ async function loadTarget(db, tenantId, { programId, memberId }) {
   if (!program) throw new HttpError(404, 'program_not_found')
   const {
     rows: [member],
-  } = await db.query('SELECT id FROM members WHERE id = $1 AND tenant_id = $2', [memberId, tenantId])
+  } = await db.query('SELECT id FROM members WHERE id = $1 AND tenant_id = $2 AND erased_at IS NULL', [memberId, tenantId])
   if (!member) throw new HttpError(404, 'member_not_found')
   return program
 }
@@ -100,6 +100,14 @@ export default function ledgerRoutes({ db, wallet }) {
 
   r.post('/void', requireRole('manager'), async (req, res) => {
     const body = parse(voidBody, req.body)
+    // An erased member's history is closed: nothing may put points back on their account.
+    const {
+      rows: [owner],
+    } = await db.query(
+      'SELECT m.erased_at FROM ledger_entries e JOIN accounts a ON a.id = e.account_id JOIN members m ON m.id = a.member_id WHERE e.id = $1 AND e.tenant_id = $2',
+      [body.entryId, req.auth.tenantId],
+    )
+    if (owner?.erased_at) throw new HttpError(404, 'member_not_found')
     const result = await voidEntry(db, actor(req, { entryId: body.entryId, note: body.note }))
     if (!result.replayed) await audit(db, req, 'ledger.voided', body.entryId, { note: body.note })
     // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
@@ -131,7 +139,7 @@ export default function ledgerRoutes({ db, wallet }) {
     ] = await Promise.all([
       db.query(
         `SELECT e.*, a.member_id, a.program_id, m.phone, m.name AS member_name, p.name AS program_name, p.type AS program_type,
-                u.name AS actor_name,
+                CASE WHEN u.deleted_at IS NULL THEN u.name END AS actor_name,
                 (SELECT 1 FROM ledger_entries v WHERE v.reverses_entry_id = e.id) IS NOT NULL AS voided
            ${from}
            JOIN members m ON m.id = a.member_id
@@ -182,8 +190,8 @@ export default function ledgerRoutes({ db, wallet }) {
         [t],
       ),
       db.query(
-        `SELECT (SELECT count(*) FROM members WHERE tenant_id = $1) AS members,
-                (SELECT count(*) FROM members WHERE tenant_id = $1 AND created_at > now() - interval '30 days') AS members_30d,
+        `SELECT (SELECT count(*) FROM members WHERE tenant_id = $1 AND erased_at IS NULL) AS members,
+                (SELECT count(*) FROM members WHERE tenant_id = $1 AND erased_at IS NULL AND created_at > now() - interval '30 days') AS members_30d,
                 (SELECT count(*) FROM programs WHERE tenant_id = $1 AND status = 'active') AS active_programs,
                 (SELECT count(*) FROM ledger_entries WHERE tenant_id = $1 AND created_at > now() - interval '30 days') AS entries_30d`,
         [t],

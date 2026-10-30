@@ -1,3 +1,4 @@
+import { runPurges } from './account-deletion.js'
 import { createApp } from './app.js'
 import { startCommerceWorker } from './commerce.js'
 import { loadConfig } from './config.js'
@@ -22,6 +23,15 @@ const runLifecycle = () =>
     .catch((err) => console.warn('[billing] lifecycle failed:', err.message))
 setTimeout(runLifecycle, 30_000).unref()
 setInterval(runLifecycle, config.lifecycleIntervalMs).unref()
+
+// Account deletion: purges deleted owners' workspaces the request could not finish, and
+// billing records past their legal retention (account-deletion.js).
+const runDeletionSweep = () =>
+  runPurges(db, { wallet: app.locals.wallet })
+    .then((c) => (c.purged || c.failed || c.billingRecordsExpired || c.tombstonesRemoved) && console.log('[deletion] sweep', JSON.stringify(c)))
+    .catch((err) => console.warn('[deletion] sweep failed:', err.message))
+setTimeout(runDeletionSweep, 45_000).unref()
+setInterval(runDeletionSweep, config.purgeIntervalMs).unref()
 
 let closing = false
 async function shutdown(signal) {

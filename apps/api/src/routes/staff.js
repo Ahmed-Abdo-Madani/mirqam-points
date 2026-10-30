@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import { eraseUser } from '../account-deletion.js'
 import { hashPassword, ROLES, requireRole } from '../auth.js'
 import { UNIQUE_VIOLATION } from '../db/index.js'
 import { HttpError, id, parse } from '../http.js'
@@ -80,8 +81,13 @@ export default function staffRoutes({ db }) {
     if (userId === req.auth.userId) throw new HttpError(422, 'cannot_remove_self')
     const removed = await db.tx(async (tx) => {
       const { rowCount } = await tx.query('DELETE FROM memberships WHERE tenant_id = $1 AND user_id = $2', [req.auth.tenantId, userId])
+      if (!rowCount) return 0
       // Sign the removed person out of this workspace immediately.
       await tx.query('DELETE FROM sessions WHERE tenant_id = $1 AND user_id = $2', [req.auth.tenantId, userId])
+      // A login that belongs to no other workspace is erased: anonymised while entries it
+      // recorded remain in the store's history, deleted outright otherwise.
+      const { rows: elsewhere } = await tx.query('SELECT 1 FROM memberships WHERE user_id = $1 LIMIT 1', [userId])
+      if (!elsewhere.length) await eraseUser(tx, userId)
       return rowCount
     })
     if (!removed) throw new HttpError(404, 'staff_not_found')

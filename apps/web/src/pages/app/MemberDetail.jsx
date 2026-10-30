@@ -1,6 +1,6 @@
 import { Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, MqArrowRight, MqLedger, MqPass, MqStamp, Skeleton, useToast } from '@mirqam/ui'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import EntriesTable from '../../components/EntriesTable.jsx'
 import Qr from '../../components/Qr.jsx'
 import TransactionModal from '../../components/TransactionModal.jsx'
@@ -114,6 +114,56 @@ function CardModal({ account, memberId, onClose, onReissued }) {
   )
 }
 
+/* Erasure at the member's own request (PDPL), made through the store. */
+function EraseModal({ member, onClose }) {
+  const { t } = useI18n()
+  const errorText = useErrorText()
+  const toast = useToast()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  async function confirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api(`/members/${member.id}`, { method: 'DELETE' })
+      toast(t('members.erasedDone'))
+      navigate('/app/members', { replace: true })
+    } catch (err) {
+      setError(err)
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('members.eraseTitle')}
+      closeLabel={t('common.close')}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="danger" onClick={confirm} loading={busy}>
+            {t('members.eraseConfirm')}
+          </Button>
+        </>
+      }
+    >
+      <p className="font-semibold">
+        {member.name || t('members.unnamed')} · <span dir="ltr">{member.phone}</span>
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-muted">{t('members.eraseBody')}</p>
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
+          {errorText(error)}
+        </p>
+      )}
+    </Modal>
+  )
+}
+
 function AccountCard({ account, onAction, onCard, canTransact }) {
   const { t, locale } = useI18n()
   const { program } = account
@@ -173,6 +223,7 @@ export default function MemberDetail() {
   const [tx, setTx] = useState(null) // { mode, programId }
   const [voiding, setVoiding] = useState(null)
   const [card, setCard] = useState(null)
+  const [erasing, setErasing] = useState(false)
   const errorText = useErrorText()
   const toast = useToast()
 
@@ -244,6 +295,15 @@ export default function MemberDetail() {
               {t('transactions.adjust')}
             </Button>
           )}
+          {can('manage') && (
+            <button
+              type="button"
+              onClick={() => setErasing(true)}
+              className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-err hover:underline"
+            >
+              {t('members.erase')}
+            </button>
+          )}
         </div>
       </section>
 
@@ -290,6 +350,7 @@ export default function MemberDetail() {
       )}
       {voiding && <VoidModal entry={voiding} onClose={() => setVoiding(null)} onDone={reload} />}
       {card && <CardModal account={card} memberId={m.id} onClose={() => setCard(null)} onReissued={reload} />}
+      {erasing && <EraseModal member={m} onClose={() => setErasing(false)} />}
     </>
   )
 }

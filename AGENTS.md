@@ -29,7 +29,10 @@ The pre-push hook runs the same gate: `npm run hooks:install` once per clone.
 
 - **The ledger is append-only.** Never UPDATE/DELETE `ledger_entries` (a
   trigger blocks it). Corrections are new `adjust` / `void` entries via
-  `apps/api/src/ledger.js` — never write balances directly.
+  `apps/api/src/ledger.js` — never write balances directly. The one exception
+  is the purge of a *closed* workspace after its owner deleted the account
+  (`apps/api/src/account-deletion.js`); a new table with a `tenant_id` must be
+  added to its purge list (the account-deletion test enforces this).
 - **Every ledger mutation carries an idempotency key** (`Idempotency-Key`
   header). Clients mint one per distinct request with `useIdempotencyKey`
   and reuse it on retry.

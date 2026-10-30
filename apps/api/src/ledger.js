@@ -185,6 +185,24 @@ export async function voidEntry(db, { tenantId, entryId, idempotencyKey, ...meta
   })
 }
 
+/** Member erasure: zeroes one account with a single `expire` entry, inside the
+    caller's transaction (the account row must already be locked FOR UPDATE).
+    Idempotent per account; returns the points/stamps forfeited (0 when none). */
+export async function forfeitBalance(tx, { tenantId, accountId, actorUserId = null }) {
+  const { rows } = await tx.query('SELECT balance FROM accounts WHERE id = $1 AND tenant_id = $2', [accountId, tenantId])
+  const balance = int(rows[0]?.balance ?? 0)
+  if (balance <= 0) return 0
+  const idempotencyKey = `erase-${accountId}`
+  if (await findByKey(tx, tenantId, idempotencyKey)) return 0
+  await tx.query(
+    `INSERT INTO ledger_entries (tenant_id, account_id, kind, amount, balance_after, source, actor_user_id, idempotency_key, request_hash)
+     VALUES ($1, $2, 'expire', $3, 0, 'system', $4, $5, $6)`,
+    [tenantId, accountId, -balance, actorUserId, idempotencyKey, hashRequest(['expire', accountId, -balance])],
+  )
+  await tx.query('UPDATE accounts SET balance = 0, updated_at = now() WHERE id = $1', [accountId])
+  return balance
+}
+
 /** Find or create the member's account in a program (idempotent). */
 export async function ensureAccount(db, { tenantId, programId, memberId }) {
   await db.query(

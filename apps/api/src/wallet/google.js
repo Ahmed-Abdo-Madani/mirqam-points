@@ -201,4 +201,14 @@ export function deactivateLoyalty(model, { google }) {
   return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, model))}`, { state: 'INACTIVE' })
 }
 
+/** A deleted loyalty card (member erased, workspace purged): inactive, and the member's name replaced by the card number. */
+export function eraseLoyalty(ref, { google }) {
+  return call(google, 'PATCH', `/loyaltyObject/${encodeURIComponent(loyaltyObjectId(google, ref))}`, { state: 'INACTIVE', accountName: ref.code })
+}
+
+/** A deleted gift card (workspace purged): inactive, without the sender's message. */
+export function eraseGift(ref, { google }) {
+  return call(google, 'PATCH', `/giftCardObject/${encodeURIComponent(giftObjectId(google, ref))}`, { state: 'INACTIVE', textModulesData: [] })
+}
+
 export { loyaltyObject as _loyaltyObjectForTests, signJwt as _signJwtForTests }

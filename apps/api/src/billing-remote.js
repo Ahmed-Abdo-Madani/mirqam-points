@@ -69,7 +69,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   async function apply(ent) {
     if (!ent || ent.platform !== PLAN || typeof ent.account_ref !== 'string') return false
     const tenantId = ent.account_ref
-    if (!(await db.query('SELECT 1 FROM tenants WHERE id=$1', [tenantId])).rows[0]) return false
+    // A deleted workspace (closed, then purged) never gets its entitlement cache back.
+    if (!(await db.query('SELECT 1 FROM tenants WHERE id=$1 AND closed_at IS NULL', [tenantId])).rows[0]) return false
     if (ent.status === 'none') return false
     return db.tx(async (tx) => {
       await tx.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE', [tenantId])
@@ -169,6 +170,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
         return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
       if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
+      // Erasing a member or removing staff is a privacy request: it never waits on a subscription.
+      if (req.method === 'DELETE' && /^\/(members|staff)\/[^/]+$/.test(req.path)) return next()
       if ((await entitlement(req.auth.tenantId)).allowed) return next()
       next(new HttpError(402, 'subscription_required'))
     } catch (err) {

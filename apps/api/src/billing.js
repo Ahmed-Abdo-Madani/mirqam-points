@@ -311,6 +311,8 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
         return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
       if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
+      // Erasing a member or removing staff is a privacy request: it never waits on a subscription.
+      if (req.method === 'DELETE' && /^\/(members|staff)\/[^/]+$/.test(req.path)) return next()
       if ((await entitlement(req.auth.tenantId)).allowed) return next()
       next(new HttpError(402, 'subscription_required'))
     } catch (err) {

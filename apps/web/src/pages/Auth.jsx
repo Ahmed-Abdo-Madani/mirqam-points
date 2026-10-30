@@ -159,6 +159,22 @@ export default function Auth({ mode }) {
             </Link>
           </p>}
         </main>
+
+        {/* Reachable before sign-in, in the app too (Google Play requires an in-app privacy policy link). */}
+        <nav aria-label={t('settings.legal')} className="flex flex-wrap justify-center gap-x-5 gap-y-2 pb-2 text-xs font-semibold text-muted">
+          <Link to="/privacy" className="hover:text-accent">
+            {t('legal.privacy')}
+          </Link>
+          <Link to="/terms" className="hover:text-accent">
+            {t('legal.terms')}
+          </Link>
+          <Link to="/support" className="hover:text-accent">
+            {t('legal.support')}
+          </Link>
+          <Link to="/delete-account" className="hover:text-accent">
+            {t('legal.deleteAccount')}
+          </Link>
+        </nav>
       </section>
     </div>
   )

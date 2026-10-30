@@ -134,8 +134,9 @@ export function createApp({ db, config }) {
 
   // Unified billing service when configured; the legacy direct-Moyasar flow otherwise.
   const billing = config.billingUrl ? createRemoteBilling({ db, config, HttpError }) : createBilling({ db, config })
-  // The scheduler in server.js reads the billing service from here.
+  // The scheduler in server.js reads the billing service (and the wallet, for the deletion sweep) from here.
   app.locals.billing = billing
+  app.locals.wallet = wallet
   // Employee/referral attribution outbox of direct-Moyasar checkouts keeps draining after the switch.
   app.locals.commerceBilling = billing.remote ? createBilling({ db, config }) : billing
   // Signed entitlement updates from mirqam-billing. Raw body: the signature covers the exact bytes.
@@ -180,7 +181,7 @@ export function createApp({ db, config }) {
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
   app.use('/api/billing', billingRoutes(billing, { db }))
-  app.use('/api/auth', authRoutes({ db, config }))
+  app.use('/api/auth', authRoutes({ db, config, billing, wallet }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))
   app.use('/api/ledger', ledgerRoutes({ db, wallet }))
