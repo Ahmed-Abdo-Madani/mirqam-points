@@ -135,7 +135,7 @@ export default {
     deleteTitle: 'Delete account',
     deleteSubtitle: 'Permanent and cannot be undone.',
     deleteOwnerBody:
-      'Your account is deleted immediately. If you are the only owner, all of the store’s data goes with it: members and their balances, points history, programs, campaigns, gift cards, staff accounts and the logo. Only subscription invoices are kept, for six years, as the law requires.',
+      'Your account is deleted immediately. If you are the only owner, all of the store’s data goes with it: members and their balances, points history, programs, campaigns, gift cards, staff accounts and the logo. Only subscription invoices are kept, for ten years, as the law requires.',
     deleteStaffBody:
       'Your account will be deleted and your access to this store ends. Transactions you recorded stay in the store’s history without your name.',
     deleteDetails: 'What is deleted and what is kept',
