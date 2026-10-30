@@ -21,7 +21,7 @@
      `expire` entry, and the anonymous row keeps the store's history consistent. */
 import { forfeitBalance } from './ledger.js'
 
-export const BILLING_RETENTION_YEARS = 6
+export const BILLING_RETENTION_YEARS = 10
 
 /** Erases a login inside the caller's transaction. The row is anonymised (it may
     still be the actor of ledger entries) and deleted outright when nothing refers to it. */

@@ -369,11 +369,11 @@ describe('sweep and retention', () => {
     )
     await ok(boss.post('/api/auth/delete-account', { password: 'correct-horse-9' }))
     const sweep = (iso) => runPurges(db, { now: new Date(iso) })
-    await sweep('2031-12-31T00:00:00Z')
+    await sweep('2035-12-31T00:00:00Z')
     expect(await count('SELECT count(*)::int AS n FROM subscription_checkouts WHERE tenant_id = $1', [tenantId])).toBe(2)
-    await sweep('2032-01-02T00:00:00Z') // 2025 records: six full years after the year of payment
+    await sweep('2036-01-02T00:00:00Z') // 2025 records: ten full years after the year of payment
     expect(await count('SELECT count(*)::int AS n FROM subscription_checkouts WHERE tenant_id = $1', [tenantId])).toBe(1)
-    await sweep('2033-01-02T00:00:00Z')
+    await sweep('2037-01-02T00:00:00Z')
     expect(await count('SELECT count(*)::int AS n FROM subscription_checkouts WHERE tenant_id = $1', [tenantId])).toBe(0)
     expect(await count('SELECT count(*)::int AS n FROM tenants WHERE id = $1', [tenantId])).toBe(0)
   })

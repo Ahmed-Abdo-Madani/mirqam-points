@@ -43,7 +43,7 @@ export default {
         ],
         [
           'الاحتفاظ والحذف',
-          'تُحفظ البيانات ما دام الحساب نشطاً. يحذف صاحب الحساب حسابه من التطبيق أو الموقع (الإعدادات ← حذف الحساب) أو بمراسلتنا. حذف المالك الوحيد يحذف فوراً بيانات المتجر كلها: الأعضاء وسجل النقاط والبرامج والحملات وبطاقات الهدايا وحسابات الموظفين والشعار وتسجيلات بطاقات المحفظة. نحتفظ بفواتير الاشتراك وسجلات الدفع فقط ست سنوات كما يلزم نظام ضريبة القيمة المضافة، ثم نحذفها، وتُستبدل النسخ الاحتياطية المشفرة خلال 7 أيام. يستطيع المتجر حذف بيانات أي عضو بطلب منه من صفحة العضو، ويمكن للعضو أيضاً طلب الاطلاع على بياناته أو تصحيحها أو حذفها بمراسلتنا.',
+          'تُحفظ البيانات ما دام الحساب نشطاً. يحذف صاحب الحساب حسابه من التطبيق أو الموقع (الإعدادات ← حذف الحساب) أو بمراسلتنا. حذف المالك الوحيد يحذف فوراً بيانات المتجر كلها: الأعضاء وسجل النقاط والبرامج والحملات وبطاقات الهدايا وحسابات الموظفين والشعار وتسجيلات بطاقات المحفظة. نحتفظ بفواتير الاشتراك وسجلات الدفع فقط عشر سنوات كما يلزم نظام الدفاتر التجارية ونظام ضريبة القيمة المضافة، ثم نحذفها، وتُستبدل النسخ الاحتياطية المشفرة خلال 30 يوماً. يستطيع المتجر حذف بيانات أي عضو بطلب منه من صفحة العضو، ويمكن للعضو أيضاً طلب الاطلاع على بياناته أو تصحيحها أو حذفها بمراسلتنا.',
           deletionLink.ar,
         ],
         ['الأمان', 'الاتصال مشفّر (HTTPS)، وكلمات المرور مُجزّأة، ورموز بطاقات الهدايا مشفّرة أثناء التخزين، وسجل النقاط غير قابل للتعديل.'],
@@ -72,7 +72,7 @@ export default {
         ],
         [
           'Retention and deletion',
-          'Data is kept while the account is active. Account holders delete their account in the app or on the website (Settings → Delete account), or by emailing us. When the only owner deletes their account, all of the store’s data is deleted immediately: members, points history, programs, campaigns, gift cards, staff accounts, the logo and wallet-card registrations. We keep only subscription invoices and payment records, for six years as Saudi VAT rules require, then delete them; encrypted backups are overwritten within 7 days. A store can delete any member’s data at their request from the member’s page, and members can also email us to access, correct or delete their data.',
+          'Data is kept while the account is active. Account holders delete their account in the app or on the website (Settings → Delete account), or by emailing us. When the only owner deletes their account, all of the store’s data is deleted immediately: members, points history, programs, campaigns, gift cards, staff accounts, the logo and wallet-card registrations. We keep only subscription invoices and payment records, for ten years as Saudi commercial-records and VAT rules require, then delete them; encrypted backups are overwritten within 30 days. A store can delete any member’s data at their request from the member’s page, and members can also email us to access, correct or delete their data.',
           deletionLink.en,
         ],
         ['Security', 'Connections are encrypted (HTTPS), passwords are hashed, gift-card codes are encrypted at rest, and the points ledger cannot be edited.'],
@@ -203,7 +203,7 @@ export default {
         {
           heading: 'ما الذي نحتفظ به ولماذا',
           items: [
-            'فواتير الاشتراك وسجلات الدفع (المبلغ والتاريخ ورقم الفاتورة والدفعة) ست سنوات بعد نهاية سنة الدفع، كما يلزم نظام ضريبة القيمة المضافة في المملكة، ثم تُحذف. لا تحتوي على بيانات عملاء المتجر.',
+            'فواتير الاشتراك وسجلات الدفع (المبلغ والتاريخ ورقم الفاتورة والدفعة) عشر سنوات بعد نهاية سنة الدفع، كما يلزم نظام الدفاتر التجارية ونظام ضريبة القيمة المضافة في المملكة، ثم تُحذف. لا تحتوي على بيانات عملاء المتجر.',
             'بطاقات الولاء والهدايا التي أضافها العملاء إلى محافظ جوالاتهم تتوقف عن التحديث. في Google Wallet نعطّلها ونزيل منها اسم العميل؛ والبطاقة في Apple Wallet نسخة على جهاز العميل يحذفها بنفسه.',
           ],
         },
@@ -211,7 +211,7 @@ export default {
           heading: 'المدة',
           items: [
             'الحذف من التطبيق أو الموقع فوري. إن تعذّر إكماله لخلل تقني أعاد النظام المحاولة تلقائياً كل ساعة، ويكتمل خلال 24 ساعة.',
-            'تُستبدل النسخ الاحتياطية المشفرة لدى مزوّد الاستضافة خلال 7 أيام.',
+            'تُستبدل النسخ الاحتياطية المشفرة لدى مزوّد الاستضافة خلال 30 يوماً.',
             'طلبات البريد الإلكتروني: خلال 7 أيام من التحقق.',
           ],
         },
@@ -259,7 +259,7 @@ export default {
         {
           heading: 'What we keep, and why',
           items: [
-            'Subscription invoices and payment records (amount, date, invoice and payment reference), for six years after the end of the year of payment, as Saudi VAT rules require; then they are deleted. They contain no data about the store’s customers.',
+            'Subscription invoices and payment records (amount, date, invoice and payment reference), for ten years after the end of the year of payment, as Saudi commercial-records and VAT rules require; then they are deleted. They contain no data about the store’s customers.',
             'Loyalty and gift cards that customers added to their phone wallets stop updating. In Google Wallet we deactivate them and remove the customer’s name; a card in Apple Wallet is a copy on the customer’s device that they can remove themselves.',
           ],
         },
@@ -267,7 +267,7 @@ export default {
           heading: 'Timeline',
           items: [
             'Deletion in the app or on the website is immediate. If a technical fault interrupts it, the system retries automatically every hour and completes it within 24 hours.',
-            'Encrypted backups at our hosting provider are overwritten within 7 days.',
+            'Encrypted backups at our hosting provider are overwritten within 30 days.',
             'Email requests: within 7 days of verification.',
           ],
         },
