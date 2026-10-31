@@ -84,7 +84,7 @@ export default function PassPreview({
       if (k === 'code') rows.push([labels.code, code])
       if (k === 'reward' && d.rewardText) rows.push([labels.reward, d.rewardText])
       if (k === 'terms') rows.push([labels.terms, labels.termsText])
-      if (k === 'link') rows.push([labels.link, 'points.mirqam.sa/p/…'])
+      if (k === 'link') rows.push([labels.link, 'loyalty.mirqam.sa/p/…'])
     }
     for (const n of d.notes ?? []) rows.push([n.label, n.value])
     for (const l of d.locations ?? []) if (l.name) rows.push([l.name, labels.directions ?? 'Google Maps'])

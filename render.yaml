@@ -1,11 +1,25 @@
-# Render blueprint — Mirqam Points (points.mirqam.sa).
+# Render blueprint — Mirqam Points (https://loyalty.mirqam.sa).
 # Lives in the SAME Render account as Mirqam Bot so every Mirqam product is
 # managed from one dashboard (PLAN.md §3).
 #
-# Region: oregon, the same region as mirqam-bot. Internal Postgres connection
-# strings only resolve inside one region, and future service-to-service calls
-# to the bot (WhatsApp notifications) stay on the private network.
+# Region move Oregon -> Frankfurt (RUNBOOK.md, "Move to Frankfurt"): Points
+# calls the POS API and the bot, both in Frankfurt, and Frankfurt is ~3x
+# closer to Saudi merchants. Render cannot change a region in place, so the
+# move ADDS a Frankfurt service + database next to the Oregon ones:
+#   - the Oregon resources below are declared exactly as they run today (a
+#     blueprint sync changes nothing on them; the cutover flags
+#     MIRQAM_READ_ONLY / FORWARD_TO are set in the dashboard, not here);
+#   - mirqam-points-fra boots in STANDBY (MIRQAM_REQUIRE_LIVE=1, health checks
+#     only) until the cutover sets MIRQAM_LIVE=1, so it never writes its
+#     not-yet-copied database and never runs background jobs while Oregon does.
+# Internal Postgres connection strings only resolve inside one region: each
+# service is linked to the database of its own region; the copy reads Oregon
+# through its EXTERNAL URL (SOURCE_DATABASE_URL, pasted by the owner).
 services:
+  # ---- Oregon: production until the cutover, then the forwarder ----------
+  # After the cutover it runs with FORWARD_TO=https://mirqam-points-fra.onrender.com
+  # and must stay up: installed Points Business apps hardcode
+  # https://mirqam-points.onrender.com (native live-update URL).
   - type: web
     name: mirqam-points
     runtime: docker
@@ -13,11 +27,14 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
-    autoDeployTrigger: commit
-    # DNS: CNAME points -> mirqam-points.onrender.com in the mirqam.sa zone.
-    # Render provisions TLS automatically once DNS resolves.
+    # Matches the dashboard: deploys of this service are manual during the move.
+    autoDeployTrigger: off
+    # loyalty.mirqam.sa (DNS: CNAME loyalty -> mirqam-points.onrender.com) is
+    # the live site; points.mirqam.sa was the original plan and has no DNS.
+    # Both move to mirqam-points-fra in phase 2 of the runbook.
     domains:
       - points.mirqam.sa
+      - loyalty.mirqam.sa
     envVars:
       - key: NODE_ENV
         value: production
@@ -32,14 +49,64 @@ services:
       - key: TRUST_PROXY
         value: '1'
 
+  # ---- Frankfurt: production after the cutover ---------------------------
+  - type: web
+    name: mirqam-points-fra
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    # No custom domain yet: a domain can be attached to ONE service only and
+    # loyalty.mirqam.sa is still on mirqam-points. Phase 2 of the runbook moves
+    # it here (dashboard + this file) after the CNAME points at
+    # mirqam-points-fra.onrender.com.
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Standby until the cutover sets MIRQAM_LIVE=1 (sync: false keeps that dashboard edit).
+      - key: MIRQAM_REQUIRE_LIVE
+        value: '1'
+      - key: MIRQAM_LIVE
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mirqam-points-db-fra
+          property: connectionString
+      # Oregon database's EXTERNAL URL, pasted by the owner for the copy
+      # (apps/api/src/db/copy-cli.js). Delete it after the cutover.
+      - key: SOURCE_DATABASE_URL
+        sync: false
+      # MUST equal mirqam-points' SECRET_KEY: gift-card codes are sealed with it
+      # and the forwarder signs client addresses with it.
+      - key: SECRET_KEY
+        sync: false
+      - key: PUBLIC_URL
+        value: https://loyalty.mirqam.sa
+      - key: TRUST_PROXY
+        value: '1'
+
 databases:
   # The name MUST stay unique in the Render workspace: blueprint sync matches
   # databases BY NAME. `mirqam-db` (Frankfurt) is the main website's and
-  # `mirqam-bot-db` is the bot's — never reuse either.
+  # `mirqam-bot-db` / `mirqam-bot-db-fra` are the bot's — never reuse them.
+  # Oregon: production data until the cutover; afterwards the rollback copy.
   - name: mirqam-points-db
     region: oregon
     plan: 0.1c-256mb
-    databaseName: mirqam_points
-    user: mirqam_points
+    databaseName: mirqam_points_db
+    user: mirqam_points_db_user
     postgresMajorVersion: '16'
     diskSizeGB: 1
+
+  # Frankfurt: filled by the copy (RUNBOOK.md), then production. Internal
+  # access only: the copy runs inside mirqam-points-fra.
+  - name: mirqam-points-db-fra
+    region: frankfurt
+    plan: 0.1c-256mb
+    databaseName: mirqam_points_db
+    user: mirqam_points_db_user
+    postgresMajorVersion: '16'
+    diskSizeGB: 1
+    ipAllowList: []

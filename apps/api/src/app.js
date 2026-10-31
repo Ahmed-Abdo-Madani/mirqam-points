@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
 import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
+import { acceptForwarded } from './forwarder.js'
 import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
@@ -60,10 +61,24 @@ function mobileCors(config) {
   }
 }
 
+/* Write freeze of the Frankfurt move (MIRQAM_READ_ONLY=1, runtime-mode.js):
+   reads keep working, every write gets 503 `maintenance` (the database
+   session is read only as well). The live-update check is a read. */
+function readOnlyGuard(config) {
+  return (req, res, next) => {
+    if (!config.readOnly || SAFE_METHODS.has(req.method) || req.path === '/api/mobile/live-update' || !req.path.startsWith('/api/')) return next()
+    res.setHeader('Retry-After', '300')
+    res.setHeader('Cache-Control', 'no-store')
+    res.status(503).json({ error: 'maintenance' })
+  }
+}
+
 export function createApp({ db, config }) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.trustProxy)
+  // Requests relayed by the old service's forwarder (forwarder.js) arrive as if sent directly.
+  app.use(acceptForwarded(config))
   app.use(
     helmet({
       xFrameOptions: false,
@@ -120,11 +135,13 @@ export function createApp({ db, config }) {
   app.get('/api/health', async (_req, res) => {
     try {
       await db.query('SELECT 1')
-      res.json({ ok: true, version: VERSION, db: db.kind })
+      res.json({ ok: true, version: VERSION, db: db.kind, ...(config.readOnly ? { readOnly: true } : {}) })
     } catch {
       res.status(503).json({ ok: false, error: 'db_unavailable' })
     }
   })
+
+  app.use(readOnlyGuard(config))
 
   const wallet = createWallet({ db, config })
   // Apple Wallet devices call this directly and authenticate with per-pass tokens.
