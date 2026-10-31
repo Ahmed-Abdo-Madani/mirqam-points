@@ -7,6 +7,19 @@ import { fileURLToPath } from 'node:url'
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '../../migrations')
 
+function migrationFiles() {
+  return readdirSync(DIR)
+    .filter((f) => /^\d{3}-[\w-]+\.sql$/.test(f))
+    .sort()
+}
+
+/** Migration files not yet applied (read-only: never creates anything). */
+export async function pendingMigrations(db) {
+  const { rows } = await db.query("SELECT to_regclass('schema_migrations') IS NOT NULL AS ok")
+  const applied = rows[0].ok ? new Set((await db.query('SELECT name FROM schema_migrations')).rows.map((r) => r.name)) : new Set()
+  return migrationFiles().filter((f) => !applied.has(f))
+}
+
 export async function migrate(db, { log = () => {} } = {}) {
   await db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
     name text PRIMARY KEY,
@@ -14,10 +27,7 @@ export async function migrate(db, { log = () => {} } = {}) {
   )`)
   const { rows } = await db.query('SELECT name FROM schema_migrations')
   const applied = new Set(rows.map((r) => r.name))
-  const files = readdirSync(DIR)
-    .filter((f) => /^\d{3}-[\w-]+\.sql$/.test(f))
-    .sort()
-  for (const file of files) {
+  for (const file of migrationFiles()) {
     if (applied.has(file)) continue
     const sql = readFileSync(join(DIR, file), 'utf8')
     await db.tx(async (tx) => {

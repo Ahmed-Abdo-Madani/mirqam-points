@@ -55,5 +55,8 @@ Unit tests → HTTP battery on a throwaway server → web build. Exit 0 required
 ## Deploy
 
 `render.yaml` provisions the Docker web service `mirqam-points` and the
-Postgres `mirqam-points-db` (Oregon, same account and region as Mirqam Bot) on
-`loyalty.mirqam.sa`. DNS: `loyalty CNAME mirqam-points.onrender.com`.
+Postgres `mirqam-points-db` (Oregon) on `loyalty.mirqam.sa`, plus their
+Frankfurt successors `mirqam-points-fra` / `mirqam-points-db-fra`. The move
+(standby → data copy → write freeze → forwarder → DNS) is in
+[RUNBOOK.md](./RUNBOOK.md). DNS until phase 4 of that runbook:
+`loyalty CNAME mirqam-points.onrender.com`.

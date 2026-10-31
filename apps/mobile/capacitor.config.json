@@ -20,7 +20,7 @@
     },
     "CapacitorUpdater": {
       "autoUpdate": true,
-      "updateUrl": "https://mirqam-points.onrender.com/api/mobile/live-update",
+      "updateUrl": "https://loyalty.mirqam.sa/api/mobile/live-update",
       "statsUrl": "",
       "channelUrl": "",
       "appReadyTimeout": 10000,

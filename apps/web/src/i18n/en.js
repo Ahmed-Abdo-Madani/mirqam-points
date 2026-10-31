@@ -413,6 +413,7 @@ const base = {
     payload_too_large: 'The request is too large.',
     internal_error: 'Server error. Please try again shortly.',
     db_unavailable: 'Service temporarily unavailable. Please try again shortly.',
+    maintenance: 'Mirqam Points is being upgraded. Changes are paused for a few minutes; please try again shortly.',
   },
 }
 
