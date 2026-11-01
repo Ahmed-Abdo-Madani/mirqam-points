@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import express from 'express'
 import helmet from 'helmet'
@@ -192,6 +192,12 @@ export function createApp({ db, config }) {
 
   // Production: the API also serves the built console (one Render service, like the bot).
   if (existsSync(join(config.webDist, 'index.html'))) {
+    // Root-only canonical; private routes and other SPA pages keep the original document.
+    app.get('/', (_req, res) => {
+      const html = readFileSync(join(config.webDist, 'index.html'), 'utf8')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.type('html').send(html.replace('</head>', '<link rel="canonical" href="https://loyalty.mirqam.sa/" /></head>'))
+    })
     app.use(express.static(config.webDist, { index: false, maxAge: '1h', setHeaders: immutableAssets }))
     app.get('/{*splat}', (_req, res) => res.sendFile(join(config.webDist, 'index.html')))
   }
