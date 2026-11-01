@@ -337,6 +337,14 @@ const base = {
     bot: 'مرقام بوت',
     marketing: 'مرقام للتسويق',
     rights: '© {year} شركة مرقام التجارية. جميع الحقوق محفوظة.',
+    paymentMethods: 'طرق الدفع المقبولة',
+    pay: {
+      mada: 'مدى (mada)',
+      visa: 'فيزا (Visa)',
+      mastercard: 'ماستركارد (Mastercard)',
+      applePay: 'أبل باي (Apple Pay)',
+      tamara: 'تمارا (Tamara)',
+    },
   },
 
   notFound: { title: 'الصفحة غير موجودة', body: 'ربما تغيّر الرابط أو حُذفت الصفحة.', home: 'العودة للرئيسية' },

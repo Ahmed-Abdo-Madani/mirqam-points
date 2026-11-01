@@ -338,6 +338,14 @@ const base = {
     bot: 'Mirqam Bot',
     marketing: 'Mirqam Marketing',
     rights: '© {year} Mirqam Company Commercial. All rights reserved.',
+    paymentMethods: 'Accepted payment methods',
+    pay: {
+      mada: 'mada',
+      visa: 'Visa',
+      mastercard: 'Mastercard',
+      applePay: 'Apple Pay',
+      tamara: 'Tamara',
+    },
   },
 
   notFound: { title: 'Page not found', body: 'The link may have changed or the page was removed.', home: 'Back to home' },
