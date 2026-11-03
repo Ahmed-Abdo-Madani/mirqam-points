@@ -7,6 +7,7 @@ import wallet from './ar.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  supportButton: { label: 'تواصل مع مرقام عبر واتساب', tip: 'حيّاك! كيف نقدر نساعدك؟' },
   posBridge: bridgeCopy.ar,
   hq: {
     title: 'مرقام ولاء · الإدارة العليا',

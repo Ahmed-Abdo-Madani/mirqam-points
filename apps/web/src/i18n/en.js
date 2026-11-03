@@ -7,6 +7,7 @@ import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
 const base = {
+  supportButton: { label: 'Contact Mirqam on WhatsApp', tip: 'Hi! How can we help?' },
   posBridge: bridgeCopy.en,
   hq: {
     title: 'Mirqam Loyalty · Platform administration',
