@@ -3,9 +3,14 @@
   'use strict'
   // Website measurement must never execute in a native WebView, even from a copied public page.
   if (['capacitor:', 'ionic:'].includes(location.protocol) || window.Capacitor?.isNativePlatform?.() || (location.hostname === 'localhost' && window.Capacitor)) return
+  if (/^MirqamNative\//.test(navigator.userAgent || '')) return
   const script = document.currentScript
   const container = script?.dataset.container
   const measurement = script?.dataset.measurement
+  // Google Ads conversion measurement (account 454-414-9956). Loaded only after the visitor accepts measurement.
+  const adsId = 'AW-18506044918'
+  const adsLead = adsId + '/l3dLCOHx_68dEParr_hE'
+  const adsActions = ['signup_click', 'contact_whatsapp_click', 'contact_email_click']
   const publicPage = () => location.pathname === '/' || location.pathname === '/mirqam-marketing.html' || /^\/blog\/[a-z0-9-]+\.html$/.test(location.pathname)
   if (!container || !measurement || !publicPage()) return
   const key = 'mirqam-analytics-consent-v1'
@@ -38,7 +43,7 @@
     granted = true
     if (loaded || !publicPage()) return
     loaded = true
-    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'granted', ad_user_data: 'denied', ad_personalization: 'denied' })
     const page = new URL(location.origin + location.pathname)
     // Campaign labels are explicit marketing metadata, not arbitrary URL parameters.
     for (const name of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
@@ -57,13 +62,21 @@
     tag.async = true
     tag.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(container)
     document.head.append(tag)
+    // Ads tag: conversion counting only; no ad personalization or Google signals.
+    const adsTag = document.createElement('script')
+    adsTag.async = true
+    adsTag.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(adsId)
+    document.head.append(adsTag)
+    gtag('js', new Date())
+    gtag('config', adsId, { allow_google_signals: false, allow_ad_personalization_signals: false })
   }
   const panel = document.createElement('aside')
   panel.className = 'mq-consent'
   panel.dir = 'rtl'
   panel.setAttribute('aria-label', 'خيارات قياس الزيارات')
   const text = document.createElement('p')
-  text.textContent = 'نستخدم Google Analytics بعد موافقتك لفهم زيارات الصفحات العامة وتحسينها. يمكنك القبول أو الرفض وتغيير اختيارك لاحقًا.'
+  text.textContent =
+    'نستخدم Google Analytics وقياس تحويلات إعلانات Google بعد موافقتك لفهم زيارات الصفحات العامة وفعالية الإعلانات وتحسينها. يمكنك القبول أو الرفض وتغيير اختيارك لاحقًا.'
   const accept = document.createElement('button')
   accept.type = 'button'
   accept.textContent = 'قبول القياس'
@@ -110,7 +123,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true })
   else mount()
-  document.addEventListener('click', (event) => {
+  const trackClick = (event) => {
     if (!granted || !publicPage()) return
     const anchor = event.target.closest?.('a[href]')
     if (!anchor) return
@@ -140,5 +153,8 @@
         page_referrer: cleanReferrer(),
         transport_type: 'beacon',
       })
-  })
+    if (adsActions.includes(action)) gtag('event', 'conversion', { send_to: adsLead, value: 1.0, currency: 'SAR', transport_type: 'beacon' })
+  }
+  // Capture phase: the SPA router changes the path while the click bubbles, before a bubbling listener would run.
+  document.addEventListener('click', trackClick, true)
 })()

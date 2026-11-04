@@ -99,13 +99,19 @@ export function createApp({ db, config }) {
     }),
   )
 
-  // Permit GA4 only on public documents; authenticated routes retain the original CSP.
+  // Permit GA4 and the consented Google Ads conversion tag only on public documents;
+  // authenticated routes retain the original CSP.
+  const adsHosts = 'https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://pagead2.googlesyndication.com'
   app.use((req, res, next) => {
     if (req.path === '/' || /^\/blog\/[a-z0-9-]+\.html$/.test(req.path)) {
       const policy = String(res.getHeader('Content-Security-Policy') || '')
-        .replace(/script-src ([^;]+)/, '$& https://www.googletagmanager.com')
-        .replace(/connect-src ([^;]+)/, '$& https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com')
-        .replace(/img-src ([^;]+)/, '$& https://www.googletagmanager.com https://*.google-analytics.com')
+        .replace(/script-src ([^;]+)/, `$& https://www.googletagmanager.com ${adsHosts}`)
+        .replace(
+          /connect-src ([^;]+)/,
+          `$& https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com ${adsHosts} https://google.com https://www.google.sa`,
+        )
+        .replace(/img-src ([^;]+)/, `$& https://www.googletagmanager.com https://*.google-analytics.com ${adsHosts} https://google.com https://www.google.sa`)
+        .replace(/default-src ([^;]+)/, "$&; frame-src 'self' https://td.doubleclick.net")
       res.setHeader('Content-Security-Policy', policy)
     }
     next()
