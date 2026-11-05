@@ -5,7 +5,7 @@ import PublicShell from '../components/PublicShell.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
 export default function Landing() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const features = [
     { icon: MqPass, key: 'passes' },
     { icon: MqCoins, key: 'programs' },
@@ -38,11 +38,18 @@ export default function Landing() {
                 {t('auth.login')}
               </Link>
               <a
-                href="/downloads/mirqam-points.apk"
-                download
-                className="inline-flex min-h-12 items-center rounded-[15px] border border-line bg-surface px-6 font-bold hover:bg-soft"
+                href="https://play.google.com/store/apps/details?id=sa.mirqam.points"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-[12px] transition-transform hover:-translate-y-0.5"
               >
-                {t('landing.androidApp')}
+                <img
+                  src={locale === 'ar' ? '/google-play-ar.png' : '/google-play-en.png'}
+                  alt={t('landing.googlePlay')}
+                  width="646"
+                  height="250"
+                  className="-my-2 h-16 w-auto"
+                />
               </a>
             </div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">

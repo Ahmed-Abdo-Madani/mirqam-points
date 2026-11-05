@@ -213,6 +213,9 @@ export function createApp({ db, config }) {
   app.use('/api/staff', staffRoutes({ db }))
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }))
 
+  // The Android app ships on Google Play; the old APK link points there.
+  app.get('/downloads/mirqam-points.apk', (_req, res) => res.redirect(301, 'https://play.google.com/store/apps/details?id=sa.mirqam.points'))
+
   // Production: the API also serves the built console (one Render service, like the bot).
   if (existsSync(join(config.webDist, 'index.html'))) {
     // Root-only canonical; private routes and other SPA pages keep the original document.
