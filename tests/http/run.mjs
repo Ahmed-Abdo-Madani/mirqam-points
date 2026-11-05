@@ -1,6 +1,6 @@
 /* HTTP battery against a running API (BASE, default http://localhost:4100).
    Usually invoked through scripts/verify.mjs, which boots a throwaway server. */
-import { Agent, check, expect, expectStatus, key, phone, summary } from './harness.mjs'
+import { Agent, BASE, check, expect, expectStatus, key, phone, summary } from './harness.mjs'
 
 async function setupProgram(owner, type = 'points', config = { pointsPerUnit: 1, unitMinor: 100 }) {
   const created = await owner.post('/api/programs', { name: `Program ${type}`, type, config })
@@ -399,6 +399,12 @@ await check('the same idempotency key in two tenants does not collide', async ()
     const m = await setupMember(agent)
     expectStatus(await agent.post('/api/ledger/earn', { programId: p.id, memberId: m.id, purchaseMinor: 1000 }, { headers: { 'idempotency-key': k } }), 201)
   }
+})
+
+await check('the old Android APK link redirects to Google Play', async () => {
+  const res = await fetch(`${BASE}/downloads/mirqam-points.apk`, { redirect: 'manual' })
+  expect(res.status, 'status').toBe(301)
+  expect(res.headers.get('location'), 'location').toBe('https://play.google.com/store/apps/details?id=sa.mirqam.points')
 })
 
 await import('./wallet.mjs')
