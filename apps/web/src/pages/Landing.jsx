@@ -38,6 +38,14 @@ export default function Landing() {
                 {t('auth.login')}
               </Link>
               <a
+                href="https://apps.apple.com/sa/app/id6821140365"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-[12px] transition-transform hover:-translate-y-0.5"
+              >
+                <img src="/app-store-badge.svg" alt={t('landing.appStore')} width="120" height="40" className="h-12 w-auto" />
+              </a>
+              <a
                 href="https://play.google.com/store/apps/details?id=sa.mirqam.points"
                 target="_blank"
                 rel="noopener noreferrer"

@@ -121,6 +121,7 @@ const base = {
     ctaTitle: 'ابدأ برنامج الولاء الخاص بمتجرك اليوم',
     ctaBody: 'أنشئ برنامجك الأول وأضف أول عميل خلال دقائق.',
     googlePlay: 'احصل عليه من Google Play',
+    appStore: 'حمّله من App Store',
   },
 
   auth: {

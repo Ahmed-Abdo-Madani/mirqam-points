@@ -122,6 +122,7 @@ const base = {
     ctaTitle: 'Launch your store’s loyalty program today',
     ctaBody: 'Create your first program and enrol your first customer in minutes.',
     googlePlay: 'Get it on Google Play',
+    appStore: 'Download on the App Store',
   },
 
   auth: {
