@@ -120,7 +120,7 @@ const base = {
     },
     ctaTitle: 'ابدأ برنامج الولاء الخاص بمتجرك اليوم',
     ctaBody: 'أنشئ برنامجك الأول وأضف أول عميل خلال دقائق.',
-    androidApp: 'تحميل تطبيق أندرويد (APK)',
+    googlePlay: 'احصل عليه من Google Play',
   },
 
   auth: {
