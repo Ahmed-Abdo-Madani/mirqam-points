@@ -65,6 +65,7 @@ const PURGE = [
   ['posImports', 'DELETE FROM pos_loyalty_imports WHERE tenant_id = $1'],
   ['posSettings', 'DELETE FROM pos_loyalty_settings WHERE tenant_id = $1'],
   ['ledgerEntries', 'DELETE FROM ledger_entries WHERE tenant_id = $1'],
+  ['rewards', 'DELETE FROM rewards WHERE tenant_id = $1'],
   ['accounts', 'DELETE FROM accounts WHERE tenant_id = $1'],
   ['members', 'DELETE FROM members WHERE tenant_id = $1'],
   ['stampArt', 'DELETE FROM program_stamps WHERE tenant_id = $1'],

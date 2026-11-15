@@ -364,6 +364,102 @@ await check('removing staff signs them out immediately', async () => {
   expectStatus(await owner.delete(`/api/staff/${owner.me.user.id}`), 422, 'cannot_remove_self')
 })
 
+// ---------------------------------------------------------------- rewards catalogue
+await check('rewards: managers keep the catalogue; cashiers redeem a reward priced by the server', async () => {
+  const owner = await Agent.owner()
+  const cashier = await Agent.staff(owner, 'cashier')
+  const p = await setupProgram(owner, 'stamps', { stampsPerVisit: 1, stampsRequired: 5 })
+  const coffee = await owner.post(`/api/programs/${p.id}/rewards`, { name: 'قهوة مجانية', cost: 2, kind: 'item' })
+  expectStatus(coffee, 201)
+  expect(coffee.body).toEqual({ id: coffee.body.id, programId: p.id, name: 'قهوة مجانية', cost: 2, kind: 'item', value: null, status: 'active' })
+  expectStatus(await owner.post(`/api/programs/${p.id}/rewards`, { name: 'Bad', cost: 2, kind: 'percent', value: 150 }), 400, 'invalid_reward_value')
+  expectStatus(await owner.post(`/api/programs/${p.id}/rewards`, { name: 'Bad', cost: 2, kind: 'amount' }), 400, 'invalid_reward_value')
+  expectStatus(await owner.post(`/api/programs/${p.id}/rewards`, { name: 'Bad', cost: 2, kind: 'item', value: 5 }), 400, 'invalid_reward_value')
+  expectStatus(await cashier.post(`/api/programs/${p.id}/rewards`, { name: 'Nope', cost: 1, kind: 'item' }), 403, 'forbidden')
+  const off = await owner.post(`/api/programs/${p.id}/rewards`, { name: '10% off', cost: 3, kind: 'percent', value: 10 })
+  expectStatus(off, 201)
+
+  const listed = await cashier.get('/api/programs')
+  expect(listed.body.items[0].rewards.map((r) => r.name)).toEqual(['قهوة مجانية', '10% off'])
+
+  const m = await setupMember(owner)
+  for (let i = 0; i < 5; i++)
+    expectStatus(await cashier.post('/api/ledger/earn', { programId: p.id, memberId: m.id, source: 'pos' }, { headers: { 'idempotency-key': key() } }), 201)
+  // Points and rewardId together, or neither, is rejected.
+  expectStatus(
+    await cashier.post(
+      '/api/ledger/redeem',
+      { programId: p.id, memberId: m.id, points: 2, rewardId: coffee.body.id },
+      { headers: { 'idempotency-key': key() } },
+    ),
+    400,
+  )
+  const k = key()
+  const r = await cashier.post(
+    '/api/ledger/redeem',
+    { programId: p.id, memberId: m.id, rewardId: coffee.body.id, quantity: 2, source: 'pos' },
+    { headers: { 'idempotency-key': k } },
+  )
+  expectStatus(r, 201)
+  expect(r.body.entry.amount).toBe(-4)
+  expect(r.body.entry.rewardQty).toBe(2)
+  expect(r.body.balance).toBe(1)
+  expect(r.body.reward).toEqual({ id: coffee.body.id, name: 'قهوة مجانية', quantity: 2 })
+  // Replaying the same key returns the same redemption; a different reward under it is a conflict.
+  expectStatus(
+    await cashier.post(
+      '/api/ledger/redeem',
+      { programId: p.id, memberId: m.id, rewardId: coffee.body.id, quantity: 2, source: 'pos' },
+      { headers: { 'idempotency-key': k } },
+    ),
+    200,
+  )
+  expectStatus(
+    await cashier.post('/api/ledger/redeem', { programId: p.id, memberId: m.id, rewardId: off.body.id, source: 'pos' }, { headers: { 'idempotency-key': k } }),
+    409,
+    'idempotency_mismatch',
+  )
+  expectStatus(
+    await cashier.post('/api/ledger/redeem', { programId: p.id, memberId: m.id, rewardId: off.body.id }, { headers: { 'idempotency-key': key() } }),
+    422,
+    'insufficient_balance',
+  )
+  const entries = await owner.get(`/api/ledger/entries?memberId=${m.id}&kind=redeem`)
+  expect(entries.body.items[0].rewardName).toBe('قهوة مجانية')
+  const detail = await owner.get(`/api/members/${m.id}`)
+  expect(detail.body.entries.find((e) => e.kind === 'redeem').rewardName).toBe('قهوة مجانية')
+
+  // Archived rewards cannot be redeemed; a new cost applies to future redemptions only.
+  expectStatus(await owner.patch(`/api/programs/${p.id}/rewards/${coffee.body.id}`, { status: 'archived' }), 200)
+  expectStatus(
+    await cashier.post('/api/ledger/redeem', { programId: p.id, memberId: m.id, rewardId: coffee.body.id }, { headers: { 'idempotency-key': key() } }),
+    404,
+    'reward_not_found',
+  )
+  const edited = await owner.patch(`/api/programs/${p.id}/rewards/${off.body.id}`, { cost: 1, kind: 'amount', value: 1500 })
+  expectStatus(edited, 200)
+  expect([edited.body.cost, edited.body.kind, edited.body.value]).toEqual([1, 'amount', 1500])
+  expectStatus(
+    await cashier.post('/api/ledger/redeem', { programId: p.id, memberId: m.id, rewardId: off.body.id }, { headers: { 'idempotency-key': key() } }),
+    201,
+  )
+
+  // Another workspace cannot see, edit or redeem these rewards.
+  const other = await Agent.owner()
+  const op = await setupProgram(other)
+  const om = await setupMember(other)
+  expectStatus(await other.post(`/api/programs/${p.id}/rewards`, { name: 'x', cost: 1, kind: 'item' }), 404, 'program_not_found')
+  expectStatus(await other.patch(`/api/programs/${p.id}/rewards/${off.body.id}`, { name: 'hijack' }), 404, 'program_not_found')
+  expectStatus(await other.patch(`/api/programs/${op.id}/rewards/${off.body.id}`, { name: 'hijack' }), 404, 'reward_not_found')
+  expectStatus(await other.post('/api/ledger/earn', { programId: op.id, memberId: om.id, purchaseMinor: 1000 }, { headers: { 'idempotency-key': key() } }), 201)
+  expectStatus(
+    await other.post('/api/ledger/redeem', { programId: op.id, memberId: om.id, rewardId: off.body.id }, { headers: { 'idempotency-key': key() } }),
+    404,
+    'reward_not_found',
+  )
+  expect((await other.get('/api/programs')).body.items[0].rewards).toEqual([])
+})
+
 // ---------------------------------------------------------------- tenant isolation
 await check('tenants cannot see or touch each other’s programs, members or entries', async () => {
   const a = await Agent.owner()

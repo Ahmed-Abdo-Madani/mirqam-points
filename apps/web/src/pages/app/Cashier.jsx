@@ -6,6 +6,7 @@ import { Avatar, Button, Card, Field, Input, MqCheckCircle, MqGift, MqScan, MqSe
 import { computeEarn, normalizePhone, parseMoneyToMinor } from '@mirqam-points/shared'
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
+import { activeRewards, isolate, RewardPicker, rewardDetail } from '../../components/Rewards.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi, useIdempotencyKey } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
@@ -226,15 +227,22 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
   const [withBill, setWithBill] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // Redeeming from the catalogue: which reward and how many. A typed number stays as the fallback.
+  const [rewardId, setRewardId] = useState(null)
+  const [quantity, setQuantity] = useState(1)
+  const [typeNumber, setTypeNumber] = useState(false)
 
   const program = active.find((p) => p.id === programId)
   const account = member.accounts.find((a) => a.program.id === programId)
   const balance = account?.balance ?? 0
+  const rewards = activeRewards(program)
+  const byReward = mode === 'redeem' && rewards.length > 0 && !typeNumber
+  const reward = byReward ? rewards.find((r) => r.id === rewardId) : null
   // A flat stamp needs a stamp card without a minimum purchase; everything else is priced by the bill.
   const canSkipBill = program?.type === 'stamps' && !program.config.minPurchaseMinor
   const visitOnly = mode === 'earn' && canSkipBill && !withBill
   // Transact unmounts after success, so the next transaction always starts with a fresh key.
-  const idem = useIdempotencyKey(`${mode}|${programId}|${visitOnly ? 'visit' : amount}`)
+  const idem = useIdempotencyKey(`${mode}|${programId}|${visitOnly ? 'visit' : byReward ? `${rewardId}x${quantity}` : amount}`)
   const purchaseMinor = mode === 'earn' && !visitOnly ? parseMoneyToMinor(amount) : null
   const points = visitOnly
     ? program.config.stampsPerVisit
@@ -242,7 +250,9 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
       ? program && purchaseMinor != null
         ? computeEarn(program.type, program.config, purchaseMinor)
         : 0
-      : Number.parseInt(amount, 10) || 0
+      : byReward
+        ? (reward?.cost ?? 0) * quantity
+        : Number.parseInt(amount, 10) || 0
   const valid = Boolean(program) && points > 0 && (mode === 'earn' || points <= balance)
 
   async function submit(e) {
@@ -254,9 +264,11 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
       const body =
         mode === 'earn'
           ? { programId, memberId: member.id, ...(visitOnly ? {} : { purchaseMinor }), source: 'pos' }
-          : { programId, memberId: member.id, points, source: 'pos' }
+          : byReward
+            ? { programId, memberId: member.id, rewardId, quantity, source: 'pos' }
+            : { programId, memberId: member.id, points, source: 'pos' }
       const result = await api(`/ledger/${mode}`, { method: 'POST', body, idempotencyKey: idem.key })
-      onDone({ ...result, program, mode })
+      onDone({ ...result, program, mode, rewardDetail: reward ? rewardDetail(reward, t, locale) : null })
     } catch (err) {
       setError(err)
     } finally {
@@ -278,6 +290,8 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
             onClick={() => {
               setMode(m)
               setAmount('')
+              setRewardId(null)
+              setQuantity(1)
             }}
             className={`min-h-11 rounded-xl text-sm font-bold transition ${mode === m ? 'bg-surface text-accent shadow-card' : 'text-muted'}`}
           >
@@ -288,7 +302,15 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
       {active.length > 1 && (
         <Field label={t('transactions.program')}>
           {(p) => (
-            <Select {...p} value={programId} onChange={(e) => setProgramId(e.target.value)}>
+            <Select
+              {...p}
+              value={programId}
+              onChange={(e) => {
+                setProgramId(e.target.value)
+                setRewardId(null)
+                setQuantity(1)
+              }}
+            >
               {active.map((pr) => (
                 <option key={pr.id} value={pr.id}>
                   {pr.name}
@@ -309,6 +331,8 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
           <p className="text-sm text-muted">{t('cashier.stampOnly')}</p>
           <p className="tnum text-3xl font-bold text-accent">+{num(points)}</p>
         </div>
+      ) : byReward ? (
+        <RewardPicker program={program} balance={balance} selected={rewardId} quantity={quantity} onSelect={setRewardId} onQuantity={setQuantity} />
       ) : (
         <Field
           label={t(mode === 'earn' ? 'transactions.purchaseAmount' : 'transactions.redeemAmount')}
@@ -343,6 +367,20 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
           {t(withBill ? 'cashier.skipBill' : 'cashier.addBill')}
         </button>
       )}
+      {mode === 'redeem' && rewards.length > 0 && (
+        <button
+          type="button"
+          className="justify-self-start text-sm font-semibold text-accent"
+          onClick={() => {
+            setTypeNumber((v) => !v)
+            setAmount('')
+            setRewardId(null)
+            setQuantity(1)
+          }}
+        >
+          {t(typeNumber ? 'rewards.useCatalogue' : 'rewards.typeNumber')}
+        </button>
+      )}
       {error && (
         <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
           {errorText(error)}
@@ -358,7 +396,11 @@ function Transact({ member, programs, preferredProgramId, onDone, onCancel }) {
                   unit: unitLabel(program.type, t),
                   amount: purchaseMinor != null ? money(purchaseMinor, locale) : '—',
                 })
-              : t('cashier.confirmRedeem', { n: num(points), unit: unitLabel(program.type, t) })}
+              : reward
+                ? t('rewards.confirm', { reward: isolate(reward.name), qty: num(quantity), n: num(points), unit: unitLabel(program.type, t) })
+                : byReward
+                  ? t('rewards.pick')
+                  : t('cashier.confirmRedeem', { n: num(points), unit: unitLabel(program.type, t) })}
         </Button>
         <Button variant="ghost" size="lg" onClick={onCancel}>
           {t('common.cancel')}
@@ -448,11 +490,19 @@ export default function Cashier() {
           <div className="fade-in text-center">
             <MqCheckCircle className="mx-auto h-14 w-14 text-ok" />
             <h2 className="mt-4 text-xl font-bold">
-              {t(step.result.mode === 'earn' ? 'cashier.earned' : 'cashier.redeemed', {
-                n: num(Math.abs(step.result.entry.amount)),
-                unit: unitLabel(step.result.program.type, t),
-              })}
+              {step.result.reward
+                ? t('rewards.redeemed', { reward: isolate(step.result.reward.name), qty: num(step.result.reward.quantity) })
+                : t(step.result.mode === 'earn' ? 'cashier.earned' : 'cashier.redeemed', {
+                    n: num(Math.abs(step.result.entry.amount)),
+                    unit: unitLabel(step.result.program.type, t),
+                  })}
             </h2>
+            {step.result.reward && (
+              <p className="mt-2 rounded-2xl bg-tint px-4 py-2 text-sm font-semibold text-accent">
+                {t('rewards.giveCustomer', { detail: step.result.rewardDetail })}
+                {step.result.reward.quantity > 1 && ` × ${num(step.result.reward.quantity)}`}
+              </p>
+            )}
             <p className="mt-2 text-sm text-muted">{t('cashier.newBalance')}</p>
             <p className="tnum mt-1 text-[44px] font-bold leading-none">{num(step.result.balance)}</p>
             <div className="mt-8 grid gap-2 sm:grid-cols-2">

@@ -14,7 +14,19 @@ const source = z.enum(['console', 'pos']).default('console')
 
 // purchaseMinor is optional: a stamp card can award a visit without a bill amount.
 const earnBody = z.object({ ...target, purchaseMinor: z.number().int().min(0).max(100_000_000).optional(), ref, note, source })
-const redeemBody = z.object({ ...target, points: z.number().int().min(1).max(10_000_000), ref, note, source })
+// Either a raw number of points, or a catalogue reward the server prices (cost × quantity).
+const redeemBody = z
+  .object({
+    ...target,
+    points: z.number().int().min(1).max(10_000_000).optional(),
+    rewardId: id.optional(),
+    quantity: z.number().int().min(1).max(50).optional(),
+    ref,
+    note,
+    source,
+  })
+  .refine((b) => (b.points == null) !== (b.rewardId == null), { message: 'send points or rewardId' })
+  .refine((b) => b.rewardId != null || b.quantity == null, { message: 'quantity needs rewardId' })
 const adjustBody = z.object({
   ...target,
   points: z
@@ -81,10 +93,35 @@ export default function ledgerRoutes({ db, wallet }) {
       req.auth.tenantId,
     ])
     if (!account) throw new HttpError(422, 'insufficient_balance')
-    const result = await redeem(db, actor(req, { accountId: account.id, points: body.points, ref: body.ref, note: body.note, source: body.source }))
+    let points = body.points
+    let reward = null
+    if (body.rewardId) {
+      const {
+        rows: [row],
+      } = await db.query("SELECT id, name, cost FROM rewards WHERE id = $1 AND program_id = $2 AND tenant_id = $3 AND status = 'active'", [
+        body.rewardId,
+        body.programId,
+        req.auth.tenantId,
+      ])
+      if (!row) throw new HttpError(404, 'reward_not_found')
+      reward = { id: row.id, name: row.name, quantity: body.quantity ?? 1 }
+      points = int(row.cost) * reward.quantity
+    }
+    const result = await redeem(
+      db,
+      actor(req, {
+        accountId: account.id,
+        points,
+        ref: body.ref,
+        note: body.note,
+        source: body.source,
+        rewardId: reward?.id,
+        rewardQty: reward?.quantity,
+      }),
+    )
     // Wallet passes refresh in the background; the transaction never waits on Apple/Google.
     if (!result.replayed) wallet.notifyAccount(result.entry.accountId)
-    res.status(result.replayed ? 200 : 201).json(result)
+    res.status(result.replayed ? 200 : 201).json(reward ? { ...result, reward } : result)
   })
 
   r.post('/adjust', requireRole('manager'), async (req, res) => {
@@ -139,12 +176,13 @@ export default function ledgerRoutes({ db, wallet }) {
     ] = await Promise.all([
       db.query(
         `SELECT e.*, a.member_id, a.program_id, m.phone, m.name AS member_name, p.name AS program_name, p.type AS program_type,
-                CASE WHEN u.deleted_at IS NULL THEN u.name END AS actor_name,
+                CASE WHEN u.deleted_at IS NULL THEN u.name END AS actor_name, rw.name AS reward_name,
                 (SELECT 1 FROM ledger_entries v WHERE v.reverses_entry_id = e.id) IS NOT NULL AS voided
            ${from}
            JOIN members m ON m.id = a.member_id
            JOIN programs p ON p.id = a.program_id
            LEFT JOIN users u ON u.id = e.actor_user_id
+           LEFT JOIN rewards rw ON rw.id = e.reward_id
           WHERE ${filter} ORDER BY e.created_at DESC LIMIT ${q.limit} OFFSET ${q.offset}`,
         params,
       ),
@@ -157,6 +195,7 @@ export default function ledgerRoutes({ db, wallet }) {
         member: { id: e.member_id, phone: e.phone, name: e.member_name },
         program: { id: e.program_id, name: e.program_name, type: e.program_type },
         actorName: e.actor_name,
+        rewardName: e.reward_name ?? null,
       })),
       total: count.total,
       limit: q.limit,

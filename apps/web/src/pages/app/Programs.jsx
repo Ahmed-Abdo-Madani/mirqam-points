@@ -1,12 +1,13 @@
-import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqPencil, MqPlus, MqQrCode, MqStamp, Skeleton, useToast } from '@mirqam/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, Modal, MqCoins, MqGift, MqPencil, MqPlus, MqQrCode, MqStamp, Skeleton, useToast } from '@mirqam/ui'
 import { computeEarn, DEFAULT_CONFIG, formatMinor, normalizeDesign, parseMoneyToMinor, validateProgramConfig } from '@mirqam-points/shared'
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../../components/AppShell.jsx'
 import Qr from '../../components/Qr.jsx'
-import { downloadJoinPoster } from '../../lib/joinPoster.js'
+import { activeRewards, RewardsModal } from '../../components/Rewards.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, publicOrigin, useApi } from '../../lib/api.js'
 import { money, num } from '../../lib/format.js'
+import { downloadJoinPoster } from '../../lib/joinPoster.js'
 import { ruleSummary, statusTone, unitLabel } from '../../lib/programs.js'
 import { useSession } from '../../lib/session.jsx'
 import { CardDesignForm, CardPreview } from './CardDesign.jsx'
@@ -139,12 +140,14 @@ function ProgramModal({ open, onClose, program, onSaved }) {
       </div>
       <div className="grid gap-6 md:grid-cols-[1fr_auto]">
         <div className="grid content-start gap-4">
-          {tab === 'card' && <CardDesignForm
+          {tab === 'card' && (
+            <CardDesignForm
               design={form.design}
               type={form.type}
               onChange={(design) => setForm((f) => ({ ...f, design }))}
               stamp={{ programId: program?.id ?? null, image: stampImage, setImage: setStampImage }}
-            />}
+            />
+          )}
           <div className={tab === 'card' ? 'hidden' : 'contents'}>
             <Field label={t('programs.name')}>
               {(p) => <Input {...p} value={form.name} onChange={set('name')} placeholder={t('programs.namePlaceholder')} maxLength={80} />}
@@ -228,6 +231,7 @@ export default function Programs() {
   const { data, loading, reload } = useApi('/programs')
   const [modal, setModal] = useState(null) // { program?: object }
   const [poster, setPoster] = useState(null)
+  const [rewardsOf, setRewardsOf] = useState(null)
   const { me } = useSession()
 
   async function setStatus(program, status) {
@@ -295,6 +299,10 @@ export default function Programs() {
                       {t('programs.joinPoster')}
                     </Button>
                   )}
+                  <Button variant="outline" size="sm" onClick={() => setRewardsOf(p)}>
+                    <MqGift className="h-4 w-4" />
+                    {t('rewards.button', { n: num(activeRewards(p).length) })}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setModal({ program: p })}>
                     <MqPencil className="h-4 w-4" />
                     {t('common.edit')}
@@ -342,6 +350,7 @@ export default function Programs() {
           </div>
         </Modal>
       )}
+      {rewardsOf && <RewardsModal program={rewardsOf} onClose={() => setRewardsOf(null)} onChanged={reload} />}
       {modal && <ProgramModal open onClose={() => setModal(null)} program={modal.program} onSaved={reload} />}
     </>
   )

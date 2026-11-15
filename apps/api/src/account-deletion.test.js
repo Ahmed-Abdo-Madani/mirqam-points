@@ -124,6 +124,9 @@ async function fullWorkspace() {
   // A void references the entry it reverses: the purge must delete self-referencing rows too.
   await ok(boss.post('/api/ledger/void', { entryId: spent.entry.id }, idem()), 201)
   await ok(cashier.post('/api/ledger/earn', { programId: stamps.id, memberId: m.id }, idem()), 201)
+  // A redemption that references a catalogue reward: the purge must clear entries before rewards.
+  const reward = await ok(boss.post(`/api/programs/${stamps.id}/rewards`, { name: 'Free coffee', cost: 1, kind: 'item' }), 201)
+  await ok(cashier.post('/api/ledger/redeem', { programId: stamps.id, memberId: m.id, rewardId: reward.id }, idem()), 201)
   const gift = await ok(
     cashier.post('/api/gift-cards', { amountMinor: 10000, recipientName: 'Sara', recipientPhone: '0559876543', message: 'Happy birthday' }, idem()),
     201,
@@ -179,7 +182,17 @@ describe('owner deletes their account', () => {
   it('purges the whole workspace at once and keeps only billing records under an anonymous tombstone', async () => {
     const w = await fullWorkspace()
     const before = await tenantRows(w.tenantId)
-    for (const table of ['accounts', 'members', 'ledger_entries', 'gift_cards', 'gift_card_entries', 'campaigns', 'program_stamps', 'pos_loyalty_sales'])
+    for (const table of [
+      'accounts',
+      'members',
+      'ledger_entries',
+      'gift_cards',
+      'gift_card_entries',
+      'campaigns',
+      'program_stamps',
+      'pos_loyalty_sales',
+      'rewards',
+    ])
       expect(before[table], table).toBeGreaterThan(0)
     const bystander = await owner()
     const bystanderProgram = await program(bystander)
