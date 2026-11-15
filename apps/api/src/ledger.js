@@ -35,6 +35,8 @@ export function mapEntry(row) {
     purchaseMinor: row.purchase_minor == null ? null : int(row.purchase_minor),
     actorUserId: row.actor_user_id,
     reversesEntryId: row.reverses_entry_id,
+    rewardId: row.reward_id ?? null,
+    rewardQty: row.reward_qty == null ? null : int(row.reward_qty),
     createdAt: row.created_at,
   }
 }
@@ -82,8 +84,8 @@ async function write(db, { tenantId, accountId, idempotencyKey, requestParts, me
       const inserted = await tx.query(
         `INSERT INTO ledger_entries
            (tenant_id, account_id, kind, amount, balance_after, source, ref, note, purchase_minor,
-            actor_user_id, idempotency_key, request_hash, reverses_entry_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            actor_user_id, idempotency_key, request_hash, reverses_entry_id, reward_id, reward_qty)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
          RETURNING *`,
         [
           tenantId,
@@ -99,6 +101,8 @@ async function write(db, { tenantId, accountId, idempotencyKey, requestParts, me
           idempotencyKey,
           requestHash,
           step.reversesEntryId ?? null,
+          meta.rewardId ?? null,
+          meta.rewardId ? (meta.rewardQty ?? 1) : null,
         ],
       )
       await tx.query('UPDATE accounts SET balance = $2, lifetime_earned = $3, updated_at = now() WHERE id = $1', [accountId, balance, lifetime])
@@ -139,7 +143,8 @@ export async function redeem(db, { tenantId, accountId, points, idempotencyKey, 
     accountId,
     idempotencyKey,
     meta,
-    requestParts: ['redeem', accountId, points, meta.source, meta.ref ?? null],
+    // Reward parts are appended only when present so keys minted before rewards existed still replay.
+    requestParts: ['redeem', accountId, points, meta.source, meta.ref ?? null, ...(meta.rewardId ? [meta.rewardId, meta.rewardQty ?? 1] : [])],
     plan: () => ({ kind: 'redeem', amount: -points }),
   })
 }

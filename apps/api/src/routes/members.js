@@ -143,8 +143,9 @@ export default function memberRoutes({ db, wallet }) {
         [memberId, req.auth.tenantId],
       ),
       db.query(
-        `SELECT e.*, a.program_id, (SELECT 1 FROM ledger_entries v WHERE v.reverses_entry_id = e.id) IS NOT NULL AS voided
+        `SELECT e.*, a.program_id, rw.name AS reward_name, (SELECT 1 FROM ledger_entries v WHERE v.reverses_entry_id = e.id) IS NOT NULL AS voided
            FROM ledger_entries e JOIN accounts a ON a.id = e.account_id
+           LEFT JOIN rewards rw ON rw.id = e.reward_id
           WHERE a.member_id = $1 AND e.tenant_id = $2 ORDER BY e.created_at DESC LIMIT 50`,
         [memberId, req.auth.tenantId],
       ),
@@ -161,7 +162,7 @@ export default function memberRoutes({ db, wallet }) {
         passVersion: a.pass_version,
         program: { id: a.program_id, name: a.name, type: a.type, status: a.status, config: a.config },
       })),
-      entries: entries.map((e) => ({ ...mapEntry(e), programId: e.program_id, voided: e.voided })),
+      entries: entries.map((e) => ({ ...mapEntry(e), programId: e.program_id, voided: e.voided, rewardName: e.reward_name ?? null })),
     })
   })
 

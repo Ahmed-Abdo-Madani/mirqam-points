@@ -54,7 +54,15 @@ export default function EntriesTable({ items, compact = false, showMember = true
               )}
               {!compact && (
                 <td className="td-base max-w-56 truncate text-xs text-muted">
-                  {[e.purchaseMinor != null && money(e.purchaseMinor, locale), e.note, e.ref, e.actorName].filter(Boolean).join(' · ')}
+                  {[
+                    e.purchaseMinor != null && money(e.purchaseMinor, locale),
+                    e.rewardName && (e.rewardQty > 1 ? `${e.rewardName} × ${e.rewardQty}` : e.rewardName),
+                    e.note,
+                    e.ref,
+                    e.actorName,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </td>
               )}
               {onVoid && (
