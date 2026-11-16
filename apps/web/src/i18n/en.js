@@ -167,7 +167,6 @@ const base = {
   dashboard: {
     shortcuts: 'Quick access',
     welcome: 'Hello {name}',
-    welcomeBody: 'Track your loyalty program and open the cashier to serve customers.',
     openCashier: 'Open cashier',
     onboardingTitle: 'Let’s launch your program',
     onboardingSubtitle: 'Four steps and you are ready for your first customer.',

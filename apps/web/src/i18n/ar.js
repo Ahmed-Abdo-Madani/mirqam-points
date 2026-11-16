@@ -166,7 +166,6 @@ const base = {
   dashboard: {
     shortcuts: 'الوصول السريع',
     welcome: 'أهلاً {name}',
-    welcomeBody: 'تابع نمو برنامج الولاء، وافتح الكاشير لخدمة عملائك.',
     openCashier: 'فتح الكاشير',
     onboardingTitle: 'لنُطلق برنامجك',
     onboardingSubtitle: 'أربع خطوات وتصبح جاهزاً لاستقبال أول عميل.',

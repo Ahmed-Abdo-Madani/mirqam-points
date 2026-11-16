@@ -77,7 +77,6 @@ export default function Dashboard() {
           <div>
             <p className="mq-kicker">{me.tenant.name}</p>
             <h1 className="mt-2 text-[clamp(22px,2.6vw,32px)] font-bold">{t('dashboard.welcome', { name: me.user.name.split(' ')[0] })}</h1>
-            <p className="mt-2 max-w-xl text-sm leading-loose text-navy-200">{t('dashboard.welcomeBody')}</p>
           </div>
           {can('transact') && (
             <Link to="/app/cashier" className="inline-flex min-h-12 items-center gap-2 rounded-[15px] bg-white px-5 font-bold text-navy-900 hover:bg-brand-50">
