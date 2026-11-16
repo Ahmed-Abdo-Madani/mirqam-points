@@ -56,6 +56,13 @@
   }
 }
 
+/* WhatsApp support bubble: clear the bottom tab bar on phones (AppShell BottomTabs is lg:hidden). */
+@media (max-width: 1023px) {
+  .mirqam-wa-wrap.above-tabs {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+}
+
 /* ---------- Native app (Capacitor): respect the notch and home indicator ---------- */
 html[data-native] body {
   padding-top: env(safe-area-inset-top);
@@ -64,7 +71,7 @@ html[data-native] body {
   overscroll-behavior: none;
 }
 @media(max-width:767px) {
- #main{min-width:0;padding:20px 12px 72px;font-size:14px;}
+ #main{min-width:0;padding:20px 12px 128px;font-size:14px;}
  #main > *{min-width:0;max-width:100%;}
  #main h1{font-size:22px;line-height:1.4;}
  #main h2{font-size:18px;line-height:1.5;}

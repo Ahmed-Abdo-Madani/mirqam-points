@@ -23,6 +23,7 @@ const Design = lazy(() => import('./pages/Design.jsx'))
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
 const Billing = PURCHASES_IN_APP ? lazy(() => import('./pages/app/Billing.jsx')) : null
 const Settings = lazy(() => import('./pages/app/Settings.jsx'))
+const Preferences = lazy(() => import('./pages/app/Preferences.jsx'))
 const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
 const GiftPage = lazy(() => import('./pages/public/GiftPage.jsx'))
 const JoinPage = lazy(() => import('./pages/public/JoinPage.jsx'))
@@ -106,6 +107,7 @@ export default function App() {
           <Route path="activity" element={<Activity />} />
           <Route path="gift-cards" element={<GiftCards />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="preferences" element={<Preferences />} />
           <Route
             path="billing"
             element={

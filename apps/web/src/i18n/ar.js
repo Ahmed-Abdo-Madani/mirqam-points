@@ -148,7 +148,23 @@ const base = {
     panel3: 'صلاحيات منفصلة للكاشير والمدير',
   },
 
+  tabs: {
+    label: 'التنقل الرئيسي',
+    home: 'الرئيسية',
+    scan: 'مسح',
+    settings: 'الإعدادات',
+  },
+
+  preferences: {
+    language: 'اللغة',
+    appearance: 'المظهر',
+    light: 'فاتح',
+    dark: 'داكن',
+    more: 'إعدادات الحساب ومساحة العمل',
+  },
+
   dashboard: {
+    shortcuts: 'الوصول السريع',
     welcome: 'أهلاً {name}',
     welcomeBody: 'تابع نمو برنامج الولاء، وافتح الكاشير لخدمة عملائك.',
     openCashier: 'فتح الكاشير',
@@ -324,6 +340,21 @@ const base = {
     confirmStamp: 'إضافة {n} {unit}',
     addBill: 'إدخال قيمة الفاتورة',
     skipBill: 'إضافة ختم بدون فاتورة',
+    or: 'أو',
+    scanHint: 'رمز QR في بطاقة المحفظة أو بطاقة الهدية',
+    customerTitle: 'بطاقة العميل',
+    overview: 'نظرة عامة',
+    stampBalance: 'رصيد الأختام',
+    pointBalance: 'رصيد النقاط',
+    availableRewards: 'مكافآت متاحة',
+    pastRedemptions: 'استبدالات سابقة',
+    stampProgress: '{n} من {required}',
+    addStamps: 'إضافة أختام',
+    addPoints: 'إضافة نقاط',
+    howManyStamps: 'عدد الأختام',
+    latest: 'آخر العمليات',
+    latestHint: 'آخر 6',
+    noTransactions: 'لا توجد عمليات على هذه البطاقة بعد.',
   },
 
   activity: {

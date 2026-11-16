@@ -149,7 +149,23 @@ const base = {
     panel3: 'Separate permissions for cashiers and managers',
   },
 
+  tabs: {
+    label: 'Main navigation',
+    home: 'Home',
+    scan: 'Scan',
+    settings: 'Settings',
+  },
+
+  preferences: {
+    language: 'Language',
+    appearance: 'Appearance',
+    light: 'Light',
+    dark: 'Dark',
+    more: 'Account and workspace settings',
+  },
+
   dashboard: {
+    shortcuts: 'Quick access',
     welcome: 'Hello {name}',
     welcomeBody: 'Track your loyalty program and open the cashier to serve customers.',
     openCashier: 'Open cashier',
@@ -325,6 +341,21 @@ const base = {
     confirmStamp: 'Add {n} {unit}',
     addBill: 'Enter a bill amount',
     skipBill: 'Add a stamp without a bill',
+    or: 'OR',
+    scanHint: 'The QR code on the wallet card or gift card',
+    customerTitle: 'Customer card',
+    overview: 'Overview',
+    stampBalance: 'Stamp balance',
+    pointBalance: 'Points balance',
+    availableRewards: 'Available rewards',
+    pastRedemptions: 'Past redemptions',
+    stampProgress: '{n} of {required}',
+    addStamps: 'Add stamps',
+    addPoints: 'Add points',
+    howManyStamps: 'Number of stamps',
+    latest: 'Latest transactions',
+    latestHint: 'Last 6',
+    noTransactions: 'No transactions on this card yet.',
   },
 
   activity: {
