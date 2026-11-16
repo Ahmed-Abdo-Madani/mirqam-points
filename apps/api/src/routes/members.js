@@ -137,7 +137,10 @@ export default function memberRoutes({ db, wallet }) {
     const [{ rows: accounts }, { rows: entries }] = await Promise.all([
       db.query(
         `SELECT a.id, a.balance, a.lifetime_earned, a.created_at, a.code, a.pass_token, a.pass_version,
-                p.id AS program_id, p.name, p.type, p.status, p.config
+                p.id AS program_id, p.name, p.type, p.status, p.config,
+                (SELECT count(*) FROM ledger_entries r
+                  WHERE r.account_id = a.id AND r.tenant_id = a.tenant_id AND r.kind = 'redeem'
+                    AND NOT EXISTS (SELECT 1 FROM ledger_entries v WHERE v.reverses_entry_id = r.id)) AS redemptions
            FROM accounts a JOIN programs p ON p.id = a.program_id
           WHERE a.member_id = $1 AND a.tenant_id = $2 ORDER BY a.created_at`,
         [memberId, req.auth.tenantId],
@@ -156,6 +159,7 @@ export default function memberRoutes({ db, wallet }) {
         id: a.id,
         balance: int(a.balance),
         lifetimeEarned: int(a.lifetime_earned),
+        redemptions: int(a.redemptions),
         createdAt: a.created_at,
         code: a.code,
         passPath: `/p/${a.pass_token}`,

@@ -9,25 +9,23 @@ import {
   MqLedger,
   MqLogOut,
   MqMegaphone,
-  MqMenu,
   MqScan,
   MqSettings,
   MqUserPlus,
   MqUsers,
-  MqX,
   ThemeToggle,
 } from '@mirqam/ui'
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
 import { useApi } from '../lib/api.js'
 import { PURCHASES_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
-function SideNav({ onNavigate }) {
+/* Every page the role can open, in menu order. The side menu shows them all; Home on phones shows the admin ones as shortcuts. */
+export function useNavItems() {
   const { t } = useI18n()
-  const { me, can } = useSession()
-  const nav = [
+  const { can } = useSession()
+  return [
     { to: '/app/billing', icon: MqCoins, label: t('billing.title'), show: can('owner') && PURCHASES_IN_APP },
     { to: '/app', end: true, icon: MqDashboard, label: t('nav.dashboard') },
     { to: '/app/cashier', icon: MqScan, label: t('nav.cashier'), show: can('transact') },
@@ -39,6 +37,12 @@ function SideNav({ onNavigate }) {
     { to: '/app/staff', icon: MqUserPlus, label: t('nav.staff'), show: can('manage') },
     { to: '/app/settings', icon: MqSettings, label: t('nav.settings') },
   ].filter((item) => item.show !== false)
+}
+
+function SideNav() {
+  const { t } = useI18n()
+  const { me } = useSession()
+  const nav = useNavItems()
   const link =
     'flex min-h-11 items-center gap-3 rounded-[14px] border border-transparent px-3 text-[13px] font-medium text-navy-100 transition hover:bg-white/5 hover:text-white'
   return (
@@ -48,7 +52,7 @@ function SideNav({ onNavigate }) {
       </div>
       <nav aria-label={t('nav.main')} className="grid gap-1">
         {nav.map(({ to, end, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={end} onClick={onNavigate} className={link}>
+          <NavLink key={to} to={to} end={end} className={link}>
             <Icon className="h-[19px] w-[19px] shrink-0" />
             {label}
           </NavLink>
@@ -59,6 +63,49 @@ function SideNav({ onNavigate }) {
         <p className="mt-0.5 text-[11px] text-navy-200">{t(`roles.${me?.role}`)}</p>
       </div>
     </div>
+  )
+}
+
+/* Phones and the mobile app: three tabs with Scan in the middle, the layout counter staff already know
+   from other loyalty apps. Admin pages are reached from Home; the desktop keeps the side menu. */
+function BottomTabs() {
+  const { t } = useI18n()
+  const { can } = useSession()
+  const tab = ({ isActive }) =>
+    `flex min-h-14 flex-col items-center justify-end gap-1 text-[11.5px] font-semibold transition ${isActive ? 'text-accent' : 'text-muted hover:text-ink'}`
+  return (
+    <nav
+      aria-label={t('tabs.label')}
+      className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 px-3 pt-1.5 backdrop-blur lg:hidden"
+      style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}
+    >
+      <div className="mx-auto grid max-w-md grid-cols-3 items-end">
+        <NavLink to="/app" end className={tab}>
+          <MqDashboard className="h-[22px] w-[22px]" />
+          {t('tabs.home')}
+        </NavLink>
+        {can('transact') ? (
+          <NavLink to="/app/cashier" className={tab}>
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`-mt-7 flex h-[60px] w-[60px] items-center justify-center rounded-full border-[5px] border-surface text-on-primary shadow-card ${isActive ? 'bg-accent' : 'bg-primary'}`}
+                >
+                  <MqScan className="h-7 w-7" />
+                </span>
+                {t('tabs.scan')}
+              </>
+            )}
+          </NavLink>
+        ) : (
+          <span />
+        )}
+        <NavLink to="/app/preferences" className={tab}>
+          <MqSettings className="h-[22px] w-[22px]" />
+          {t('tabs.settings')}
+        </NavLink>
+      </div>
+    </nav>
   )
 }
 
@@ -121,11 +168,7 @@ function SubscriptionBanner() {
 export default function AppShell() {
   const { t } = useI18n()
   const { me, logout } = useSession()
-  const [drawer, setDrawer] = useState(false)
-  const location = useLocation()
   const navigate = useNavigate()
-  // biome-ignore lint/correctness/useExhaustiveDependencies: close the mobile drawer on any navigation (incl. back/forward).
-  useEffect(() => setDrawer(false), [location.pathname])
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -137,31 +180,8 @@ export default function AppShell() {
         <SideNav />
       </aside>
 
-      {drawer && (
-        <div className="fixed inset-0 z-[70] bg-navy-950/50 lg:hidden" onClick={() => setDrawer(false)}>
-          <aside
-            className="mp-sidebar fade-in absolute inset-y-3 start-3 w-[min(280px,85vw)] rounded-[26px]"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={t('nav.main')}
-          >
-            <button
-              type="button"
-              onClick={() => setDrawer(false)}
-              className="absolute end-3 top-4 flex h-11 w-11 items-center justify-center rounded-lg text-navy-100"
-              aria-label={t('common.close')}
-            >
-              <MqX className="h-5 w-5" />
-            </button>
-            <SideNav onNavigate={() => setDrawer(false)} />
-          </aside>
-        </div>
-      )}
-
       <div className="min-w-0 flex-1">
         <header className="mq-card no-print sticky top-3 z-30 mx-3 mt-3 flex items-center gap-2 px-3 py-2.5 sm:px-5 lg:mx-4">
-          <button type="button" onClick={() => setDrawer(true)} className="rounded-xl p-2 text-muted hover:bg-soft lg:hidden" aria-label={t('nav.open')}>
-            <MqMenu className="h-6 w-6" />
-          </button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold">{me?.tenant.name}</p>
             <p className="truncate text-[11px] text-muted">{t('brand.name')}</p>
@@ -203,11 +223,12 @@ export default function AppShell() {
           />
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-7 sm:px-6 lg:px-8">
+        <main id="main" className="mx-auto w-full max-w-[1240px] px-4 pb-32 pt-7 sm:px-6 lg:px-8 lg:pb-24">
           <SubscriptionBanner />
           <Outlet />
         </main>
       </div>
+      <BottomTabs />
     </div>
   )
 }

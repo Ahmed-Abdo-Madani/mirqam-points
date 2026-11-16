@@ -1,7 +1,7 @@
 import { ToastProvider } from '@mirqam/ui'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, useLocation } from 'react-router-dom'
 import App from './App.jsx'
 import { I18nProvider, useI18n } from './i18n/index.jsx'
 import { NATIVE } from './lib/api.js'
@@ -11,10 +11,12 @@ import './styles.css'
 
 function WhatsAppSupport() {
   const { t } = useI18n()
+  // Inside the app, phones have a bottom tab bar: the bubble sits above it (styles.css).
+  const inApp = useLocation().pathname.startsWith('/app')
   if (NATIVE) return null
   return (
     <>
-      <div className="mirqam-wa-wrap">
+      <div className={`mirqam-wa-wrap${inApp ? ' above-tabs' : ''}`}>
         <a className="mirqam-wa" href="https://wa.me/966552090433" target="_blank" rel="noopener noreferrer" aria-label={t('supportButton.label')}>
           <span className="sr-only">{t('supportButton.label')}</span>
           <svg viewBox="0 0 24 24" aria-hidden="true">

@@ -1,5 +1,6 @@
 import { Card, EmptyState, MqCheckCircle, MqCoins, MqLedger, MqReward, MqScan, MqTrendUp, MqUsers, Pattern, Skeleton, Stat } from '@mirqam/ui'
 import { Link } from 'react-router-dom'
+import { useNavItems } from '../../components/AppShell.jsx'
 import EntriesTable from '../../components/EntriesTable.jsx'
 import { useI18n } from '../../i18n/index.jsx'
 import { useApi } from '../../lib/api.js'
@@ -38,6 +39,29 @@ function Onboarding({ programs, summary }) {
   )
 }
 
+/* Phones and the mobile app have no side menu: the pages beyond Scan and Settings open from here. */
+function Shortcuts() {
+  const { t } = useI18n()
+  const items = useNavItems().filter((i) => !['/app', '/app/cashier', '/app/settings'].includes(i.to))
+  return (
+    <nav aria-label={t('dashboard.shortcuts')} className="mb-6 lg:hidden">
+      <h2 className="mb-3 text-base font-bold">{t('dashboard.shortcuts')}</h2>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        {items.map(({ to, icon: Icon, label }) => (
+          <Link
+            key={to}
+            to={to}
+            className="flex min-h-[72px] flex-col justify-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm font-semibold transition hover:border-brand-500"
+          >
+            <Icon className="h-5 w-5 text-accent" />
+            {label}
+          </Link>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
 export default function Dashboard() {
   const { t } = useI18n()
   const { me, can } = useSession()
@@ -63,6 +87,8 @@ export default function Dashboard() {
           )}
         </div>
       </section>
+
+      <Shortcuts />
 
       {summary.data && programs.data && <Onboarding programs={programs.data.items} summary={summary.data} />}
 

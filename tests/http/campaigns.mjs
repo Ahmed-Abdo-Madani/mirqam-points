@@ -32,6 +32,24 @@ await check('stamp card earns a flat stamp with no bill amount', async () => {
   expect(res.body.balance).toBe(1)
 })
 
+await check('several stamps in one order: server prices visits, and redemptions are counted', async () => {
+  const owner = await Agent.owner()
+  const prog = await program(owner)
+  const { member: m } = await member(owner, prog, false)
+  const res = await owner.post('/api/ledger/earn', { programId: prog.id, memberId: m.id, visits: 3, source: 'pos' }, hdr())
+  expectStatus(res, 201)
+  expect(res.body.entry.amount).toBe(3)
+  expect(res.body.balance).toBe(3)
+  expectStatus(await owner.post('/api/ledger/earn', { programId: prog.id, memberId: m.id, visits: 2, purchaseMinor: 5000 }, hdr()), 400)
+  expectStatus(await owner.post('/api/ledger/earn', { programId: prog.id, memberId: m.id, visits: 21 }, hdr()), 400)
+  expectStatus(await owner.post('/api/ledger/redeem', { programId: prog.id, memberId: m.id, points: 2 }, hdr()), 201)
+  const detail = await owner.get(`/api/members/${m.id}`)
+  expectStatus(detail, 200)
+  const account = detail.body.accounts.find((a) => a.program.id === prog.id)
+  expect(account.balance).toBe(1)
+  expect(account.redemptions).toBe(1)
+})
+
 await check('earn without a bill is refused for points programs and stamp programs with a minimum', async () => {
   const owner = await Agent.owner()
   const points = await program(owner, 'points', { pointsPerUnit: 1, unitMinor: 100 })
