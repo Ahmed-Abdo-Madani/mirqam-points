@@ -212,6 +212,12 @@ await check('native app: token sign-in, bearer requests, CORS for the app origin
   expectStatus(await new Agent().post('/api/programs', { name: 'from app', type: 'points' }, { headers: bearer }), 201)
   const pre = await new Agent().request('OPTIONS', '/api/programs', { headers: { origin: 'capacitor://localhost', 'access-control-request-method': 'POST' } })
   expect(pre.status).toBe(204)
+  // Logo and stamp-artwork uploads are PUTs: a preflight that leaves PUT out makes the app show "could not reach the server".
+  for (const path of ['/api/branding/logo', '/api/program-stamps/x', '/api/members/x']) {
+    const p = await new Agent().request('OPTIONS', path, { headers: { origin: 'capacitor://localhost', 'access-control-request-method': 'PUT' } })
+    expect(p.status).toBe(204)
+    for (const m of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']) expect(p.headers.get('access-control-allow-methods').split(/,\s*/).includes(m)).toBe(true)
+  }
   const evil = await new Agent().request('OPTIONS', '/api/programs', { headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' } })
   expect(evil.headers.get('access-control-allow-origin')).toBe(null)
   // A cookie session can never be driven from the app origin.

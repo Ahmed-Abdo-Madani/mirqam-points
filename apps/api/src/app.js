@@ -54,7 +54,7 @@ function mobileCors(config) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Vary', 'Origin')
     res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, idempotency-key, x-mp-client')
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.setHeader('Access-Control-Max-Age', '600')
     if (req.method === 'OPTIONS') return res.sendStatus(204)
     next()
