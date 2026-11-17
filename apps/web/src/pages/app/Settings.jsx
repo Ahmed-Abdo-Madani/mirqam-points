@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Field, Input, Modal, useToast } from '@mirqam/ui'
+import { Button, Card, Field, Input, Modal, useToast } from '@mirqam/ui'
 import { normalizePhone } from '@mirqam-points/shared'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -235,8 +235,6 @@ function Logo() {
 export default function Settings() {
   const { t } = useI18n()
   const { me, can } = useSession()
-  const wallet = useApi('/wallet/status')
-  const status = (on) => <Badge tone={on ? 'green' : 'amber'}>{t(on ? 'settings.connected' : 'settings.notConnected')}</Badge>
   return (
     <>
       <PageHeader title={t('nav.settings')} subtitle={t('settings.subtitle')} />
@@ -267,19 +265,6 @@ export default function Settings() {
         </Card>
         <Logo />
         {can('owner') && !NATIVE && <BillingWhatsApp />}
-        <Card title={t('settings.wallets')} subtitle={t('settings.walletsSubtitle')}>
-          <ul className="grid gap-3 text-sm">
-            <li className="flex items-center justify-between gap-3">
-              <span className="font-semibold">Apple Wallet</span>
-              {wallet.data && status(wallet.data.apple)}
-            </li>
-            <li className="flex items-center justify-between gap-3">
-              <span className="font-semibold">Google Wallet</span>
-              {wallet.data && status(wallet.data.google)}
-            </li>
-          </ul>
-          <p className="mt-4 text-xs leading-relaxed text-muted">{t('settings.walletsNote')}</p>
-        </Card>
         <Card title={t('settings.legal')}>
           <nav className="flex flex-wrap gap-4 text-sm font-semibold text-accent">
             <Link to="/privacy">{t('legal.privacy')}</Link>

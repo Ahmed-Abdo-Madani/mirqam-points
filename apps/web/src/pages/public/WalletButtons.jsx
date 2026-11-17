@@ -6,7 +6,7 @@ import { publicOrigin } from '../../lib/api.js'
    Wallet sheet); Google's redirects to the Save-to-Google-Wallet flow. */
 export default function WalletButtons({ wallet }) {
   const { t } = useI18n()
-  if (!wallet?.apple && !wallet?.google) return <p className="rounded-2xl bg-soft px-4 py-3 text-center text-sm text-muted">{t('pass.walletSoon')}</p>
+  if (!wallet?.apple && !wallet?.google) return null
   const btn = 'flex min-h-14 items-center justify-center gap-3 rounded-2xl px-5 text-[15px] font-bold transition active:scale-[0.98]'
   return (
     <div className="grid gap-3">

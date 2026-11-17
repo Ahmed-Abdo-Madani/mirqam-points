@@ -144,6 +144,7 @@ function giftClass(model, google, publicUrl, slug) {
 }
 
 function giftObject(model, google, slug) {
+  const tx = PASS_TEXT[model.locale === 'en' ? 'en' : 'ar']
   return {
     id: giftObjectId(google, model),
     classId: giftClassId(google, slug),
@@ -152,9 +153,9 @@ function giftObject(model, google, slug) {
     balance: { micros: String(model.balanceMinor * 10_000), currencyCode: 'SAR' },
     balanceUpdateTime: { date: model.updatedAt.toISOString() },
     barcode: { type: BARCODES[model.design.barcode] ?? 'QR_CODE', value: model.barcode, alternateText: model.code },
-    linksModuleData: { uris: [{ uri: model.url, description: 'Card', id: 'card' }] },
+    linksModuleData: { uris: [{ uri: model.url, description: tx.open, id: 'card' }] },
     ...(model.expiresAt ? { validTimeInterval: { end: { date: new Date(model.expiresAt).toISOString() } } } : {}),
-    ...(model.message ? { textModulesData: [{ id: 'msg', header: model.senderName || 'Message', body: model.message }] } : {}),
+    ...(model.message ? { textModulesData: [{ id: 'msg', header: model.senderName || tx.message, body: model.message }] } : {}),
   }
 }
 
