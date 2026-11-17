@@ -19,7 +19,7 @@ const Programs = lazy(() => import('./pages/app/Programs.jsx'))
 const Activity = lazy(() => import('./pages/app/Activity.jsx'))
 const Campaigns = lazy(() => import('./pages/app/Campaigns.jsx'))
 const Staff = lazy(() => import('./pages/app/Staff.jsx'))
-const Design = lazy(() => import('./pages/Design.jsx'))
+const Design = import.meta.env.DEV ? lazy(() => import('./pages/Design.jsx')) : null
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
 const Billing = PURCHASES_IN_APP ? lazy(() => import('./pages/app/Billing.jsx')) : null
 const Settings = lazy(() => import('./pages/app/Settings.jsx'))
@@ -75,7 +75,8 @@ export default function App() {
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/register" element={<Auth mode="register" />} />
-        <Route path="/design" element={<Design />} />
+        {/* Design-language review page: development builds only. */}
+        {import.meta.env.DEV && <Route path="/design" element={<Design />} />}
         <Route
           path="/app"
           element={

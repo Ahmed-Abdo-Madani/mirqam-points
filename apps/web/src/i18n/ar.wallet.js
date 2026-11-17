@@ -10,7 +10,6 @@ export default {
   },
   nav: { settings: 'الإعدادات' },
   pass: {
-    walletSoon: 'اعرض هذا الرمز عند الكاشير',
     addApple: 'إضافة إلى Apple Wallet',
     addGoogle: 'إضافة إلى Google Wallet',
     notFound: 'البطاقة غير موجودة',
@@ -122,7 +121,7 @@ export default {
   settings: {
     deleteSocialConfirm: 'تأكيد الحذف بتسجيل الدخول الأخير',
     deleteSocialAgain: 'للحسابات المرتبطة: أعد الدخول أدناه، ثم ارجع إلى الإعدادات لتأكيد الحذف خلال خمس دقائق.',
-    subtitle: 'حسابك، والخصوصية.',
+    subtitle: 'حسابك ومتجرك والخصوصية.',
     account: 'الحساب',
     workspace: 'المتجر',
     legal: 'الخصوصية والشروط',

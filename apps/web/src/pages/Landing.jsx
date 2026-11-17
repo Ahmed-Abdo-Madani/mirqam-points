@@ -1,4 +1,4 @@
-import { MqBot, MqCheck, MqCoins, MqGift, MqPass, MqScan, MqShieldCheck, Pattern } from '@mirqam/ui'
+import { MqCheck, MqCoins, MqGift, MqPass, MqScan, MqShieldCheck, Pattern } from '@mirqam/ui'
 import { Link } from 'react-router-dom'
 import PassPreview from '../components/PassPreview.jsx'
 import PublicShell from '../components/PublicShell.jsx'
@@ -11,7 +11,6 @@ export default function Landing() {
     { icon: MqCoins, key: 'programs' },
     { icon: MqScan, key: 'cashier' },
     { icon: MqGift, key: 'giftCards' },
-    { icon: MqBot, key: 'whatsapp' },
     { icon: MqShieldCheck, key: 'trust' },
   ]
   return (
@@ -61,7 +60,7 @@ export default function Landing() {
               </a>
             </div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">
-              {['proof1', 'proof2', 'proof3'].map((k) => (
+              {['proof1', 'proof3'].map((k) => (
                 <li key={k} className="flex items-center gap-1.5">
                   <MqCheck className="h-4 w-4 text-accent" />
                   {t(`landing.${k}`)}

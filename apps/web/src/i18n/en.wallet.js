@@ -10,7 +10,6 @@ export default {
   },
   nav: { settings: 'Settings' },
   pass: {
-    walletSoon: 'Show this code at the counter',
     addApple: 'Add to Apple Wallet',
     addGoogle: 'Add to Google Wallet',
     notFound: 'Card not found',
@@ -123,7 +122,7 @@ export default {
   settings: {
     deleteSocialConfirm: 'Confirm deletion with recent sign-in',
     deleteSocialAgain: 'For linked accounts: sign in again below, then return to Settings to confirm deletion within five minutes.',
-    subtitle: 'Your account and privacy.',
+    subtitle: 'Your account, store and privacy.',
     account: 'Account',
     workspace: 'Store',
     legal: 'Privacy & terms',
