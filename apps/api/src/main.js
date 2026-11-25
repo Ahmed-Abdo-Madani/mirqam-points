@@ -4,13 +4,21 @@ import { startCommerceWorker } from './commerce.js'
 import { loadConfig } from './config.js'
 import { openDb } from './db/index.js'
 import { migrate, pendingMigrations } from './db/migrate.js'
+import { EMPTY_DATABASE_REASON, hasLoyaltyData } from './launch-guard.js'
 
 /* The API + console (live mode), or the same app frozen for the cutover
    (read-only mode: writes refused, database session read only, no
-   background job — runtime-mode.js). */
-export async function startServer({ readOnly = false } = {}) {
+   background job — runtime-mode.js).
+   requireData (launch-guard.js): refuse to start on a database without loyalty
+   data; returns { refused } before any migration or write, the caller stays in
+   standby. */
+export async function startServer({ readOnly = false, requireData = false } = {}) {
   const config = { ...loadConfig(), readOnly }
   const db = await openDb(config.databaseUrl, { readOnly })
+  if (requireData && !(await hasLoyaltyData(db))) {
+    await db.close().catch(() => {})
+    return { refused: EMPTY_DATABASE_REASON }
+  }
   if (readOnly) {
     // A read-only session cannot migrate; the release is expected to be migrated already.
     const pending = await pendingMigrations(db)

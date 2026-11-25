@@ -8,18 +8,21 @@
    Honoured in standby only — a live service never copies over its own data. */
 import http from 'node:http'
 
-export function createStandbyServer({ version }) {
+/* reason: why a live start fell back to standby (launch-guard.js), shown in
+   the health answer so `curl /api/health` tells the operator. */
+export function createStandbyServer({ version, reason }) {
   return http.createServer((req, res) => {
     const health = req.url === '/api/health' || req.url === '/health'
     res.writeHead(health ? 200 : 503, { 'content-type': 'application/json', 'cache-control': 'no-store', ...(health ? {} : { 'retry-after': '60' }) })
-    res.end(JSON.stringify(health ? { ok: true, standby: true, version } : { error: 'maintenance' }))
+    res.end(JSON.stringify(health ? { ok: true, standby: true, version, ...(reason ? { reason } : {}) } : { error: 'maintenance' }))
   })
 }
 
-export async function startStandby({ port, version, env = process.env, log = console.log }) {
-  const server = createStandbyServer({ version })
+export async function startStandby({ port, version, reason, env = process.env, log = console.log }) {
+  const server = createStandbyServer({ version, reason })
   await new Promise((resolve) => server.listen(port, resolve))
-  log(`[launch] standby on port ${server.address().port}: health checks only (set MIRQAM_LIVE=1 to start the app)`)
+  const hint = reason ? `live start refused (${reason}), see the line above` : 'set MIRQAM_LIVE=1 to start the app'
+  log(`[launch] standby on port ${server.address().port}: health checks only (${hint})`)
   const copy = env.MIRQAM_COPY_ON_BOOT
   if (copy === 'copy' || copy === 'replace' || copy === 'verify') {
     const { runCopy } = await import('./db/copy-cli.js')
