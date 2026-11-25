@@ -480,6 +480,7 @@ const base = {
     not_found: 'We couldn’t find what you’re looking for.',
     json_required: 'Invalid request. Refresh the page and try again.',
     origin_not_allowed: 'Invalid request. Refresh the page and try again.',
+    bad_request: 'The request address is not valid. Check the link and try again.',
     invalid_json: 'Invalid request. Refresh the page and try again.',
     payload_too_large: 'The request is too large.',
     internal_error: 'Something went wrong on our side. Please try again shortly.',

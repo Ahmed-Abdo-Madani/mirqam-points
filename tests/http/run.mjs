@@ -27,6 +27,13 @@ await check('unknown API routes return JSON 404', async () => {
   expectStatus(res, 404, 'not_found')
 })
 
+await check('malformed percent-encoding is a 400, not a server error', async () => {
+  for (const path of ['/%c0', '/%E0%A4%A', '/api/%c0', '/api/members/%c0', '/api/wallet/apple/v1/devices/%c0/registrations/x']) {
+    const res = await new Agent().get(path)
+    expectStatus(res, 400, 'bad_request')
+  }
+})
+
 await check('live update check answers the app without a session', async () => {
   const res = await new Agent().post('/api/mobile/live-update', {
     app_id: 'sa.mirqam.points',

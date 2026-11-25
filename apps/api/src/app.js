@@ -7,7 +7,7 @@ import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
 import { acceptForwarded } from './forwarder.js'
 import { installHqAdmin } from './hq-admin.js'
-import { errorHandler, HttpError } from './http.js'
+import { errorHandler, HttpError, rejectMalformedPath } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
@@ -98,6 +98,9 @@ export function createApp({ db, config }) {
       crossOriginEmbedderPolicy: false,
     }),
   )
+
+  // `GET /%c0` and friends: 400, never a 500 from the router or the static file server.
+  app.use(rejectMalformedPath)
 
   // Permit GA4 and the consented Google Ads conversion tag only on public documents;
   // authenticated routes retain the original CSP.
