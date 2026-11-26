@@ -218,3 +218,59 @@ describe('entitlement webhook', () => {
     expect(await billing.apply(ent())).toBe(false)
   })
 })
+
+describe('pager on/off follows the billing status', () => {
+  const ent = (over = {}) => ({
+    platform: 'loyalty',
+    account_ref: `pager:${tenantId}`,
+    status: 'active',
+    plan: 'pager_basic',
+    cycle: 'monthly',
+    items: [],
+    active_until: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    version: 100,
+    ...over,
+  })
+  const lastPush = () => posCalls.at(-1)?.body.active
+
+  it('past_due keeps the pager on through the grace period', async () => {
+    await pager.applyEntitlement(ent())
+    await pager.applyEntitlement(ent({ version: 101, status: 'past_due', active_until: new Date(Date.now() + 7 * 86_400_000).toISOString() }))
+    expect(lastPush()).toBe(true)
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ status: 'past_due', active: true, posState: 'on' })
+    posCalls = []
+    await pager.runLifecycle()
+    expect(posCalls).toHaveLength(0)
+  })
+
+  it.each(['suspended', 'expired', 'canceled'])('%s switches the pager off', async (status) => {
+    await pager.applyEntitlement(ent())
+    await pager.applyEntitlement(ent({ version: 101, status, active_until: new Date(Date.now() - 1000).toISOString() }))
+    expect(lastPush()).toBe(false)
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ status, active: false, posState: 'off' })
+  })
+
+  it('cancel at period end stays on until the period ends', async () => {
+    await pager.applyEntitlement(ent({ cancel_at_period_end: true }))
+    expect(lastPush()).toBe(true)
+  })
+
+  it('paying again after a lapse switches the pager back on', async () => {
+    await pager.applyEntitlement(ent())
+    await pager.applyEntitlement(ent({ version: 101, status: 'suspended', active_until: new Date(Date.now() - 1000).toISOString() }))
+    await pager.applyEntitlement(ent({ version: 102 }))
+    expect(lastPush()).toBe(true)
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ status: 'active', active: true, posState: 'on' })
+  })
+
+  it('a subscription paid during the trial is never switched off by the trial-end job', async () => {
+    await pager.startTrial(tenantId, 'basic')
+    await pager.applyEntitlement(ent({ version: 1 }))
+    // The trial's original end passes.
+    const later = new Date(Date.now() + 15 * 86_400_000)
+    posCalls = []
+    await pager.runLifecycle(later)
+    expect(posCalls.filter((c) => c.body.active === false)).toHaveLength(0)
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ source: 'billing', status: 'active', active: true })
+  })
+})
