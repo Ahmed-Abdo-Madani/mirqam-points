@@ -164,6 +164,16 @@ describe('checkout through mirqam-billing', () => {
     expect(call.body.items).toBeUndefined()
   })
 
+  it('passes an HQ coupon to billing (a 100% coupon completes without a payment page)', async () => {
+    billingAnswer = (url) => (url.endsWith('/checkout-sessions') ? json(200, { id: 'cs_free', done: true }) : json(200, {}))
+    const c = await pager.checkout(tenantId, { tier: 'plus', cycle: 'monthly', branches: 1, coupon: ' PAGERTEST100 ' }, 'req-c')
+    expect(c).toEqual({ id: 'cs_free', url: null, status: 'paid' })
+    const call = billingCalls.find((x) => x.url.endsWith('/checkout-sessions'))
+    expect(call.body).toMatchObject({ plan: 'pager_plus', coupon: 'PAGERTEST100' })
+    // Done at once: the entitlement is re-read right away.
+    expect(billingCalls.some((x) => x.url.includes(`/entitlements/${encodeURIComponent(`pager:${tenantId}`)}`))).toBe(true)
+  })
+
   it('rejects bad input', async () => {
     for (const bad of [
       { tier: 'gold', cycle: 'monthly' },

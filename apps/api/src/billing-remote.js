@@ -209,7 +209,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       subAccounts.set(prefix, handler)
     },
     /** Subscribe checkout for a sub-account (same customer as the workspace). Raw billing answer. */
-    async subAccountCheckout(tenantId, ref, { plan, cycle, items, autoRenew, returnBase }, requestKey) {
+    async subAccountCheckout(tenantId, ref, { plan, cycle, items, coupon, autoRenew, returnBase }, requestKey) {
       return call(
         'POST',
         'checkout-sessions',
@@ -218,6 +218,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
           plan,
           cycle,
           items: items?.length ? items : undefined,
+          coupon: coupon || undefined,
           auto_renew: autoRenew === true,
           // The marker tells the console which subscription to re-read on return (billing appends billing=paid).
           return_url: `${returnBase || config.publicUrl}/app/billing?${ref.split(':')[0]}=paid`,

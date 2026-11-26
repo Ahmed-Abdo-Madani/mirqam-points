@@ -201,7 +201,7 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
       return this.status(tenantId)
     },
 
-    async checkout(tenantId, { tier, cycle, branches, autoRenew }, requestKey, returnBase) {
+    async checkout(tenantId, { tier, cycle, branches, coupon, autoRenew }, requestKey, returnBase) {
       const n = Number(branches ?? 1)
       if (!PAGER_TIERS.includes(tier) || !PAGER_CYCLES.includes(cycle) || !Number.isInteger(n) || n < 1 || n > PAGER_MAX_BRANCHES)
         throw new HttpError(400, 'validation_failed')
@@ -214,6 +214,8 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
           plan: pagerBillingCode(tier, withLoyalty),
           cycle,
           items: n > 1 ? [{ plan: pagerBranchAddonCode(tier, withLoyalty), quantity: n - 1 }] : [],
+          // HQ coupons (e.g. a 100% test coupon) are checked by billing against the pager_* plan codes.
+          coupon: typeof coupon === 'string' && coupon.trim() ? coupon.trim().slice(0, 40) : undefined,
           autoRenew,
           returnBase,
         },

@@ -53,7 +53,7 @@ export default function billingRoutes(billing, { db, pager } = {}) {
       const b = req.body ?? {}
       const c = await pager.checkout(
         req.auth.tenantId,
-        { tier: b.tier, cycle: b.cycle, branches: b.branches, autoRenew: b.autoRenew === true },
+        { tier: b.tier, cycle: b.cycle, branches: b.branches, coupon: b.coupon, autoRenew: b.autoRenew === true },
         idempotencyKey(req),
         returnBase(req),
       )

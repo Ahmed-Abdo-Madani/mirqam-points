@@ -15,6 +15,7 @@ export default function PagerPlan({ checkoutHost }) {
   const { data, loading, error, reload } = useApi('/billing/pager')
   const [cycle, setCycle] = useState('monthly')
   const [branches, setBranches] = useState(1)
+  const [coupon, setCoupon] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState(null)
 
@@ -47,7 +48,7 @@ export default function PagerPlan({ checkoutHost }) {
     act(async () => {
       const r = await api('/billing/pager/checkout', {
         method: 'POST',
-        body: { tier, cycle, branches, autoRenew: true },
+        body: { tier, cycle, branches, coupon: coupon.trim() || undefined, autoRenew: true },
         idempotencyKey: crypto.randomUUID(),
       })
       if (!r.url) return reload()
@@ -114,6 +115,15 @@ export default function PagerPlan({ checkoutHost }) {
             value={branches}
             onChange={(e) => setBranches(Math.min(data.maxBranches ?? PAGER_MAX_BRANCHES, Math.max(1, Number.parseInt(e.target.value, 10) || 1)))}
             className="tnum w-28 rounded-lg border border-line bg-surface px-3 py-2"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          {t('billing.coupon')}
+          <input
+            value={coupon}
+            maxLength={40}
+            onChange={(e) => setCoupon(e.target.value)}
+            className="w-40 rounded-lg border border-line bg-surface px-3 py-2 uppercase"
           />
         </label>
       </div>
