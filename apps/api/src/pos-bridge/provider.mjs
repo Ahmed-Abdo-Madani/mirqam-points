@@ -52,7 +52,8 @@ export function installPosBridge({
   app.get('/pos/bridge.js', (_req, res) => res.type('js').sendFile(assets.script))
   app.get('/pos/bridge.css', (_req, res) => res.type('css').sendFile(assets.style))
   app.get(['/pos/connect', '/pos/embedded', '/pos/install'], (_req, res) => {
-    res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' })
+    // Account-linking and sign-in pages: never in search results.
+    res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex,nofollow' })
     res.sendFile(assets.html)
   })
   app.get('/pos/config', (_req, res) => res.set('Cache-Control', 'no-store').json(config))

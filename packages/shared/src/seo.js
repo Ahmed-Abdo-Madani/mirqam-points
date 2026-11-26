@@ -11,6 +11,9 @@ export const SITE_URL = 'https://loyalty.mirqam.sa'
 export const SITE_NAME = { ar: 'مرقام ولاء', en: 'Mirqam Loyalty' }
 export const APP_NAME = { ar: 'مرقام نقاط', en: 'Mirqam Points' }
 
+/* Title of the website's not-found page (a real 404 since apps/api/src/seo.js). */
+export const NOT_FOUND_TITLE = { ar: 'الصفحة غير موجودة | مرقام ولاء', en: 'Page not found | Mirqam Loyalty' }
+
 /* The share image (apps/web/public/og-image.png, scripts/gen-web-icons.mjs) and its text. */
 export const OG_IMAGE = {
   url: `${SITE_URL}/og-image.png`,
@@ -86,10 +89,23 @@ export const INDEXABLE_PAGES = {
    are private (sign-in, dashboards, a member's own card): served, but noindex. */
 const PRIVATE_ROUTES = [/^\/(login|register|hq-entry|hq-admin)$/, /^\/app(\/.*)?$/, /^\/p\/[^/]+$/, /^\/gift\/[^/]+$/, /^\/join\/[^/]+\/[^/]+$/]
 
+/* No page or resource here has an address this long. Longer paths are answered 404 at
+   once (apps/api/src/http.js) instead of being routed, decoded or classified. */
+export const MAX_PATH_LENGTH = 2048
+
+/** `path` without its trailing slashes ('/' stays '/'). A loop, not /\/+$/: that regex
+    backtracks quadratically on long runs of slashes, a cheap way to stall the server. */
+export function trimTrailingSlashes(path) {
+  let end = path.length
+  while (end > 1 && path.charCodeAt(end - 1) === 47) end--
+  return end === path.length ? path : path.slice(0, end)
+}
+
 /** Classifies a console path: { status: 200 | 301 | 404, indexable, page } (page = copy key or null).
     A public page asked for with a trailing slash answers 301 to its one address (`location`). */
 export function classifyPath(path) {
-  const p = path.length > 1 ? path.replace(/\/+$/, '') : path
+  if (path.length > MAX_PATH_LENGTH) return { status: 404, indexable: false, page: null }
+  const p = trimTrailingSlashes(path)
   const page = INDEXABLE_PAGES[p] || null
   if (page && p !== path) return { status: 301, indexable: false, page, location: p }
   if (page) return { status: 200, indexable: true, page }

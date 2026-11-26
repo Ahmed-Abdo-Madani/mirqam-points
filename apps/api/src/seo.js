@@ -13,7 +13,7 @@
    GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION are set. */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { APP_NAME, classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_NAME, SITE_URL, seoCopy } from '@mirqam-points/shared'
+import { APP_NAME, classifyPath, INDEXABLE_PAGES, NOT_FOUND_TITLE, OG_IMAGE, SITE_NAME, SITE_URL, seoCopy } from '@mirqam-points/shared'
 
 const ROBOTS_INDEX = 'index,follow,max-image-preview:large'
 const ROBOTS_NOINDEX = 'noindex,nofollow'
@@ -128,6 +128,8 @@ export function renderShell(html, path, config, prerendered = {}) {
     if (prerendered[page]) out = out.replace('<div id="root"></div>', () => `<div id="root">${prerendered[page]}</div>`)
   } else {
     head += `<meta name="robots" content="${ROBOTS_NOINDEX}" />`
+    // The website's not-found page carries the website's name, not the store app's.
+    if (status === 404) out = out.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(NOT_FOUND_TITLE.ar)}</title>`)
   }
   return { status, robots: indexable ? null : ROBOTS_NOINDEX, html: out.replace('</head>', () => `${head}</head>`) }
 }

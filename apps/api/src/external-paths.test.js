@@ -73,18 +73,15 @@ describe('paths opened by other systems and by customers', () => {
     for (const path of ['/', '/privacy', '/terms', '/support', '/delete-account']) expect((await get(path)).status, path).toBe(200)
   })
 
-  it('the POS bridge pages and assets keep their own handlers', async () => {
-    for (const path of [
-      '/pos/install',
-      '/pos/connect',
-      '/pos/embedded?link=abc',
-      '/pos/embedded/',
-      '/pos/bridge.js',
-      '/pos/bridge.css',
-      '/pos/config',
-      '/pos/font.otf',
-      '/pos/logo.svg',
-    ]) {
+  it('the POS bridge pages and assets keep their own handlers; its sign-in pages are noindex', async () => {
+    for (const path of ['/pos/install', '/pos/connect', '/pos/embedded?link=abc', '/pos/embedded/']) {
+      const res = await get(path)
+      expect(res.status, path).toBe(200)
+      expect(res.headers.get('content-type'), path).toMatch(/text\/html/)
+      expect(res.headers.get('x-robots-tag'), path).toBe('noindex,nofollow')
+      expect(await res.text(), path).not.toContain('<div id="root">')
+    }
+    for (const path of ['/pos/bridge.js', '/pos/bridge.css', '/pos/config', '/pos/font.otf', '/pos/logo.svg']) {
       const res = await get(path)
       expect(res.status, path).toBe(200)
       expect(res.headers.get('x-robots-tag'), path).toBe(null)

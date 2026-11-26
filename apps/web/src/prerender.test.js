@@ -1,5 +1,7 @@
 /* The build-time HTML of the public pages (prerender.jsx): what crawlers that do
    not run JavaScript get inside #root (apps/api/src/seo.js). */
+
+import { readFileSync } from 'node:fs'
 import { INDEXABLE_PAGES, SITE_NAME } from '@mirqam-points/shared'
 import { describe, expect, it } from 'vitest'
 import { pages, renderPage } from './prerender.jsx'
@@ -20,6 +22,14 @@ describe('prerendered public pages', () => {
       for (const img of html.match(/<img\b[^>]*>/g) || []) expect(img).toMatch(/\balt="/)
     })
   }
+
+  it('the app imports every prerendered page eagerly (a lazy route would flash its skeleton over the markup)', () => {
+    const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
+    for (const name of ['Landing', 'Legal', 'DeleteAccount']) {
+      expect(app, name).toMatch(new RegExp(`^import ${name} from '`, 'm'))
+      expect(app, name).not.toMatch(new RegExp(`const ${name} = lazy\\(`))
+    }
+  })
 
   it('the home page shows the store links its structured data names', () => {
     const html = renderPage('home')

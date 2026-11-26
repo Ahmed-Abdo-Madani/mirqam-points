@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, posix } from 'node:path'
 import express from 'express'
 import helmet from 'helmet'
 import { bearerToken, loadSession, readCookie, requireAuth, SESSION_COOKIE } from './auth.js'
@@ -235,7 +235,11 @@ export function createApp({ db, config }) {
         res.type('html').send(readFileSync(file, 'utf8').replace('</head>', () => `${verification}</head>`))
       })
     }
-    app.use(express.static(config.webDist, { index: false, maxAge: '1h', setHeaders: immutableAssets }))
+    // dist/prerender holds the public pages' build-time markup: server input for seo.js, never
+    // a document of its own. Checked on the decoded, normalized path, as the static server resolves it.
+    const serveStatic = express.static(config.webDist, { index: false, maxAge: '1h', setHeaders: immutableAssets })
+    const isPrerenderPath = (req) => /^\/prerender(\/|$)/.test(posix.normalize(decodeURIComponent(req.path)))
+    app.use((req, res, next) => (isPrerenderPath(req) ? next() : serveStatic(req, res, next)))
     // Every other path gets the console's shell with per-route <head>, noindex or a real 404 (seo.js).
     const shell = readFileSync(join(config.webDist, 'index.html'), 'utf8')
     const prerendered = loadPrerendered(config.webDist)
