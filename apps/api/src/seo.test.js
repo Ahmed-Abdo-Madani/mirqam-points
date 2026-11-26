@@ -104,6 +104,16 @@ describe('renderShell', () => {
     expect(renderShell(SHELL, '/support/', config)).toEqual({ status: 301, location: '/support', robots: null, html: null })
   })
 
+  it('puts the prerendered page inside #root for public pages only, verbatim', () => {
+    const prerendered = { home: '<div data-prerendered=""><h1>$& $\' $1 ok</h1></div>', privacy: '<div data-prerendered=""><h1>p</h1></div>' }
+    const home = renderShell(SHELL, '/', config, prerendered).html
+    expect(home).toContain('<div id="root"><div data-prerendered=""><h1>$& $\' $1 ok</h1></div></div>')
+    expect(renderShell(SHELL, '/privacy', config, prerendered).html).toContain('<div id="root"><div data-prerendered=""><h1>p</h1>')
+    // No fragment for a page: the empty shell, as before.
+    expect(renderShell(SHELL, '/terms', config, prerendered).html).toContain('<div id="root"></div>')
+    for (const p of ['/login', '/app', '/null']) expect(renderShell(SHELL, p, config, prerendered).html, p).not.toContain('data-prerendered')
+  })
+
   it('renders verification tags only when configured, escaped', () => {
     const cfg = loadConfig({ NODE_ENV: 'test', GOOGLE_SITE_VERIFICATION: 'g-123"><x', BING_SITE_VERIFICATION: 'B456' })
     const { html } = renderShell(SHELL, '/', cfg)
@@ -121,6 +131,8 @@ describe('served by the app', () => {
     db = await openDb('memory://')
     dist = mkdtempSync(join(tmpdir(), 'mp-seo-'))
     writeFileSync(join(dist, 'index.html'), SHELL)
+    mkdirSync(join(dist, 'prerender'))
+    writeFileSync(join(dist, 'prerender', 'home.html'), '<div data-prerendered=""><h1>home</h1></div>')
     writeFileSync(join(dist, 'robots.txt'), 'User-agent: *')
     mkdirSync(join(dist, 'blog'))
     writeFileSync(join(dist, 'blog', 'post.html'), '<html><head><title>x</title></head><body></body></html>')
@@ -144,7 +156,10 @@ describe('served by the app', () => {
     expect(login.headers.get('x-robots-tag')).toBe('noindex,nofollow')
     const home = await fetch(`${base}/`)
     expect(home.headers.get('x-robots-tag')).toBe(null)
-    expect(await home.text()).toContain('<meta name="google-site-verification" content="gtoken" />')
+    const homeHtml = await home.text()
+    expect(homeHtml).toContain('<meta name="google-site-verification" content="gtoken" />')
+    expect(homeHtml).toContain('<div id="root"><div data-prerendered=""><h1>home</h1></div></div>')
+    expect(await login.text()).not.toContain('data-prerendered')
     for (const [from, to] of [
       ['/index.html', '/'],
       ['/blog', '/blog/index.html'],

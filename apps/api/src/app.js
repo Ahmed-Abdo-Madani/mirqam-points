@@ -23,7 +23,7 @@ import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
 import stampRoutes from './routes/stamps.js'
 import { appleWebService, publicRoutes } from './routes/wallet.js'
-import { renderShell, verificationTags } from './seo.js'
+import { loadPrerendered, renderShell, verificationTags } from './seo.js'
 import { installSocialLogin } from './social-login.js'
 import { createWallet } from './wallet/index.js'
 
@@ -232,14 +232,15 @@ export function createApp({ db, config }) {
         const file = join(config.webDist, req.path)
         if (!existsSync(file)) return next()
         res.setHeader('Cache-Control', 'no-cache')
-        res.type('html').send(readFileSync(file, 'utf8').replace('</head>', `${verification}</head>`))
+        res.type('html').send(readFileSync(file, 'utf8').replace('</head>', () => `${verification}</head>`))
       })
     }
     app.use(express.static(config.webDist, { index: false, maxAge: '1h', setHeaders: immutableAssets }))
     // Every other path gets the console's shell with per-route <head>, noindex or a real 404 (seo.js).
     const shell = readFileSync(join(config.webDist, 'index.html'), 'utf8')
+    const prerendered = loadPrerendered(config.webDist)
     app.get('/{*splat}', (req, res) => {
-      const { status, robots, html, location } = renderShell(shell, req.path, config)
+      const { status, robots, html, location } = renderShell(shell, req.path, config, prerendered)
       if (location) return res.redirect(status, location + req.url.slice(req.path.length))
       res.setHeader('Cache-Control', 'no-cache')
       if (robots) res.setHeader('X-Robots-Tag', robots)
