@@ -4,6 +4,7 @@ import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 
 import billing from './ar.billing.js'
 import campaigns from './ar.campaigns.js'
+import pager from './ar.pager.js'
 import wallet from './ar.wallet.js'
 import { mergeDict } from './merge.js'
 
@@ -442,6 +443,7 @@ const base = {
     generic: 'حدث خطأ غير متوقع. حاول مرة أخرى.',
     network_error: 'تعذر الاتصال. تحقق من الإنترنت وأعد المحاولة — لن تُكرَّر العملية.',
     rate_limited: 'محاولات كثيرة. انتظر دقيقة ثم أعد المحاولة.',
+    pager_trial_used: 'استخدمت التجربة المجانية للبيجر من قبل. اشترك للمتابعة.',
     validation_failed: 'تحقق من الحقول المدخلة.',
     invalid_credentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
     email_taken: 'هذا البريد مسجّل مسبقاً.',
@@ -492,4 +494,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet, campaigns, billing)
+export default mergeDict(base, wallet, campaigns, billing, pager)

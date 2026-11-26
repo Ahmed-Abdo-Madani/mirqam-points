@@ -17,6 +17,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   const key = config.billingApiKey || ''
   const ready = Boolean(base && /^[a-f0-9]{64}$/.test(key))
   let catalogCache = null
+  // Products billed on the loyalty platform under a sub-account `<prefix>:<tenant>` (the pager plan).
+  const subAccounts = new Map()
 
   async function call(method, path, body, idempotencyKey) {
     if (!ready) throw new HttpError(503, 'billing_unavailable')
@@ -68,6 +70,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   /* Applies an entitlement to the local cache. Older versions never overwrite newer ones. */
   async function apply(ent) {
     if (!ent || ent.platform !== PLAN || typeof ent.account_ref !== 'string') return false
+    // Sub-accounts (`pager:<tenant>`) are other products billed on this platform; see onSubAccount.
+    if (ent.account_ref.includes(':')) return false
     const tenantId = ent.account_ref
     // A deleted workspace (closed, then purged) never gets its entitlement cache back.
     if (!(await db.query('SELECT 1 FROM tenants WHERE id=$1 AND closed_at IS NULL', [tenantId])).rows[0]) return false
@@ -135,7 +139,14 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     } catch {
       throw new HttpError(400, 'validation_failed')
     }
-    if (event?.type === 'entitlement.updated') await apply(event.data)
+    if (event?.type !== 'entitlement.updated') return
+    const ref = event.data?.account_ref
+    if (typeof ref === 'string' && ref.includes(':')) {
+      const handler = subAccounts.get(ref.split(':')[0])
+      if (handler) await handler(event.data)
+      return
+    }
+    await apply(event.data)
   }
 
   async function catalog() {
@@ -193,6 +204,31 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     },
     hook,
     entitlement,
+    /** Routes entitlement webhooks for `<prefix>:<tenant>` sub-accounts to `handler(entitlement)`. */
+    onSubAccount(prefix, handler) {
+      subAccounts.set(prefix, handler)
+    },
+    /** Subscribe checkout for a sub-account (same customer as the workspace). Raw billing answer. */
+    async subAccountCheckout(tenantId, ref, { plan, cycle, items, autoRenew, returnBase }, requestKey) {
+      return call(
+        'POST',
+        'checkout-sessions',
+        {
+          account: { ...(await account(tenantId)), ref, parent_ref: tenantId },
+          plan,
+          cycle,
+          items: items?.length ? items : undefined,
+          auto_renew: autoRenew === true,
+          // The marker tells the console which subscription to re-read on return (billing appends billing=paid).
+          return_url: `${returnBase || config.publicUrl}/app/billing?${ref.split(':')[0]}=paid`,
+        },
+        requestKey ? `${ref}-${requestKey}`.slice(0, 120) : undefined,
+      )
+    },
+    /** The billing entitlement of a sub-account. */
+    async subAccountEntitlement(ref) {
+      return call('GET', `entitlements/${encodeURIComponent(ref)}`)
+    },
     gate,
     async checkout(tenantId, cycle, requestKey, opts = {}) {
       if (!['monthly', 'yearly'].includes(cycle)) throw new HttpError(400, 'validation_failed')

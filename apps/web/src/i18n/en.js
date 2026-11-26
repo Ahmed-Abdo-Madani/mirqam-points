@@ -4,6 +4,7 @@ import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 
 import billing from './en.billing.js'
 import campaigns from './en.campaigns.js'
+import pager from './en.pager.js'
 import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
@@ -449,6 +450,7 @@ const base = {
     generic: 'Something went wrong. Please try again.',
     network_error: 'Could not connect. Check your connection and retry — the transaction will not be duplicated.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
+    pager_trial_used: 'You have already used the pager free trial. Subscribe to continue.',
     validation_failed: 'Please check the highlighted fields.',
     invalid_credentials: 'Incorrect email or password.',
     email_taken: 'This email is already registered.',
@@ -499,4 +501,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet, campaigns, billing)
+export default mergeDict(base, wallet, campaigns, billing, pager)

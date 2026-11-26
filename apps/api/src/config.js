@@ -15,6 +15,10 @@ export function loadConfig(env = process.env) {
     billingUrl: env.BILLING_URL || '',
     billingApiKey: env.BILLING_API_KEY || '',
     billingWebhookSecret: env.BILLING_WEBHOOK_SECRET || '',
+    // Mirqam Pager plan: entitlements switch the tenant's `pager` product on in the POS API
+    // (POST /v1/loyalty-bridge/pager), authenticated with the same shared key as the POS bridge.
+    posApiUrl: (env.MIRQAM_POS_API_URL || 'https://mirqam-api.onrender.com').replace(/\/$/, ''),
+    posBridgeKey: (env.MIRQAM_POS_BRIDGE_KEY || '').trim(),
     // Optional: the secret_token configured on the Moyasar webhook; when set, webhooks without it are refused.
     moyasarWebhookSecret: env.MOYASAR_WEBHOOK_SECRET || '',
     // Transactional email (Resend). Without a key subscription emails are skipped; events still show in-app.

@@ -14,7 +14,7 @@ export function returnBase(req) {
   return RETURN_HOSTS.test(own) ? own : undefined
 }
 
-export default function billingRoutes(billing, { db } = {}) {
+export default function billingRoutes(billing, { db, pager } = {}) {
   const r = Router()
   r.post('/moyasar/webhook', rateLimit({ windowMs: 60000, limit: 120 }), async (req, res) => {
     await billing.webhook(req.body)
@@ -45,6 +45,25 @@ export default function billingRoutes(billing, { db } = {}) {
     }
     res.json({ phone, synced })
   })
+  // Mirqam Pager plan (pager-plan.js). Under /billing so the loyalty paywall never blocks buying it.
+  if (pager) {
+    r.get('/pager', async (req, res) => res.json(await pager.status(req.auth.tenantId)))
+    r.post('/pager/trial', rateLimit({ windowMs: 60000, limit: 5 }), async (req, res) => res.json(await pager.startTrial(req.auth.tenantId, req.body?.tier)))
+    r.post('/pager/checkout', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
+      const b = req.body ?? {}
+      const c = await pager.checkout(
+        req.auth.tenantId,
+        { tier: b.tier, cycle: b.cycle, branches: b.branches, autoRenew: b.autoRenew === true },
+        idempotencyKey(req),
+        returnBase(req),
+      )
+      res.json(c)
+    })
+    r.post('/pager/confirm', rateLimit({ windowMs: 60000, limit: 30 }), async (req, res) => {
+      await pager.sync(req.auth.tenantId)
+      res.json(await pager.status(req.auth.tenantId))
+    })
+  }
   r.get('/events', async (req, res) => {
     if (!billing.events) return res.json({ items: [] })
     const rows = await billing.events(req.auth.tenantId)

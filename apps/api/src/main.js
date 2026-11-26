@@ -63,6 +63,13 @@ function startJobs({ app, db, config }) {
       .then((c) => (c.reminded || c.expired || c.emailed) && console.log('[billing] lifecycle', JSON.stringify(c)))
       .catch((err) => console.warn('[billing] lifecycle failed:', err.message))
   const timers = [setTimeout(runLifecycle, 30_000), setInterval(runLifecycle, config.lifecycleIntervalMs)]
+  // Mirqam Pager plan: ends lapsed trials and retries POS pushes that failed.
+  const runPagerLifecycle = () =>
+    app.locals.pager
+      ?.runLifecycle()
+      .then((c) => c.pagerPushed && console.log('[pager] lifecycle', JSON.stringify(c)))
+      .catch((err) => console.warn('[pager] lifecycle failed:', err.message))
+  timers.push(setTimeout(runPagerLifecycle, 40_000), setInterval(runPagerLifecycle, Math.min(config.lifecycleIntervalMs, 900_000)))
 
   // Account deletion: purges deleted owners' workspaces the request could not finish, and
   // billing records past their legal retention (account-deletion.js).
