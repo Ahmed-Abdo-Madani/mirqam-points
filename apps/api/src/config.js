@@ -40,6 +40,8 @@ export function loadConfig(env = process.env) {
     sessionTtlDays: Number(env.SESSION_TTL_DAYS || 30),
     authRateLimit: Number(env.AUTH_RATE_LIMIT || 20),
     webDist: env.WEB_DIST || join(ROOT, 'apps', 'web', 'dist'),
+    // Search-console ownership tags, rendered in public HTML only when set (seo.js).
+    siteVerification: { google: (env.GOOGLE_SITE_VERIFICATION || '').trim(), bing: (env.BING_SITE_VERIFICATION || '').trim() },
     trustProxy: env.TRUST_PROXY ? Number(env.TRUST_PROXY) : production ? 1 : 0,
     // Native app webviews (Capacitor) call the API cross-origin with bearer tokens.
     mobileOrigins: new Set((env.MOBILE_ORIGINS || 'capacitor://localhost,https://localhost,http://localhost').split(',').map((s) => s.trim())),

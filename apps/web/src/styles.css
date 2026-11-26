@@ -63,6 +63,12 @@
   }
 }
 
+/* Build-time Arabic markup of a public page (src/prerender.jsx), shown until the
+   app starts. A visitor who chose English (boot.js sets html[lang]) never sees it. */
+html[lang="en"] #root > [data-prerendered] {
+  visibility: hidden;
+}
+
 /* ---------- Native app (Capacitor): respect the notch and home indicator ---------- */
 html[data-native] body {
   padding-top: env(safe-area-inset-top);

@@ -10,6 +10,8 @@
                 Health checks only (standby.js). A NEW service is declared with
                 MIRQAM_REQUIRE_LIVE=1, so an unset variable can never make it
                 write to a database that has not been copied yet.
+                With MIRQAM_LIVE=1 the app still refuses an empty database
+                and falls back to standby (launch-guard.js, server.js).
      read-only  MIRQAM_READ_ONLY=1: the full app, but every write is refused
                 with 503 `maintenance` and the database session itself is read
                 only; no background job runs. The write freeze of the cutover.

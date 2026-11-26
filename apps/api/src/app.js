@@ -7,7 +7,7 @@ import { createBilling } from './billing.js'
 import { createRemoteBilling } from './billing-remote.js'
 import { acceptForwarded } from './forwarder.js'
 import { installHqAdmin } from './hq-admin.js'
-import { errorHandler, HttpError } from './http.js'
+import { errorHandler, HttpError, rejectMalformedPath } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
@@ -23,6 +23,7 @@ import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
 import stampRoutes from './routes/stamps.js'
 import { appleWebService, publicRoutes } from './routes/wallet.js'
+import { loadPrerendered, renderShell, verificationTags } from './seo.js'
 import { installSocialLogin } from './social-login.js'
 import { createWallet } from './wallet/index.js'
 
@@ -98,6 +99,9 @@ export function createApp({ db, config }) {
       crossOriginEmbedderPolicy: false,
     }),
   )
+
+  // `GET /%c0` and friends: 400, never a 500 from the router or the static file server.
+  app.use(rejectMalformedPath)
 
   // Permit GA4 and the consented Google Ads conversion tag only on public documents;
   // authenticated routes retain the original CSP.
@@ -218,14 +222,30 @@ export function createApp({ db, config }) {
 
   // Production: the API also serves the built console (one Render service, like the bot).
   if (existsSync(join(config.webDist, 'index.html'))) {
-    // Root-only canonical; private routes and other SPA pages keep the original document.
-    app.get('/', (_req, res) => {
-      const html = readFileSync(join(config.webDist, 'index.html'), 'utf8')
-      res.setHeader('Cache-Control', 'no-cache')
-      res.type('html').send(html.replace('</head>', '<link rel="canonical" href="https://loyalty.mirqam.sa/" /></head>'))
-    })
+    // One address per page: the shell and the blog index have a canonical URL.
+    app.get('/index.html', (_req, res) => res.redirect(301, '/'))
+    app.get(['/blog', '/blog/'], (_req, res) => res.redirect(301, '/blog/index.html'))
+    // Blog articles are static files; they only need the verification tags, when configured.
+    const verification = verificationTags(config)
+    if (verification) {
+      app.get(/^\/blog\/[a-z0-9-]+\.html$/, (req, res, next) => {
+        const file = join(config.webDist, req.path)
+        if (!existsSync(file)) return next()
+        res.setHeader('Cache-Control', 'no-cache')
+        res.type('html').send(readFileSync(file, 'utf8').replace('</head>', () => `${verification}</head>`))
+      })
+    }
     app.use(express.static(config.webDist, { index: false, maxAge: '1h', setHeaders: immutableAssets }))
-    app.get('/{*splat}', (_req, res) => res.sendFile(join(config.webDist, 'index.html')))
+    // Every other path gets the console's shell with per-route <head>, noindex or a real 404 (seo.js).
+    const shell = readFileSync(join(config.webDist, 'index.html'), 'utf8')
+    const prerendered = loadPrerendered(config.webDist)
+    app.get('/{*splat}', (req, res) => {
+      const { status, robots, html, location } = renderShell(shell, req.path, config, prerendered)
+      if (location) return res.redirect(status, location + req.url.slice(req.path.length))
+      res.setHeader('Cache-Control', 'no-cache')
+      if (robots) res.setHeader('X-Robots-Tag', robots)
+      res.status(status).type('html').send(html)
+    })
   }
 
   app.use(errorHandler)

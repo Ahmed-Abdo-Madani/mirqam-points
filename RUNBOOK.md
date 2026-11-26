@@ -21,7 +21,7 @@ operator.
 ### How the code supports it
 
 - **Runtime modes** (`apps/api/src/runtime-mode.js`, chosen at boot by `apps/api/src/server.js`):
-  - *standby* — `mirqam-points-fra` declares `MIRQAM_REQUIRE_LIVE=1`; until `MIRQAM_LIVE=1` it answers `/api/health` only (`"standby":true`): no database connection, no migration, no background job.
+  - *standby* — `mirqam-points-fra` declares `MIRQAM_REQUIRE_LIVE=1`; until `MIRQAM_LIVE=1` it answers `/api/health` only (`"standby":true`): no database connection, no migration, no background job. With `MIRQAM_LIVE=1` but a database without any workspace or ledger entry it stays in standby too (`"reason":"empty_database"`), unless `MIRQAM_MIGRATION_COMPLETE=1` (`apps/api/src/launch-guard.js`).
   - *read-only* — `MIRQAM_READ_ONLY=1`: reads work, every `/api` write returns `503 {"error":"maintenance"}` (Arabic/English copy in the app), the database session is read only, and no background job runs (billing lifecycle, deletion sweep, commerce worker). `/api/health` shows `"readOnly":true`.
   - *forward* — `FORWARD_TO=https://mirqam-points-fra.onrender.com`: every request (API, webhooks, Apple Wallet, live updates, streams) is proxied with its body, status and headers; never opens the database. Responses carry `x-mirqam-forwarder: 1`. The original client IP and host travel in a header signed with `SECRET_KEY`, so Frankfurt keeps per-client rate limits, same-origin checks, the hq-entry host check and billing return URLs exactly as before. `GET /__forwarder/health` is answered locally.
   - Background jobs therefore only ever run on the one live service.
@@ -72,6 +72,7 @@ Pick a quiet hour (e.g. 03:00 Riyadh = 00:00 UTC). For each env change use **Sav
     ```
     Must print `ALL TABLES COPIED AND VERIFIED` then `SOURCE AND TARGET MATCH`. If not: do not continue — rollback A.
 12. **Frankfurt live.** `mirqam-points-fra` → Environment → `MIRQAM_LIVE` = `1` → Save and deploy. Checks: `curl -s $FRA/api/health` → `{"ok":true,"version":...,"db":"postgres"}` (no `standby`, no `readOnly`); logs show `[api] listening ... (db: postgres, production)` and no `[db] applied` line.
+    If health still shows `"standby":true,"reason":"empty_database"` and the logs say `[launch] MIRQAM_LIVE=1 refused`, the Frankfurt database holds no workspace: the copy did not land. Delete `MIRQAM_LIVE`, redo step 11, then set it again. That guard (`apps/api/src/launch-guard.js`, MIGRATION.md) applies only to services with `MIRQAM_REQUIRE_LIVE=1`; never bypass it with `MIRQAM_MIGRATION_COMPLETE=1` during this move.
 13. **Oregon forwards.** `mirqam-points` → Environment → add `FORWARD_TO` = `https://mirqam-points-fra.onrender.com` → Save and deploy (leave `MIRQAM_READ_ONLY`; `FORWARD_TO` wins). **The freeze ends when this deploy is live.** Checks:
     - `curl -si $ORE/api/health` → header `x-mirqam-forwarder: 1`, body without `readOnly`
     - `curl -si https://loyalty.mirqam.sa/api/health` → same

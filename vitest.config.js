@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // JSX the way the app's Vite build compiles it (React 17+ automatic runtime), for tests that render components.
+  esbuild: { jsx: 'automatic' },
   test: {
     include: ['apps/api/src/**/*.test.js', 'apps/web/src/**/*.test.js', 'packages/*/src/**/*.test.js'],
     environment: 'node',

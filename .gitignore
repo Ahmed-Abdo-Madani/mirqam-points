@@ -12,6 +12,7 @@ coverage/
 Thumbs.db
 !apps/web/.env.mobile
 apps/web/dist-mobile/
+apps/web/dist-ssr/
 
 # Android signing — never commit; back up securely (required for every future update)
 apps/mobile/android/keystore/

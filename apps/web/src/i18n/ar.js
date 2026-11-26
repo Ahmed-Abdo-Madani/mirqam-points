@@ -1,3 +1,4 @@
+import { SITE_NAME, seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
@@ -54,8 +55,11 @@ const base = {
     inactive: 'لا يوجد اشتراك مدفوع فعّال',
     until: 'صالح حتى',
   },
-  meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا' },
+  // Titles and descriptions of the public pages, shared with the server-rendered <head>.
+  meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا', pages: seoCopy.ar },
   brand: { name: 'مرقام نقاط', label: 'نقاط' },
+  // The website's name (mirqam.sa calls the product this); brand is the app's store name.
+  site: { name: SITE_NAME.ar, label: 'ولاء' },
   common: {
     back: 'رجوع',
     cancel: 'إلغاء',
@@ -97,7 +101,7 @@ const base = {
     eyebrow: 'من عائلة منصات مرقام',
     title: 'برنامج ولاء يعيش',
     titleAccent: 'في محفظة عميلك',
-    subtitle: 'أنشئ بطاقات نقاط وأختام وهدايا تُضاف إلى Apple Wallet وGoogle Wallet بضغطة واحدة، وتتحدث تلقائياً مع كل عملية شراء — بدون تطبيق يحمّله عميلك.',
+    subtitle: 'أنشئ بطاقات نقاط وأختام وهدايا تُضاف إلى Apple Wallet وGoogle Wallet بضغطة واحدة، وتتحدث تلقائياً مع كل عملية شراء، دون تطبيق يحمّله عميلك.',
     proof1: 'بدون تطبيق للعميل',
     proof3: 'عربي أولاً',
     openConsole: 'لوحة التحكم',
@@ -110,9 +114,9 @@ const base = {
     featuresKicker: 'كل ما يحتاجه برنامج الولاء',
     featuresTitle: 'من أول ختم إلى آخر بطاقة هدية',
     features: {
-      passes: { title: 'بطاقات Apple وGoogle Wallet', body: 'بطاقة بهوية متجرك في جوال العميل، يتحدث رصيدها لحظياً وتذكّره بالمكافأة.' },
-      programs: { title: 'نقاط وأختام ومستويات', body: 'نقاط لكل ريال أو ختم لكل زيارة، بحد أدنى للشراء وسقف لكل عملية.' },
-      cashier: { title: 'كاشير سريع', body: 'رقم الجوال أو مسح البطاقة، ثم المبلغ — وتُحتسب النقاط تلقائياً دون أخطاء إدخال.' },
+      passes: { title: 'بطاقات Apple وGoogle Wallet', body: 'بطاقة بشعار متجرك وألوانه في جوال العميل، يتحدث رصيدها بعد كل عملية شراء.' },
+      programs: { title: 'نقاط وأختام ومكافآت', body: 'نقاط لكل ريال أو ختم لكل زيارة، بحد أدنى للشراء وسقف لكل عملية.' },
+      cashier: { title: 'كاشير سريع', body: 'رقم الجوال أو مسح البطاقة، ثم مبلغ الفاتورة، ويحسب النظام النقاط بنفسه فلا يكتبها الكاشير.' },
       giftCards: { title: 'بطاقات هدايا', body: 'بيع بطاقات هدايا رقمية عند الكاشير، مع استرداد جزئي للرصيد.' },
       trust: { title: 'سجل لا يُعدَّل', body: 'كل نقطة لها قيد محاسبي غير قابل للتعديل، وكل تصحيح يُسجَّل مع سببه ومنفّذه.' },
     },
@@ -479,6 +483,7 @@ const base = {
     not_found: 'لم نجد ما تبحث عنه.',
     json_required: 'طلب غير صالح. حدّث الصفحة وأعد المحاولة.',
     origin_not_allowed: 'طلب غير صالح. حدّث الصفحة وأعد المحاولة.',
+    bad_request: 'رابط الطلب غير صالح. تأكد من العنوان وأعد المحاولة.',
     invalid_json: 'طلب غير صالح. حدّث الصفحة وأعد المحاولة.',
     payload_too_large: 'البيانات المرسلة كبيرة جداً.',
     internal_error: 'حدث خطأ من جهتنا. حاول بعد قليل.',

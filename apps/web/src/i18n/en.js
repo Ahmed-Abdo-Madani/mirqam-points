@@ -1,3 +1,4 @@
+import { SITE_NAME, seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
 
@@ -54,8 +55,11 @@ const base = {
     inactive: 'No active paid subscription',
     until: 'Valid until',
   },
-  meta: { title: 'Mirqam Points | Loyalty programs & gift cards' },
+  // Titles and descriptions of the public pages, shared with the server-rendered <head>.
+  meta: { title: 'Mirqam Points | Loyalty programs & gift cards', pages: seoCopy.en },
   brand: { name: 'Mirqam Points', label: 'Points' },
+  // The website's name (mirqam.sa calls the product this); brand is the app's store name.
+  site: { name: SITE_NAME.en, label: 'Loyalty' },
   common: {
     back: 'Back',
     cancel: 'Cancel',
@@ -98,7 +102,7 @@ const base = {
     title: 'A loyalty program that lives',
     titleAccent: "in your customer's wallet",
     subtitle:
-      'Create points, stamp and gift cards that add to Apple Wallet and Google Wallet in one tap and update with every purchase — no app for your customers to install.',
+      'Create points, stamp and gift cards that add to Apple Wallet and Google Wallet in one tap and update with every purchase. Your customers install no app.',
     proof1: 'No customer app',
     proof3: 'Arabic-first',
     openConsole: 'Dashboard',
@@ -111,9 +115,15 @@ const base = {
     featuresKicker: 'Everything a loyalty program needs',
     featuresTitle: 'From the first stamp to the last gift card',
     features: {
-      passes: { title: 'Apple & Google Wallet passes', body: 'A card in your brand on the customer’s phone, with a live balance and reward reminders.' },
-      programs: { title: 'Points, stamps and tiers', body: 'Points per riyal or a stamp per visit, with minimum spend and per-transaction caps.' },
-      cashier: { title: 'Fast cashier', body: 'Phone number or pass scan, then the amount — points are calculated automatically, no typing errors.' },
+      passes: {
+        title: 'Apple & Google Wallet passes',
+        body: 'A card with your store’s logo and colours on the customer’s phone. The balance updates after every purchase.',
+      },
+      programs: { title: 'Points, stamps and rewards', body: 'Points per riyal or a stamp per visit, with minimum spend and per-transaction caps.' },
+      cashier: {
+        title: 'Fast cashier',
+        body: 'Phone number or pass scan, then the bill amount. The system works out the points, so the cashier never types them.',
+      },
       giftCards: { title: 'Gift cards', body: 'Sell digital gift cards at the counter, with partial redemption.' },
       trust: { title: 'Tamper-proof ledger', body: 'Every point has an immutable ledger entry; every correction is recorded with its reason and author.' },
     },
@@ -480,6 +490,7 @@ const base = {
     not_found: 'We couldn’t find what you’re looking for.',
     json_required: 'Invalid request. Refresh the page and try again.',
     origin_not_allowed: 'Invalid request. Refresh the page and try again.',
+    bad_request: 'The request address is not valid. Check the link and try again.',
     invalid_json: 'Invalid request. Refresh the page and try again.',
     payload_too_large: 'The request is too large.',
     internal_error: 'Something went wrong on our side. Please try again shortly.',

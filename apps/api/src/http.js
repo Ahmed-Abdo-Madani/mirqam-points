@@ -28,10 +28,24 @@ export function idempotencyKey(req) {
   return key
 }
 
+/* Malformed percent-encoding (`GET /%c0`, scanner traffic) is the client's
+   fault: decodeURIComponent throws URIError, and the router and static file
+   server forward it as a 400 http-error. Refuse it before any route runs. */
+export function rejectMalformedPath(req, res, next) {
+  try {
+    decodeURIComponent(req.path)
+  } catch {
+    return res.status(400).json({ error: 'bad_request' })
+  }
+  next()
+}
+
 export function errorHandler(err, req, res, _next) {
   if (err instanceof HttpError || err instanceof LedgerError) {
     return res.status(err.status).json({ error: err.code, ...(err.details ? { details: err.details } : {}) })
   }
+  // Safety net for decoding errors raised past rejectMalformedPath (route params, static files).
+  if (err instanceof URIError || (err?.expose && (err.status ?? err.statusCode) === 400)) return res.status(400).json({ error: 'bad_request' })
   if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid_json' })
   if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'payload_too_large' })
   console.error(`[api] ${req.method} ${req.originalUrl}`, err)

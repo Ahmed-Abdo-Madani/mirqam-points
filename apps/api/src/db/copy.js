@@ -20,8 +20,10 @@
      before COMMIT. Any failure rolls the target back to what it was;
    - 'copy' refuses a target that already holds rows; 'replace' re-copies
      over a previous run (idempotent).
-   verify: compares migrations, row counts, checksums and sequences; writes
+   verify: compares migrations, row counts, checksums and sequences, then
+   prints both sides' row counts and balance totals (totals.js); writes
    nothing. Never logs connection strings. */
+import { formatTotals, loyaltyTotals } from './totals.js'
 
 const SKIP = new Set(['schema_migrations']) // created by migrate(); compared, never copied
 const q = (name) => `"${String(name).replace(/"/g, '""')}"`
@@ -239,6 +241,13 @@ export async function verifyDatabase({ source, target, log = console.log }) {
         failed += 1
         log(`FAIL sequence ${seq.name}: target behind the source`)
       }
+    }
+    // Row counts and balance totals of both sides, from this same snapshot (informational).
+    for (const [side, db] of [
+      ['source', source],
+      ['target', target],
+    ]) {
+      log(formatTotals(side, await loyaltyTotals(db)))
     }
     return failed
   } finally {

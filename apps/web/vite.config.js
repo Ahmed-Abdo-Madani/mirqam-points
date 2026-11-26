@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, isSsrBuild }) => ({
   plugins: [
     react(),
     tailwindcss(),
@@ -24,5 +24,6 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     proxy: { '/api': { target: 'http://localhost:4100' } },
   },
-  build: { sourcemap: true, chunkSizeWarningLimit: 700 },
+  // The SSR build (src/prerender.jsx) only renders HTML: it needs no copy of public/.
+  build: { sourcemap: true, chunkSizeWarningLimit: 700, copyPublicDir: !isSsrBuild },
 }))

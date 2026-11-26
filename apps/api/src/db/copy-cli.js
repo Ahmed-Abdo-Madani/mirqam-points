@@ -9,7 +9,8 @@
 
      node apps/api/src/db/copy-cli.js             copy into an EMPTY target
      node apps/api/src/db/copy-cli.js --replace   re-copy over a previous run (atomic)
-     node apps/api/src/db/copy-cli.js --verify    compare only; writes nothing
+     node apps/api/src/db/copy-cli.js --verify    compare only; writes nothing. Also prints both
+                                                  sides' row counts and balance totals (totals.js)
 
    Exit 0 = copied and verified ("ALL TABLES COPIED AND VERIFIED") or, with
    --verify, identical ("SOURCE AND TARGET MATCH"). Refuses to touch a target

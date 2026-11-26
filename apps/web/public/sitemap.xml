@@ -1,2 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://loyalty.mirqam.sa/</loc></url><url><loc>https://loyalty.mirqam.sa/blog/index.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/design-loyalty-program.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/points-vs-stamps.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/loyalty-reward-cost.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/loyalty-onboarding.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/loyalty-kpis.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/gift-card-experience.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/loyalty-wallet-cards.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/loyalty-staff-training.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/customer-retention-plan.html</loc></url><url><loc>https://loyalty.mirqam.sa/blog/launch-loyalty-pilot.html</loc></url></urlset>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://loyalty.mirqam.sa/</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/index.html</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/design-loyalty-program.html</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/points-vs-stamps.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/loyalty-reward-cost.html</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/loyalty-onboarding.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/loyalty-kpis.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/gift-card-experience.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/loyalty-wallet-cards.html</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/loyalty-staff-training.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/customer-retention-plan.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/blog/launch-loyalty-pilot.html</loc><lastmod>2026-10-10</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/privacy</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/terms</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/support</loc><lastmod>2026-11-25</lastmod></url>
+  <url><loc>https://loyalty.mirqam.sa/delete-account</loc><lastmod>2026-11-25</lastmod></url>
+</urlset>
