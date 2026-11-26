@@ -1,11 +1,78 @@
 import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
 import { dateTime, money } from '../../lib/format.js'
 
 const TONE = { active: 'green', expiring: 'amber', expired: 'red', trial: 'blue', none: 'gray' }
+
+/* mirqam-billing invoice statuses we know exactly; anything else is shown as sent, in a neutral badge. */
+const INVOICE_STATUS = {
+  paid: 'paid',
+  open: 'unpaid',
+  unpaid: 'unpaid',
+  pending: 'unpaid',
+  past_due: 'unpaid',
+  void: 'void',
+  voided: 'void',
+  canceled: 'void',
+  cancelled: 'void',
+}
+const INVOICE_TONE = { paid: 'green', unpaid: 'red', void: 'gray' }
+
+function InvoiceStatus({ status }) {
+  const { t } = useI18n()
+  if (!status) return null
+  const known = Object.hasOwn(INVOICE_STATUS, status) ? INVOICE_STATUS[status] : null
+  if (!known) return <Badge tone="gray">{String(status)}</Badge>
+  return <Badge tone={INVOICE_TONE[known]}>{t(`billing.invoiceStatus.${known}`)}</Badge>
+}
+
+/* Receipts of settled direct payments, each opening the A4 receipt page. */
+function Receipts({ receipts }) {
+  const { t, locale } = useI18n()
+  const errorText = useErrorText()
+  const items = receipts.data?.items || []
+  return (
+    <Card title={t('billing.receipts')} subtitle={t('billing.receiptsSubtitle')} bodyClass="">
+      {receipts.loading ? (
+        <Skeleton className="px-6 py-4" />
+      ) : receipts.error ? (
+        <p role="alert" className="px-6 py-5 text-sm text-err">
+          {errorText(receipts.error)}
+        </p>
+      ) : items.length ? (
+        <ul className="divide-y divide-line">
+          {items.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-6 py-3">
+              <div>
+                <p className="font-semibold tnum">
+                  <bdi>{r.number}</bdi>
+                </p>
+                <p className="text-xs text-muted">
+                  {dateTime(r.paidAt, locale)} · {money(r.amountMinor, locale)} · {t(`documents.cycle.${r.cycle}`)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone="green">{t('billing.invoiceStatus.paid')}</Badge>
+                <Link
+                  to={`/app/billing/receipts/${r.id}`}
+                  className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-control)] border border-line bg-surface px-3 text-xs font-semibold text-ink transition hover:border-brand-500 hover:text-accent"
+                >
+                  {t('billing.viewReceipt')}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="px-6 py-5 text-sm text-muted">{t('billing.receiptsEmpty')}</p>
+      )}
+    </Card>
+  )
+}
 
 /* Only ever leave the console for the payment page we expect. */
 function safeCheckout(url, host) {
@@ -22,6 +89,7 @@ export default function Billing() {
   const { data, loading, error, reload } = useApi('/billing')
   const state = useApi('/billing/state')
   const events = useApi('/billing/events')
+  const receipts = useApi('/billing/receipts?limit=100')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState(null)
   const [result, setResult] = useState(null)
@@ -223,12 +291,19 @@ export default function Billing() {
 
             {remote && (
               <Card title={t('billing.invoices')} bodyClass="">
-                {data.invoices?.length ? (
+                {data.invoicesError ? (
+                  <p role="alert" className="px-6 py-5 text-sm text-err">
+                    {t('billing.invoicesFailed')}
+                  </p>
+                ) : data.invoices?.length ? (
                   <ul className="divide-y divide-line">
                     {data.invoices.map((i) => (
                       <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-6 py-3">
                         <div>
-                          <p className="font-semibold tnum">{i.number}</p>
+                          <p className="flex flex-wrap items-center gap-2 font-semibold tnum">
+                            {i.number}
+                            <InvoiceStatus status={i.status} />
+                          </p>
                           <p className="text-xs text-muted">
                             {dateTime(i.createdAt, locale)} · {money(i.totalMinor, locale)}
                           </p>
@@ -253,6 +328,9 @@ export default function Billing() {
                 )}
               </Card>
             )}
+
+            {/* Direct-payment receipts; with unified billing only when older payments exist. */}
+            {(!remote || receipts.error || receipts.data?.items?.length > 0) && <Receipts receipts={receipts} />}
 
             <Card title={t('billing.history')} bodyClass="">
               {events.data?.items.length ? (

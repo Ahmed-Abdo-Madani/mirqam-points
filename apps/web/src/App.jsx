@@ -27,6 +27,7 @@ const Staff = lazy(() => import('./pages/app/Staff.jsx'))
 const Design = import.meta.env.DEV ? lazy(() => import('./pages/Design.jsx')) : null
 const GiftCards = lazy(() => import('./pages/app/GiftCards.jsx'))
 const Billing = PURCHASES_IN_APP ? lazy(() => import('./pages/app/Billing.jsx')) : null
+const Receipt = PURCHASES_IN_APP ? lazy(() => import('./pages/app/Receipt.jsx')) : null
 const Settings = lazy(() => import('./pages/app/Settings.jsx'))
 const Preferences = lazy(() => import('./pages/app/Preferences.jsx'))
 const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
@@ -93,6 +94,19 @@ export default function App() {
         <Route path="/register" element={<Auth mode="register" />} />
         {/* Design-language review page: development builds only. */}
         {import.meta.env.DEV && <Route path="/design" element={<Design />} />}
+        {/* A4 payment receipt: a chrome-less page outside the console shell (print/PDF). Website-only, like billing. */}
+        <Route
+          path="/app/billing/receipts/:id"
+          element={
+            PURCHASES_IN_APP ? (
+              <RequireAuth capability="owner">
+                <Receipt />
+              </RequireAuth>
+            ) : (
+              <Navigate to="/app" replace />
+            )
+          }
+        />
         <Route
           path="/app"
           element={

@@ -6,13 +6,14 @@
    (signed webhook) and re-read on demand, so a billing outage never locks a
    workspace out. */
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createMailer } from './email.js'
 
 const PLAN = 'loyalty'
 const DAY = 86_400_000
 const REMINDER_DAYS = 7
 const LIVE = new Set(['trialing', 'active', 'past_due'])
 
-export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) {
+export function createRemoteBilling({ db, config, HttpError, fetcher = fetch, mailer = createMailer({ config, fetcher }) }) {
   const base = String(config.billingUrl || '').replace(/\/$/, '')
   const key = config.billingApiKey || ''
   const ready = Boolean(base && /^[a-f0-9]{64}$/.test(key))
@@ -183,6 +184,9 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     ready,
     remote: true,
     checkoutHost: base ? new URL(base).hostname : null,
+    // Receipt emails of past direct-Moyasar payments (routes/billing.js) still go through Points' mailer.
+    mailer,
+    publicUrl: config.publicUrl,
     apply,
     sync,
     /** Pushes the current owner contact (email, WhatsApp number) to billing right away. */
@@ -289,8 +293,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       } catch {}
       try {
         portal = await call('GET', `portal/${encodeURIComponent(tenantId)}`)
-        await apply(portal.entitlement)
       } catch {}
+      if (portal) await apply(portal.entitlement).catch(() => {})
       const sub =
         (
           await db.query(
@@ -306,6 +310,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
         currency: 'SAR',
         vatIncluded: true,
         subscription: sub,
+        // The invoices list is live from billing: when it could not be read, say so instead of "no invoices".
+        invoicesError: !portal,
         invoices: (portal?.invoices || []).map((i) => ({
           id: i.id,
           number: i.number,
