@@ -174,6 +174,24 @@ describe('checkout through mirqam-billing', () => {
     expect(billingCalls.some((x) => x.url.includes(`/entitlements/${encodeURIComponent(`pager:${tenantId}`)}`))).toBe(true)
   })
 
+  it('a loyalty workspace kept on the POS subscription gets the with-Loyalty prices (unified billing too)', async () => {
+    await db.query(
+      "INSERT INTO pos_native_tenants (pos_tenant, tenant_id, managed_until) VALUES ('pos-managed-1', $1, now() + interval '30 days') ON CONFLICT (tenant_id) DO UPDATE SET managed_until = EXCLUDED.managed_until",
+      [tenantId],
+    )
+    try {
+      const s = await pager.status(tenantId)
+      expect(s.withLoyalty).toBe(true)
+      await pager.checkout(tenantId, { tier: 'plus', cycle: 'monthly', branches: 1 }, 'req-m')
+      expect(billingCalls.find((x) => x.url.endsWith('/checkout-sessions')).body.plan).toBe('pager_plus_loyalty')
+      // Expired POS subscription: list prices again.
+      await db.query("UPDATE pos_native_tenants SET managed_until = now() - interval '1 day' WHERE tenant_id = $1", [tenantId])
+      expect((await pager.status(tenantId)).withLoyalty).toBe(false)
+    } finally {
+      await db.query('DELETE FROM pos_native_tenants WHERE tenant_id = $1', [tenantId])
+    }
+  })
+
   it('rejects bad input', async () => {
     for (const bad of [
       { tier: 'gold', cycle: 'monthly' },

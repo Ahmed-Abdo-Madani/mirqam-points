@@ -21,6 +21,7 @@ import {
   pagerPrice,
 } from '@mirqam-points/shared'
 import { HttpError } from './http.js'
+import { posManagedEntitlement } from './pos-bridge/native.mjs'
 
 const DAY = 86_400_000
 const LIVE = new Set(['trialing', 'active', 'past_due'])
@@ -39,6 +40,9 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
 
   /** Paid Mirqam Loyalty (not a trial) unlocks the bundle prices. POS-managed workspaces count as paid. */
   async function hasPaidLoyalty(tenantId) {
+    // Loyalty kept on the POS subscription (made from the POS console) counts as paid. Checked here
+    // because the unified-billing entitlement only knows the workspace's own subscription.
+    if ((await posManagedEntitlement(db, tenantId))?.allowed) return true
     const s = await billing.state(tenantId)
     return s.state === 'active' || s.state === 'expiring'
   }
