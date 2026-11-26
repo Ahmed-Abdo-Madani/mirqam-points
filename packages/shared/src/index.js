@@ -1,3 +1,5 @@
+export { amountInArabicWords, amountInEnglishWords } from './amount-words.js'
+export { COMPANY } from './company.js'
 export {
   BACK_FIELDS,
   BARCODES,

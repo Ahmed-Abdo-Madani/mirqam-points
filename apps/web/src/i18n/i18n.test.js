@@ -6,8 +6,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import ar from './ar.js'
-import en from './en.js'
+// The dictionaries the app uses: ar.js / en.js plus the area files merged in index.jsx.
+import { dictionaries } from './index.jsx'
+
+const { ar, en } = dictionaries
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = join(HERE, '..')

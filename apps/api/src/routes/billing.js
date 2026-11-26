@@ -2,7 +2,8 @@ import { normalizePhone } from '@mirqam-points/shared'
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { requireAuth, requireRole } from '../auth.js'
-import { HttpError, idempotencyKey } from '../http.js'
+import { HttpError, idempotencyKey, pageQuery, parse } from '../http.js'
+import { listReceipts, loadReceipt, renderReceiptEmail } from '../receipts.js'
 
 // After paying, the customer must come back to the same address they signed in on: the
 // session cookie is host-only, so returning to another Loyalty domain would ask them to log in again.
@@ -49,6 +50,20 @@ export default function billingRoutes(billing, { db } = {}) {
     if (!billing.events) return res.json({ items: [] })
     const rows = await billing.events(req.auth.tenantId)
     res.json({ items: rows.map((e) => ({ id: e.id, kind: e.kind, data: e.data, emailStatus: e.email_status, createdAt: e.created_at })) })
+  })
+  // Payment receipts of settled direct-Moyasar payments (owner-only, website-only like all billing).
+  r.get('/receipts', async (req, res) => res.json(await listReceipts(db, req.auth.tenantId, parse(pageQuery, req.query))))
+  r.get('/receipts/:id', async (req, res) => res.json(await loadReceipt(db, req.auth.tenantId, req.params.id)))
+  // Emails the signed-in owner a link to the receipt (no attachment: the mailer sends HTML only).
+  r.post('/receipts/:id/email', rateLimit({ windowMs: 60000, limit: 10 }), async (req, res) => {
+    if (!billing.mailer?.ready) throw new HttpError(503, 'email_unavailable')
+    const view = await loadReceipt(db, req.auth.tenantId, req.params.id)
+    const locale = ['ar', 'en'].includes(req.body?.locale) ? req.body.locale : req.auth.user?.locale
+    const url = `${billing.publicUrl}/app/billing/receipts/${view.id}`
+    const { subject, html } = renderReceiptEmail(view, { locale, url })
+    const sent = await billing.mailer.send({ to: req.auth.user.email, subject, html })
+    if (!sent.ok) throw new HttpError(502, 'email_failed')
+    res.json({ sent: true, to: req.auth.user.email })
   })
   r.post('/quote', rateLimit({ windowMs: 60000, limit: 20 }), async (req, res) => {
     if (!billing.remote) return res.json(await billing.preview(req.auth.tenantId, req.body.cycle, req.body.coupon))

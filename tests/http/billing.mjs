@@ -41,3 +41,26 @@ await check('billing: owner sets the WhatsApp number for subscription reminders;
   expect((await owner.put('/api/billing/contact', { phone: null })).body.phone).toBe(null)
   expect((await owner.get('/api/billing/contact')).body.phone).toBe(null)
 })
+
+/* Payment receipts. Paid checkouts only come from Moyasar, which the gate cannot reach, so
+   receipts with data (own receipt, another tenant's id, amounts, email) are covered against a
+   real database in apps/api/src/receipts.test.js; this battery checks the HTTP surface. */
+await check('billing receipts: owner-only, tenant-scoped, unknown ids are 404, email needs a mailer', async () => {
+  const owner = await Agent.owner()
+  const cashier = await Agent.staff(owner, 'cashier')
+  const list = await owner.get('/api/billing/receipts')
+  expectStatus(list, 200)
+  expect(list.body).toEqual({ items: [], total: 0 })
+  expectStatus(await owner.get('/api/billing/receipts?limit=0'), 400, 'validation_failed')
+  const unknown = '00000000-0000-4000-8000-000000000000'
+  expectStatus(await owner.get(`/api/billing/receipts/${unknown}`), 404, 'receipt_not_found')
+  expectStatus(await owner.get('/api/billing/receipts/not-a-uuid'), 404, 'receipt_not_found')
+  expectStatus(await cashier.get('/api/billing/receipts'), 403, 'forbidden')
+  expectStatus(await cashier.get(`/api/billing/receipts/${unknown}`), 403, 'forbidden')
+  expectStatus(await cashier.post(`/api/billing/receipts/${unknown}/email`, {}), 403, 'forbidden')
+  expectStatus(await new Agent().get('/api/billing/receipts'), 401)
+  const email = await owner.post(`/api/billing/receipts/${unknown}/email`, {})
+  // The gate runs without RESEND_API_KEY: sending is unavailable before any lookup.
+  if (process.env.RESEND_API_KEY) expectStatus(email, 404, 'receipt_not_found')
+  else expectStatus(email, 503, 'email_unavailable')
+})

@@ -2,10 +2,14 @@
    Locale drives <html lang dir>; the choice persists across Mirqam products
    via the shared `mirqam-locale` key. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import arDocuments from './ar.documents.js'
 import ar from './ar.js'
+import enDocuments from './en.documents.js'
 import en from './en.js'
+import { mergeDict } from './merge.js'
 
-export const dictionaries = { ar, en }
+/* Area dictionaries merged over the base ones (documents: receipts and their actions). */
+export const dictionaries = { ar: mergeDict(ar, arDocuments), en: mergeDict(en, enDocuments) }
 const STORAGE_KEY = 'mirqam-locale'
 
 function lookup(dict, key) {
@@ -13,7 +17,7 @@ function lookup(dict, key) {
 }
 
 export function translate(locale, key, vars) {
-  let text = lookup(dictionaries[locale], key) ?? lookup(ar, key)
+  let text = lookup(dictionaries[locale], key) ?? lookup(dictionaries.ar, key)
   if (typeof text !== 'string') {
     if (import.meta.env?.DEV) console.warn(`[i18n] missing key: ${key}`)
     return key

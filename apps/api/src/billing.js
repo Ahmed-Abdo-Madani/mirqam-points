@@ -322,6 +322,9 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
 
   return {
     commerceEnabled: commerce.enabled,
+    // Receipt emails (routes/billing.js) go through the same mailer, linking to the public console.
+    mailer,
+    publicUrl: config.publicUrl,
     preview,
     reconcileCommerce,
     ready,
