@@ -11,6 +11,10 @@ import { useSession } from './lib/session.jsx'
 import Auth from './pages/Auth.jsx'
 import HqAdmin, { HqEntry } from './pages/HqAdmin.jsx'
 import Landing from './pages/Landing.jsx'
+// The prerendered public pages (src/prerender.jsx) load eagerly, like Landing: a lazy
+// route would first commit the Suspense skeleton over their prerendered markup.
+import DeleteAccount from './pages/public/DeleteAccount.jsx'
+import Legal from './pages/public/Legal.jsx'
 
 const Dashboard = lazy(() => import('./pages/app/Dashboard.jsx'))
 const Cashier = lazy(() => import('./pages/app/Cashier.jsx'))
@@ -28,8 +32,6 @@ const Preferences = lazy(() => import('./pages/app/Preferences.jsx'))
 const PassPage = lazy(() => import('./pages/public/PassPage.jsx'))
 const GiftPage = lazy(() => import('./pages/public/GiftPage.jsx'))
 const JoinPage = lazy(() => import('./pages/public/JoinPage.jsx'))
-const Legal = lazy(() => import('./pages/public/Legal.jsx'))
-const DeleteAccount = lazy(() => import('./pages/public/DeleteAccount.jsx'))
 
 function RequireAuth({ children, capability }) {
   const session = useSession()
@@ -64,8 +66,8 @@ function RouteTitle() {
   const { pathname } = useLocation()
   const { t } = useI18n()
   useEffect(() => {
-    const { page } = classifyPath(pathname)
-    document.title = t(page ? `meta.pages.${page}.title` : 'meta.title')
+    const { page, status } = classifyPath(pathname)
+    document.title = t(page ? `meta.pages.${page}.title` : status === 404 ? 'meta.notFound' : 'meta.title')
   }, [pathname, t])
   return null
 }

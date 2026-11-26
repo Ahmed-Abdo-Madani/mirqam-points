@@ -2,9 +2,20 @@
    apps/web/public): per-route head, noindex on private pages, real 404s,
    verification tags only when configured, and the static files crawlers read. */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { APP_NAME, classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_NAME, seoCopy } from '@mirqam-points/shared'
+import {
+  APP_NAME,
+  classifyPath,
+  INDEXABLE_PAGES,
+  MAX_PATH_LENGTH,
+  NOT_FOUND_TITLE,
+  OG_IMAGE,
+  SITE_NAME,
+  seoCopy,
+  trimTrailingSlashes,
+} from '@mirqam-points/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import ar from '../../web/src/i18n/ar.js'
 import en from '../../web/src/i18n/en.js'
@@ -46,6 +57,22 @@ describe('seo copy', () => {
       expect(html, f).toContain(`<meta property="og:site_name" content="${SITE_NAME.ar}">`)
     }
     expect(JSON.parse(readFileSync(join(PUBLIC, 'site.webmanifest'), 'utf8')).name).toBe(SITE_NAME.ar)
+  })
+
+  it('strips trailing slashes in linear time (a /\\/+$/ regex took seconds on 100,000 slashes)', () => {
+    expect(trimTrailingSlashes('/')).toBe('/')
+    expect(trimTrailingSlashes('//')).toBe('/')
+    expect(trimTrailingSlashes('/privacy///')).toBe('/privacy')
+    expect(trimTrailingSlashes('/a//b')).toBe('/a//b')
+    for (const path of [`/${'/'.repeat(100_000)}x`, `/x${'/'.repeat(100_000)}`, `/app${'/'.repeat(100_000)}x`]) {
+      const started = performance.now()
+      trimTrailingSlashes(path)
+      expect(performance.now() - started, `${path.length} characters`).toBeLessThan(20)
+    }
+    const started = performance.now()
+    expect(classifyPath(`/${'/'.repeat(16_000)}x`)).toEqual({ status: 404, indexable: false, page: null })
+    expect(classifyPath(`/${'/'.repeat(MAX_PATH_LENGTH - 2)}x`).status).toBe(404)
+    expect(performance.now() - started).toBeLessThan(20)
   })
 
   it('classifies console paths: public, private (noindex) or not found', () => {
@@ -102,6 +129,9 @@ describe('renderShell', () => {
     expect(app.html).not.toContain('rel="canonical"')
     expect(renderShell(SHELL, '/null', config)).toMatchObject({ status: 404, robots: 'noindex,nofollow' })
     expect(renderShell(SHELL, '/support/', config)).toEqual({ status: 301, location: '/support', robots: null, html: null })
+    // The website's not-found page has the website's name in its title.
+    expect(renderShell(SHELL, '/null', config).html).toContain(`<title>${NOT_FOUND_TITLE.ar}</title>`)
+    expect(renderShell(SHELL, '/login', config).html).not.toContain(NOT_FOUND_TITLE.ar)
   })
 
   it('puts the prerendered page inside #root for public pages only, verbatim', () => {
@@ -145,6 +175,25 @@ describe('served by the app', () => {
     await new Promise((resolve) => server.close(resolve))
     await db.close()
     rmSync(dist, { recursive: true, force: true })
+  })
+
+  it('never serves the build-time page markup as a document of its own, however the path is spelled', async () => {
+    const raw = (path) =>
+      new Promise((resolve, reject) => {
+        const req = request({ host: '127.0.0.1', port: server.address().port, path }, (res) => {
+          let body = ''
+          res.on('data', (d) => (body += d))
+          res.on('end', () => resolve({ status: res.statusCode, body }))
+        })
+        req.on('error', reject)
+        req.end()
+      })
+    for (const path of ['/prerender/home.html', '/prerender', '/prerender/', '/x/../prerender/home.html', '/%70rerender/home.html', '/prerender/./home.html']) {
+      const res = await raw(path)
+      expect(res.status, path).toBe(404)
+      expect(res.body, path).not.toContain('<div data-prerendered=""><h1>home</h1></div></div>')
+      expect(res.body.startsWith('<div data-prerendered'), path).toBe(false)
+    }
   })
 
   it('answers 404 for unknown paths, noindex headers for private ones, and canonical redirects', async () => {

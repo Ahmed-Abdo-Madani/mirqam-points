@@ -57,6 +57,35 @@ describe('malformed URLs', () => {
     expect((await fetch(`${base}/api/nope%20x`)).status).toBe(404)
   })
 
+  it('a malformed JSON body keeps its own code (invalid_json), an oversized one payload_too_large', async () => {
+    for (const path of ['/api/auth/login', '/api/pos/loyalty/status', '/api/mobile/live-update']) {
+      const res = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{bad' })
+      expect(res.status, path).toBe(400)
+      expect(await res.json(), path).toEqual({ error: 'invalid_json' })
+    }
+    const big = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ x: 'a'.repeat(70_000) }),
+    })
+    expect(big.status).toBe(413)
+  })
+
+  it('answers an absurdly long path (15,000 slashes) with 404 at once, not after seconds of matching', async () => {
+    const path = `/${'/'.repeat(15_000)}x`
+    const times = []
+    for (let i = 0; i < 5; i++) {
+      const started = performance.now()
+      const res = await fetch(base + path)
+      times.push(performance.now() - started)
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'not_found' })
+    }
+    // Before the fix each request blocked the event loop for about 80 ms on its own.
+    expect(times.sort((a, b) => a - b)[2]).toBeLessThan(50)
+    expect((await fetch(`${base}/app${'/'.repeat(3000)}x`)).status).toBe(404)
+  })
+
   it('the error handler maps a URIError reaching it to 400', () => {
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() }
     errorHandler(new URIError('URI malformed'), { method: 'GET', originalUrl: '/x' }, res, () => {})

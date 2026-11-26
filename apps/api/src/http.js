@@ -1,3 +1,4 @@
+import { MAX_PATH_LENGTH } from '@mirqam-points/shared'
 import { z } from 'zod'
 import { LedgerError } from './ledger.js'
 
@@ -30,8 +31,11 @@ export function idempotencyKey(req) {
 
 /* Malformed percent-encoding (`GET /%c0`, scanner traffic) is the client's
    fault: decodeURIComponent throws URIError, and the router and static file
-   server forward it as a 400 http-error. Refuse it before any route runs. */
+   server forward it as a 400 http-error. Refuse it before any route runs, and
+   answer an absurdly long path (nothing here is addressed that way) 404 before
+   any routing, decoding or classifying work. */
 export function rejectMalformedPath(req, res, next) {
+  if (req.path.length > MAX_PATH_LENGTH) return res.status(404).json({ error: 'not_found' })
   try {
     decodeURIComponent(req.path)
   } catch {
@@ -44,10 +48,11 @@ export function errorHandler(err, req, res, _next) {
   if (err instanceof HttpError || err instanceof LedgerError) {
     return res.status(err.status).json({ error: err.code, ...(err.details ? { details: err.details } : {}) })
   }
-  // Safety net for decoding errors raised past rejectMalformedPath (route params, static files).
-  if (err instanceof URIError || (err?.expose && (err.status ?? err.statusCode) === 400)) return res.status(400).json({ error: 'bad_request' })
+  // Body-parser errors first: they are 400 http-errors too, and keep their own codes.
   if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid_json' })
   if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'payload_too_large' })
+  // Safety net for decoding errors raised past rejectMalformedPath (route params, static files).
+  if (err instanceof URIError || (err?.expose && (err.status ?? err.statusCode) === 400)) return res.status(400).json({ error: 'bad_request' })
   console.error(`[api] ${req.method} ${req.originalUrl}`, err)
   res.status(500).json({ error: 'internal_error' })
 }

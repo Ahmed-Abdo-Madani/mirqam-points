@@ -1,4 +1,4 @@
-import { SITE_NAME, seoCopy } from '@mirqam-points/shared'
+import { NOT_FOUND_TITLE, SITE_NAME, seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
 
@@ -56,7 +56,7 @@ const base = {
     until: 'Valid until',
   },
   // Titles and descriptions of the public pages, shared with the server-rendered <head>.
-  meta: { title: 'Mirqam Points | Loyalty programs & gift cards', pages: seoCopy.en },
+  meta: { title: 'Mirqam Points | Loyalty programs & gift cards', pages: seoCopy.en, notFound: NOT_FOUND_TITLE.en },
   brand: { name: 'Mirqam Points', label: 'Points' },
   // The website's name (mirqam.sa calls the product this); brand is the app's store name.
   site: { name: SITE_NAME.en, label: 'Loyalty' },
