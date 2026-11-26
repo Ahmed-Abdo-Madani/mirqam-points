@@ -41,3 +41,43 @@ await check('billing: owner sets the WhatsApp number for subscription reminders;
   expect((await owner.put('/api/billing/contact', { phone: null })).body.phone).toBe(null)
   expect((await owner.get('/api/billing/contact')).body.phone).toBe(null)
 })
+
+await check('pager plan: owner-only, prices from the catalog, one trial per workspace, tenant-isolated', async () => {
+  const a = await Agent.owner()
+  const b = await Agent.owner()
+  const cashier = await Agent.staff(a, 'cashier')
+  expectStatus(await cashier.get('/api/billing/pager'), 403, 'forbidden')
+  expectStatus(await cashier.post('/api/billing/pager/trial', { tier: 'basic' }), 403, 'forbidden')
+  expectStatus(await new Agent().get('/api/billing/pager'), 401)
+  const s = await a.get('/api/billing/pager')
+  expectStatus(s, 200)
+  const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, o?.[k]]))
+  expect(pick(s.body, ['vatExcluded', 'trialDays', 'trialAvailable', 'withLoyalty', 'subscription'])).toEqual({
+    vatExcluded: true,
+    trialDays: 14,
+    trialAvailable: true,
+    withLoyalty: false,
+    subscription: null,
+  })
+  expect(pick(s.body.prices.basic, ['monthly', 'yearly'])).toEqual({ monthly: 2900, yearly: 29000 })
+  expect(pick(s.body.prices.plus, ['monthly', 'yearly'])).toEqual({ monthly: 4900, yearly: 49000 })
+  expectStatus(await a.post('/api/billing/pager/trial', { tier: 'gold' }), 400, 'validation_failed')
+  const trial = await a.post('/api/billing/pager/trial', { tier: 'plus' })
+  expectStatus(trial, 200)
+  // The gate has no POS API: the trial starts, the push waits for the lifecycle retry.
+  expect(pick(trial.body.subscription, ['tier', 'status', 'active', 'posError'])).toEqual({
+    tier: 'plus',
+    status: 'trialing',
+    active: true,
+    posError: 'pos_bridge_unconfigured',
+  })
+  expectStatus(await a.post('/api/billing/pager/trial', { tier: 'basic' }), 409, 'pager_trial_used')
+  const other = await b.get('/api/billing/pager')
+  expect(pick(other.body, ['trialAvailable', 'subscription'])).toEqual({ trialAvailable: true, subscription: null })
+  // Checkout needs the unified billing service, which the gate does not run.
+  expectStatus(
+    await a.post('/api/billing/pager/checkout', { tier: 'basic', cycle: 'monthly', branches: 1 }, { headers: { 'idempotency-key': 'pager-gate-1' } }),
+    503,
+    'billing_unavailable',
+  )
+})
