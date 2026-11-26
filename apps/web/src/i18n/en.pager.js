@@ -26,6 +26,7 @@ export default {
       basicReports: 'Basic reports',
       branding: 'Your logo and colours',
       everythingInBasic: 'Everything in Basic',
+      whatsappReadyNoLimit: '“Your order is ready” on WhatsApp',
       whatsappReady: '“Your order is ready” on WhatsApp (up to {n} messages a month per branch)',
       liveActivity: 'Alert on the iPhone lock screen',
       fullReports: 'Full reports and CSV export',
@@ -34,6 +35,7 @@ export default {
     console: {
       title: 'Mirqam Pager',
       intro: 'A subscription of its own, separate from Mirqam Loyalty, per branch. It turns the pager on in the Mirqam Cashier app, even without the POS.',
+      loyaltyMonthlyOnly: 'The Mirqam Loyalty price is monthly for now.',
       branches: 'Branches',
       total: 'Total before VAT: {amount}',
       startTrial: 'Start the free trial ({days} days)',

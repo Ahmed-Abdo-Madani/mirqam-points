@@ -26,6 +26,7 @@ export default {
       basicReports: 'تقارير أساسية',
       branding: 'شعار متجرك وألوانه',
       everythingInBasic: 'كل ما في الأساسية',
+      whatsappReadyNoLimit: 'رسالة «طلبك جاهز» على واتساب',
       whatsappReady: 'رسالة «طلبك جاهز» على واتساب (حتى {n} رسالة شهرياً لكل فرع)',
       liveActivity: 'تنبيه على شاشة قفل الآيفون',
       fullReports: 'تقارير كاملة وتصدير CSV',
@@ -34,6 +35,7 @@ export default {
     console: {
       title: 'بيجر مرقام',
       intro: 'اشتراك مستقل عن مرقام ولاء، لكل فرع. يفعّل البيجر في تطبيق مرقام كاشير حتى لو لم تستخدم نظام محاسبي.',
+      loyaltyMonthlyOnly: 'سعر مشتركي مرقام ولاء شهري حالياً.',
       branches: 'عدد الفروع',
       total: 'الإجمالي قبل الضريبة: {amount}',
       startTrial: 'ابدأ التجربة المجانية ({days} يوماً)',

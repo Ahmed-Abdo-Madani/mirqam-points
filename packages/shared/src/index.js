@@ -17,14 +17,18 @@ export { computeEarn, DEFAULT_CONFIG, formatMinor, PROGRAM_TYPES, parseMoneyToMi
 export {
   billingAmountMinor,
   PAGER_CYCLES,
+  PAGER_LOYALTY_YEARLY,
   PAGER_MAX_BRANCHES,
   PAGER_PLANS,
   PAGER_TIERS,
   PAGER_TRIAL_DAYS,
   PAGER_VAT_RATE,
+  PAGER_WHATSAPP_FAIR_USE,
   pagerBillingCode,
   pagerBillingProducts,
   pagerBranchAddonCode,
+  pagerCycles,
+  pagerFeatureKey,
   pagerPrice,
   pagerTotal,
 } from './pager-plans.js'

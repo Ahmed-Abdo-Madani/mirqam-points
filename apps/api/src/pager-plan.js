@@ -18,6 +18,7 @@ import {
   PAGER_TRIAL_DAYS,
   pagerBillingCode,
   pagerBranchAddonCode,
+  pagerCycles,
   pagerPrice,
 } from '@mirqam-points/shared'
 import { HttpError } from './http.js'
@@ -155,7 +156,8 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
         freeWithPosAdvanced: PAGER_PLANS[tier].freeWithPosAdvanced,
       }
     }
-    return { withLoyalty, prices: out }
+    // The cycles this workspace may buy (with the Loyalty price: monthly only until the owner sets a yearly price).
+    return { withLoyalty, prices: out, cycles: pagerCycles(withLoyalty) }
   }
 
   return {
@@ -211,6 +213,8 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
         throw new HttpError(400, 'validation_failed')
       if (!billing.remote || !billing.subAccountCheckout) throw new HttpError(503, 'billing_unavailable')
       const withLoyalty = await hasPaidLoyalty(tenantId)
+      // No yearly with-Loyalty price is set: refuse instead of charging the old 10-month amount.
+      if (!pagerCycles(withLoyalty).includes(cycle)) throw new HttpError(400, 'pager_loyalty_yearly_unavailable')
       const r = await billing.subAccountCheckout(
         tenantId,
         ref(tenantId),

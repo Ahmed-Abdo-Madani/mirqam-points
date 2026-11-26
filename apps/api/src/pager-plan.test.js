@@ -158,10 +158,47 @@ describe('checkout through mirqam-billing', () => {
     const s = await pager.status(tenantId)
     expect(s.withLoyalty).toBe(true)
     expect(s.prices.basic.monthly).toBe(1500)
-    await pager.checkout(tenantId, { tier: 'basic', cycle: 'yearly', branches: 1 }, 'req-2')
+    await pager.checkout(tenantId, { tier: 'basic', cycle: 'monthly', branches: 1 }, 'req-2')
     const call = billingCalls.find((x) => x.url.endsWith('/checkout-sessions'))
     expect(call.body.plan).toBe('pager_basic_loyalty')
     expect(call.body.items).toBeUndefined()
+  })
+
+  it('no yearly with-Loyalty price is set: monthly only, yearly refused at the route and never sent to billing', async () => {
+    await db.query("INSERT INTO subscriptions (tenant_id, cycle, expires_at, status) VALUES ($1, 'yearly', now() + interval '200 days', 'active')", [tenantId])
+    expect((await pager.status(tenantId)).cycles).toEqual(['monthly'])
+    for (const tier of ['basic', 'plus'])
+      await expect(pager.checkout(tenantId, { tier, cycle: 'yearly', branches: 1 }, `req-y-${tier}`)).rejects.toMatchObject({
+        status: 400,
+        code: 'pager_loyalty_yearly_unavailable',
+      })
+    expect(billingCalls.filter((x) => x.url.endsWith('/checkout-sessions'))).toHaveLength(0)
+  })
+
+  it('without Loyalty, yearly is unchanged: 290 / 490 per branch, both cycles sold', async () => {
+    const s = await pager.status(tenantId)
+    expect(s.withLoyalty).toBe(false)
+    expect(s.cycles).toEqual(['monthly', 'yearly'])
+    expect(s.prices.basic.yearly).toBe(29000)
+    expect(s.prices.plus.yearly).toBe(49000)
+    await pager.checkout(tenantId, { tier: 'plus', cycle: 'yearly', branches: 1 }, 'req-y-list')
+    expect(billingCalls.find((x) => x.url.endsWith('/checkout-sessions')).body).toMatchObject({ plan: 'pager_plus', cycle: 'yearly' })
+  })
+
+  it('an existing with-Loyalty yearly subscription (if any) is applied and renews as it is', async () => {
+    expect(
+      await pager.applyEntitlement({
+        platform: 'loyalty',
+        account_ref: `pager:${tenantId}`,
+        status: 'active',
+        plan: 'pager_plus_loyalty',
+        cycle: 'yearly',
+        items: [],
+        active_until: new Date(Date.now() + 300 * 86_400_000).toISOString(),
+        version: 5,
+      }),
+    ).toBe(true)
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ tier: 'plus', cycle: 'yearly', status: 'active', active: true })
   })
 
   it('passes an HQ coupon to billing (a 100% coupon completes without a payment page)', async () => {
