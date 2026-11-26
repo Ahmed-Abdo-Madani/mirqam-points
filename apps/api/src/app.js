@@ -9,6 +9,7 @@ import { acceptForwarded } from './forwarder.js'
 import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError, rejectMalformedPath } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
+import { createPagerPlan } from './pager-plan.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
 import { installPosNative, posLinkAuth } from './pos-bridge/native.mjs'
@@ -163,6 +164,9 @@ export function createApp({ db, config }) {
   const billing = config.billingUrl ? createRemoteBilling({ db, config, HttpError }) : createBilling({ db, config })
   // The scheduler in server.js reads the billing service (and the wallet, for the deletion sweep) from here.
   app.locals.billing = billing
+  // Mirqam Pager plan: its own subscription (billing sub-account) that switches the POS `pager` product on.
+  const pager = createPagerPlan({ db, config, billing })
+  app.locals.pager = pager
   app.locals.wallet = wallet
   // Employee/referral attribution outbox of direct-Moyasar checkouts keeps draining after the switch.
   app.locals.commerceBilling = billing.remote ? createBilling({ db, config }) : billing
@@ -207,7 +211,7 @@ export function createApp({ db, config }) {
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
-  app.use('/api/billing', billingRoutes(billing, { db }))
+  app.use('/api/billing', billingRoutes(billing, { db, pager }))
   app.use('/api/auth', authRoutes({ db, config, billing, wallet }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))

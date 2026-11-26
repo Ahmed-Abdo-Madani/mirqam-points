@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
 import { dateTime, money } from '../../lib/format.js'
+import PagerPlan from './PagerPlan.jsx'
 
 const TONE = { active: 'green', expiring: 'amber', expired: 'red', trial: 'blue', none: 'gray' }
 
@@ -30,7 +31,9 @@ export default function Billing() {
   // Automatic renewal is part of subscribing (it can be turned off from the subscription card).
   const autoRenew = true
   const params = new URLSearchParams(window.location.search)
-  const checkout = params.get('checkout') || (params.get('billing') === 'paid' ? params.get('session') || 'latest' : null)
+  // A pager-plan payment (?pager=paid) is confirmed by its own card, not as the loyalty subscription.
+  const checkout =
+    params.get('pager') === 'paid' ? null : params.get('checkout') || (params.get('billing') === 'paid' ? params.get('session') || 'latest' : null)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: confirm once per returned checkout id.
   useEffect(() => {
@@ -220,6 +223,8 @@ export default function Billing() {
                 })}
               </div>
             </div>
+
+            <PagerPlan checkoutHost={data.checkoutHost} />
 
             {remote && (
               <Card title={t('billing.invoices')} bodyClass="">

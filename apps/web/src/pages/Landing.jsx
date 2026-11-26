@@ -1,11 +1,14 @@
 import { MqCheck, MqCoins, MqGift, MqPass, MqScan, MqShieldCheck, Pattern } from '@mirqam/ui'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CycleSwitch, PagerFinePrint, PagerPlanCards } from '../components/PagerPlans.jsx'
 import PassPreview from '../components/PassPreview.jsx'
 import PublicShell from '../components/PublicShell.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
 export default function Landing() {
   const { t, locale } = useI18n()
+  const [cycle, setCycle] = useState('monthly')
   const features = [
     { icon: MqPass, key: 'passes' },
     { icon: MqCoins, key: 'programs' },
@@ -115,6 +118,31 @@ export default function Landing() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section id="pager" className="mx-auto max-w-[1040px] scroll-mt-20 px-6 py-12" aria-labelledby="pager-title">
+        <div className="mx-auto mb-8 max-w-2xl text-center">
+          <p className="text-xs font-bold text-accent">{t('pager.kicker')}</p>
+          <h2 id="pager-title" className="mt-3 text-[clamp(28px,3.2vw,42px)] font-bold leading-snug tracking-[-0.8px]">
+            {t('pager.title')}
+          </h2>
+          <p className="mt-3 text-sm leading-loose text-muted">{t('pager.subtitle')}</p>
+          <div className="mt-6">
+            <CycleSwitch cycle={cycle} onChange={setCycle} />
+          </div>
+        </div>
+        <PagerPlanCards
+          cycle={cycle}
+          action={() => (
+            <Link
+              to="/register?next=/app/billing"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-[15px] bg-primary px-6 font-bold text-on-primary hover:bg-primary-hover"
+            >
+              {t('pager.cta')}
+            </Link>
+          )}
+        />
+        <PagerFinePrint />
       </section>
 
       <section className="mx-auto max-w-[1240px] px-6 pt-8">

@@ -75,6 +75,7 @@ const PURGE = [
   ['posLinks', 'DELETE FROM pos_account_links WHERE tenant_id = $1'],
   ['posNative', 'DELETE FROM pos_native_tenants WHERE tenant_id = $1'],
   ['posAccounts', 'DELETE FROM pos_provisioned_accounts WHERE tenant_id = $1'],
+  ['pagerPlan', 'DELETE FROM pager_subscriptions WHERE tenant_id = $1'],
   ['sessions', 'DELETE FROM sessions WHERE tenant_id = $1'],
   ['hqAccess', 'DELETE FROM hq_admin_access WHERE tenant_id = $1'],
   ['memberships', 'DELETE FROM memberships WHERE tenant_id = $1'],
