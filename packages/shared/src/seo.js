@@ -26,8 +26,8 @@ export const OG_IMAGE = {
 export const seoCopy = {
   ar: {
     home: {
-      title: 'مرقام ولاء | بطاقات نقاط وأختام وهدايا في محفظة الجوال',
-      description: 'أنشئ لمتجرك بطاقات نقاط وأختام وهدايا يضيفها عميلك إلى Apple Wallet وGoogle Wallet، ويتحدث رصيدها مع كل عملية شراء دون تطبيق يحمّله.',
+      title: 'مرقام ولاء | بطاقات ولاء في المحفظة وبيجر للطلبات',
+      description: 'نقاط وأختام وبطاقات هدايا في Apple Wallet وGoogle Wallet، وبيجر مرقام: رمز QR يحوّل جوال عميلك إلى بيجر يرن أول ما يجهز طلبه. بدون أجهزة وبدون تطبيق.',
     },
     privacy: {
       title: 'سياسة الخصوصية | مرقام ولاء',
@@ -49,9 +49,9 @@ export const seoCopy = {
   },
   en: {
     home: {
-      title: 'Mirqam Loyalty | Points, stamp and gift cards in the wallet',
+      title: 'Mirqam Loyalty | Wallet loyalty cards and an order pager',
       description:
-        'Give your store points, stamp and gift cards that customers add to Apple Wallet or Google Wallet. Balances update with every purchase; no app to install.',
+        'Points, stamps and gift cards in Apple Wallet and Google Wallet, plus Mirqam Pager: a QR that makes your customer’s phone ring when the order is ready.',
     },
     privacy: {
       title: 'Privacy Policy | Mirqam Loyalty',

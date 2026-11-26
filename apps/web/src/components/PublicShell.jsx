@@ -19,6 +19,10 @@ export default function PublicShell({ children }) {
           <Link to="/" className="me-auto" aria-label={t('site.name')}>
             <Logo className="h-10 sm:h-12" label={t('site.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('site.name')} />
           </Link>
+          <a href="/#pager" data-cta="pager_nav" className="hidden items-center gap-1.5 text-sm font-semibold text-muted hover:text-accent lg:inline-flex">
+            {t('landing.pager.nav')}
+            <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-bold text-on-primary">{t('landing.pager.new')}</span>
+          </a>
           {REGISTRATION_IN_APP && (
             <a href="/blog/index.html" className="hidden text-sm font-semibold text-muted hover:text-accent sm:inline">
               {t('footer.blog')}
@@ -64,6 +68,9 @@ export default function PublicShell({ children }) {
                 <span className="font-semibold text-ink">{t('footer.family')}</span>
                 <a href="/blog/index.html" className="hover:text-accent">
                   {t('footer.blog')}
+                </a>
+                <a href="/#pager" className="hover:text-accent">
+                  {t('landing.pager.footer')}
                 </a>
                 <a href="https://bot.mirqam.sa" className="hover:text-accent">
                   {t('footer.bot')}

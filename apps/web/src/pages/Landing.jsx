@@ -1,14 +1,12 @@
 import { MqCheck, MqCoins, MqGift, MqPass, MqScan, MqShieldCheck, Pattern } from '@mirqam/ui'
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CycleSwitch, PagerFinePrint, PagerPlanCards } from '../components/PagerPlans.jsx'
 import PassPreview from '../components/PassPreview.jsx'
 import PublicShell from '../components/PublicShell.jsx'
+import PagerSection from '../components/pager/PagerSection.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
 export default function Landing() {
   const { t, locale } = useI18n()
-  const [cycle, setCycle] = useState('monthly')
   const features = [
     { icon: MqPass, key: 'passes' },
     { icon: MqCoins, key: 'programs' },
@@ -21,6 +19,14 @@ export default function Landing() {
       <section className="relative overflow-hidden">
         <div className="mx-auto grid max-w-[1240px] items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1.05fr_1fr] lg:pt-24">
           <div>
+            <a
+              href="#pager"
+              data-cta="pager_nav"
+              className="mb-4 flex w-fit items-center gap-2 rounded-full bg-tint px-3.5 py-1.5 text-xs font-bold text-accent hover:bg-soft"
+            >
+              {t('landing.pager.heroChip')}
+              <span aria-hidden="true">{locale === 'ar' ? '←' : '→'}</span>
+            </a>
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-semibold text-accent">
               <i className="h-1.5 w-1.5 rotate-45 bg-brand-500" aria-hidden="true" />
               {t('landing.eyebrow')}
@@ -120,30 +126,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="pager" className="mx-auto max-w-[1040px] scroll-mt-20 px-6 py-12" aria-labelledby="pager-title">
-        <div className="mx-auto mb-8 max-w-2xl text-center">
-          <p className="text-xs font-bold text-accent">{t('pager.kicker')}</p>
-          <h2 id="pager-title" className="mt-3 text-[clamp(28px,3.2vw,42px)] font-bold leading-snug tracking-[-0.8px]">
-            {t('pager.title')}
-          </h2>
-          <p className="mt-3 text-sm leading-loose text-muted">{t('pager.subtitle')}</p>
-          <div className="mt-6">
-            <CycleSwitch cycle={cycle} onChange={setCycle} />
-          </div>
-        </div>
-        <PagerPlanCards
-          cycle={cycle}
-          action={() => (
-            <Link
-              to="/register?next=/app/billing"
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-[15px] bg-primary px-6 font-bold text-on-primary hover:bg-primary-hover"
-            >
-              {t('pager.cta')}
-            </Link>
-          )}
-        />
-        <PagerFinePrint />
-      </section>
+      <PagerSection />
 
       <section className="mx-auto max-w-[1240px] px-6 pt-8">
         <div className="mp-welcome relative overflow-hidden rounded-[28px] px-8 py-12 text-white sm:px-14">
