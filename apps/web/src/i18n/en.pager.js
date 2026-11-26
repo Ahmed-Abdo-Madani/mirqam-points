@@ -15,6 +15,7 @@ export default {
     withLoyaltyApplied: 'Mirqam Loyalty subscriber price',
     freeWithPos: 'Free with the Pro plan of Mirqam POS',
     cta: 'Start the free trial',
+    soon: 'Coming soon',
     tiers: { basic: 'Basic', plus: 'Plus' },
     features: {
       unlimitedCalls: 'Unlimited calls',

@@ -70,6 +70,9 @@ describe('pager plan catalog (config)', () => {
     expect(pagerPrice('plus', 'monthly', true)).toBe(2500)
     expect(PAGER_PLANS.basic.freeWithPosAdvanced).toBe(true)
     expect(PAGER_PLANS.plus.freeWithPosAdvanced).toBe(false)
+    // The iPhone lock-screen alert is listed as coming soon until the App Clip ships.
+    expect(PAGER_PLANS.plus.comingSoon).toContain('liveActivity')
+    for (const f of PAGER_PLANS.plus.comingSoon) expect(PAGER_PLANS.plus.features).toContain(f)
     expect(pagerTotal('plus', 'monthly', 3)).toBe(14700)
     expect(() => pagerTotal('plus', 'monthly', 0)).toThrow()
   })

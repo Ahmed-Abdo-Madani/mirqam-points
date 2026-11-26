@@ -15,6 +15,7 @@ export default {
     withLoyaltyApplied: 'سعر مشتركي مرقام ولاء',
     freeWithPos: 'مجانية مع باقة برو في مرقام محاسبي',
     cta: 'ابدأ التجربة المجانية',
+    soon: 'قريباً',
     tiers: { basic: 'الأساسية', plus: 'بلس' },
     features: {
       unlimitedCalls: 'نداءات بلا حد',

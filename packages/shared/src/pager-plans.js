@@ -32,6 +32,9 @@ export const PAGER_PLANS = Object.freeze({
     // Fair use for WhatsApp «جاهز» messages, per branch per month.
     whatsappFairUse: 1000,
     features: Object.freeze(['everythingInBasic', 'whatsappReady', 'liveActivity', 'fullReports', 'multiBranch']),
+    // Listed but not shipped yet: the card marks them "coming soon" so nothing is sold before it exists.
+    // liveActivity ships with the iPhone App Clip (planned early December 2026).
+    comingSoon: Object.freeze(['liveActivity']),
   }),
 })
 

@@ -61,7 +61,14 @@ export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, hig
               {plan.features.map((f) => (
                 <li key={f} className="flex items-start gap-2">
                   <MqCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                  <span>{t(`pager.features.${f}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })}</span>
+                  <span>
+                    {t(`pager.features.${f}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })}
+                    {plan.comingSoon?.includes(f) && (
+                      <span className="ms-2 inline-flex rounded-full border border-line bg-soft px-2 py-0.5 text-[11px] font-semibold text-muted">
+                        {t('pager.soon')}
+                      </span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>
