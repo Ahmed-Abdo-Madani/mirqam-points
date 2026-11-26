@@ -96,7 +96,13 @@ function Overview({ refresh }) {
         <Stat icon={MqStore} label={t('hq.kpi.open')} value={value(m?.open)} hint={m && t('hq.kpi.openHint', { n: num(m.new30d) })} />
         <Stat icon={MqBadgeCheck} tone="green" label={t('hq.kpi.entitled')} value={value(m?.entitled)} hint={t('hq.kpi.entitledHint')} />
         <Stat icon={MqTrendUp} label={t('hq.kpi.transacting')} value={value(m?.transacting30d)} hint={t('hq.kpi.transactingHint')} />
-        <Stat icon={MqUsers} tone="navy" label={t('hq.kpi.members')} value={value(members?.total)} hint={members && t('hq.kpi.membersHint', { n: num(members.new30d) })} />
+        <Stat
+          icon={MqUsers}
+          tone="navy"
+          label={t('hq.kpi.members')}
+          value={value(members?.total)}
+          hint={members && t('hq.kpi.membersHint', { n: num(members.new30d) })}
+        />
         <Stat tone="navy" label={t('hq.kpi.programs')} value={value(members?.activePrograms)} hint={t('hq.kpi.programsHint')} />
       </div>
       <h3 className="pt-2 text-sm font-bold">{t('hq.kpi.activity')}</h3>
@@ -150,7 +156,16 @@ function Overview({ refresh }) {
               items={[
                 [t('hq.pos.links'), num(pos.activeLinks)],
                 [t('hq.pos.managed'), num(pos.managedWorkspaces)],
-                [t('hq.pos.stale'), pos.staleOpenSales ? <Badge tone="amber">{num(pos.staleOpenSales)}</Badge> : num(0)],
+                [
+                  t('hq.pos.stale'),
+                  pos.staleOpenSales ? (
+                    <Badge key="stale" tone="amber">
+                      {num(pos.staleOpenSales)}
+                    </Badge>
+                  ) : (
+                    num(0)
+                  ),
+                ],
               ]}
             />
           ) : (

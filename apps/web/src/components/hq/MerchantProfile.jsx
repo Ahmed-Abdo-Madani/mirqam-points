@@ -41,8 +41,7 @@ export default function MerchantProfile({ id, refresh, onBack }) {
     </Button>
   )
   if (loading && !data) return <Skeleton rows={4} label={t('hq.loading')} />
-  if (error && error.status === 404)
-    return <EmptyState icon={MqStore} title={t('hq.profile.notFound')} action={back} />
+  if (error && error.status === 404) return <EmptyState icon={MqStore} title={t('hq.profile.notFound')} action={back} />
   if (error && !data)
     return (
       <div className="space-y-4">
@@ -105,7 +104,7 @@ export default function MerchantProfile({ id, refresh, onBack }) {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2" aria-label={t('hq.profile.actions')}>
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => copyText(tenant.id, toast, t)}>
               <MqCopy className="h-4 w-4" />
               {t('hq.profile.copyId')}

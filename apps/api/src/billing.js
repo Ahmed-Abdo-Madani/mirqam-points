@@ -306,7 +306,11 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
       if (!req.auth) return next()
       if (
         !config.billingEnforce &&
-        !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1 UNION ALL SELECT 1 FROM pos_native_tenants WHERE tenant_id=$1', [req.auth.tenantId])).rows.length
+        !(
+          await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1 UNION ALL SELECT 1 FROM pos_native_tenants WHERE tenant_id=$1', [
+            req.auth.tenantId,
+          ])
+        ).rows.length
       )
         return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()

@@ -17,6 +17,11 @@ describe('HQ CSV export', () => {
   })
 
   it('writes a BOM, CRLF rows and a trailing newline', () => {
-    expect(toCsv([['a', 'b'], ['=1', 'c,d']])).toBe('﻿a,b\r\n\'=1,"c,d"\r\n')
+    expect(
+      toCsv([
+        ['a', 'b'],
+        ['=1', 'c,d'],
+      ]),
+    ).toBe('﻿a,b\r\n\'=1,"c,d"\r\n')
   })
 })

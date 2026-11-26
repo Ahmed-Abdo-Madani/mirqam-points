@@ -3,13 +3,15 @@
    via the shared `mirqam-locale` key. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import arDocuments from './ar.documents.js'
+import arHq from './ar.hq.js'
 import ar from './ar.js'
 import enDocuments from './en.documents.js'
+import enHq from './en.hq.js'
 import en from './en.js'
 import { mergeDict } from './merge.js'
 
-/* Area dictionaries merged over the base ones (documents: receipts and their actions). */
-export const dictionaries = { ar: mergeDict(ar, arDocuments), en: mergeDict(en, enDocuments) }
+/* Area dictionaries merged over the base ones (documents: receipts and their actions; hq: the HQ console). */
+export const dictionaries = { ar: mergeDict(ar, arDocuments, arHq), en: mergeDict(en, enDocuments, enHq) }
 const STORAGE_KEY = 'mirqam-locale'
 
 function lookup(dict, key) {

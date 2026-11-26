@@ -145,7 +145,11 @@ describe('HQ administration through the full API', () => {
   const login = async (tenantId, role = 'owner') => {
     const {
       rows: [u],
-    } = await db.query('INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id', [`u-${uniq()}@example.test`, 'not-a-login-hash', 'User'])
+    } = await db.query('INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id', [
+      `u-${uniq()}@example.test`,
+      'not-a-login-hash',
+      'User',
+    ])
     await db.query('INSERT INTO memberships (tenant_id, user_id, role) VALUES ($1, $2, $3)', [tenantId, u.id, role])
     return { userId: u.id, tenantId, cookie: `mp_session=${await createSession(db, { userId: u.id, tenantId, ttlDays: 1 })}` }
   }
@@ -160,7 +164,8 @@ describe('HQ administration through the full API', () => {
       ])
     ).rows[0].id
   const member = async (tenantId, phone, erased = false) =>
-    (await db.query(`INSERT INTO members (tenant_id, phone, erased_at) VALUES ($1, $2, ${erased ? 'now()' : 'NULL'}) RETURNING id`, [tenantId, phone])).rows[0].id
+    (await db.query(`INSERT INTO members (tenant_id, phone, erased_at) VALUES ($1, $2, ${erased ? 'now()' : 'NULL'}) RETURNING id`, [tenantId, phone])).rows[0]
+      .id
   const giftCard = (tenantId, initial, balance, status = 'active') =>
     db.query(
       'INSERT INTO gift_cards (tenant_id, code_hash, code_last4, code_sealed, public_token, initial_minor, balance_minor, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
@@ -208,7 +213,7 @@ describe('HQ administration through the full API', () => {
     await checkout(alpha, 6900, 'paid')
     await checkout(alpha, 6900, 'pending')
     await db.query("INSERT INTO subscription_events (tenant_id, kind, ref) VALUES ($1, 'activated', 'a-1')", [alpha])
-    await db.query("INSERT INTO pos_account_links (key, tenant_id, data) VALUES ($1, $2, '{\"active\":true}'), ($3, $2, '{\"active\":false}')", [
+    await db.query('INSERT INTO pos_account_links (key, tenant_id, data) VALUES ($1, $2, \'{"active":true}\'), ($3, $2, \'{"active":false}\')', [
       `link:${uniq()}`,
       alpha,
       `link:${uniq()}`,
@@ -221,13 +226,20 @@ describe('HQ administration through the full API', () => {
     // Owner: an ordinary merchant (no grant), managed by Mirqam POS.
     const ownerShop = await tenant('Owner Shop', `owner-${uniq()}`)
     plain = await login(ownerShop)
-    await db.query("INSERT INTO pos_native_tenants (pos_tenant, tenant_id, managed_until) VALUES ($1, $2, now() + interval '200 days')", [`pos-${uniq()}`, ownerShop])
+    await db.query("INSERT INTO pos_native_tenants (pos_tenant, tenant_id, managed_until) VALUES ($1, $2, now() + interval '200 days')", [
+      `pos-${uniq()}`,
+      ownerShop,
+    ])
 
     // Closed workspace (owner deleted the account, purge pending) and a purged tombstone.
     const closed = await tenant('Closed Bakery', `closed-${uniq()}`)
     await program(closed, 'points')
     const cm = await member(closed, '+966500000009')
-    const ca = await ensureAccount(db, { tenantId: closed, programId: (await db.query('SELECT id FROM programs WHERE tenant_id=$1', [closed])).rows[0].id, memberId: cm })
+    const ca = await ensureAccount(db, {
+      tenantId: closed,
+      programId: (await db.query('SELECT id FROM programs WHERE tenant_id=$1', [closed])).rows[0].id,
+      memberId: cm,
+    })
     await earn(db, { tenantId: closed, accountId: ca.id, points: 999, idempotencyKey: `k-${uniq()}` })
     await giftCard(closed, 9000, 9000)
     await db.query('UPDATE tenants SET closed_at = now() WHERE id = $1', [closed])
@@ -311,7 +323,12 @@ describe('HQ administration through the full API', () => {
     expect(body.joinPrograms).toEqual([expect.objectContaining({ type: 'points' })])
     expect(body.giftCards).toEqual([{ currency: 'SAR', cards: 2, voided: 1, issuedMinor: 13000, outstandingMinor: 5000 }])
     expect(body.pos).toMatchObject({ activeLinks: 1, native: false, configured: false, staleOpenSales: 1 })
-    expect(body.checkouts.map((c) => [c.status, c.amountMinor])).toEqual(expect.arrayContaining([['paid', 6900], ['pending', 6900]]))
+    expect(body.checkouts.map((c) => [c.status, c.amountMinor])).toEqual(
+      expect.arrayContaining([
+        ['paid', 6900],
+        ['pending', 6900],
+      ]),
+    )
     expect(body.events.map((e) => e.kind)).toEqual(['activated'])
     expect(body.billing).toEqual({ remote: false, syncAvailable: false })
     expect(JSON.stringify(body)).not.toMatch(/\+9665|phone|email/)

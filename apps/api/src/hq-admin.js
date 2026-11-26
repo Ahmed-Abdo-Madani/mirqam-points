@@ -265,9 +265,10 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
     const tenantId = parse(id, req.params.id)
     const {
       rows: [t],
-    } = await db.query(`SELECT id, name, slug, created_at, closed_at, purge_after FROM tenants t WHERE t.id = $1 AND t.purged_at IS NULL AND ${merchant('t.id')}`, [
-      tenantId,
-    ])
+    } = await db.query(
+      `SELECT id, name, slug, created_at, closed_at, purge_after FROM tenants t WHERE t.id = $1 AND t.purged_at IS NULL AND ${merchant('t.id')}`,
+      [tenantId],
+    )
     if (!t) throw new HttpError(404, 'tenant_not_found')
     const rows = (sql) => db.query(sql, [tenantId]).then((r) => r.rows)
     const [team, programs, joinable, members, gifts, subs, pos, checkouts, events] = await Promise.all([
@@ -293,7 +294,9 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
                 EXISTS (SELECT 1 FROM pos_loyalty_settings WHERE tenant_id = $1) AS configured,
                 (SELECT count(*) FROM pos_loyalty_sales WHERE tenant_id = $1 AND state = 'OPEN' AND updated_at < now() - interval '24 hours')::int AS stale_open_sales`,
       ),
-      rows('SELECT id, cycle, amount, currency, status, created_at, paid_at FROM subscription_checkouts WHERE tenant_id = $1 ORDER BY created_at DESC, id LIMIT 20'),
+      rows(
+        'SELECT id, cycle, amount, currency, status, created_at, paid_at FROM subscription_checkouts WHERE tenant_id = $1 ORDER BY created_at DESC, id LIMIT 20',
+      ),
       rows('SELECT id, kind, created_at FROM subscription_events WHERE tenant_id = $1 ORDER BY created_at DESC, id LIMIT 20'),
     ])
     let entitlement = null
@@ -309,14 +312,24 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
     const p = pos[0]
     res.json({
       asOf: new Date().toISOString(),
-      tenant: { id: t.id, name: t.name, slug: t.slug, status: t.closed_at ? 'closed' : 'open', createdAt: t.created_at, closedAt: t.closed_at, purgeAfter: t.purge_after },
+      tenant: {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: t.closed_at ? 'closed' : 'open',
+        createdAt: t.created_at,
+        closedAt: t.closed_at,
+        purgeAfter: t.purge_after,
+      },
       entitlement: mapEntitlement(entitlement),
       subscription: sub
         ? {
             cycle: sub.cycle,
             expiresAt: sub.expires_at,
             // Status, plan and renewal fields are only maintained by unified billing.
-            ...(remote() ? { status: sub.status, plan: sub.plan, autoRenew: sub.auto_renew, cancelAtPeriodEnd: sub.cancel_at_period_end, periodEnd: sub.period_end } : {}),
+            ...(remote()
+              ? { status: sub.status, plan: sub.plan, autoRenew: sub.auto_renew, cancelAtPeriodEnd: sub.cancel_at_period_end, periodEnd: sub.period_end }
+              : {}),
           }
         : null,
       team: {
@@ -324,13 +337,28 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
         staff: Object.fromEntries(['manager', 'cashier', 'analyst'].map((role) => [role, count(team, (r) => r.role === role)])),
       },
       programs: Object.fromEntries(
-        ['points', 'stamps'].map((type) => [type, Object.fromEntries(['active', 'draft', 'archived'].map((s) => [s, count(programs, (r) => r.type === type && r.status === s)]))]),
+        ['points', 'stamps'].map((type) => [
+          type,
+          Object.fromEntries(['active', 'draft', 'archived'].map((s) => [s, count(programs, (r) => r.type === type && r.status === s)])),
+        ]),
       ),
       joinPrograms: t.closed_at ? [] : joinable.map((r) => ({ id: r.id, name: r.name, type: r.type })),
       members: { total: members[0].total, new30d: members[0].new_30d },
       lastActivityAt: members[0].last_activity_at ?? null,
-      giftCards: gifts.map((g) => ({ currency: g.currency, cards: g.cards, voided: g.voided, issuedMinor: int(g.issued), outstandingMinor: int(g.outstanding) })),
-      pos: { activeLinks: p.active_links, native: p.native, managedUntil: p.managed_until ?? null, configured: p.configured, staleOpenSales: p.stale_open_sales },
+      giftCards: gifts.map((g) => ({
+        currency: g.currency,
+        cards: g.cards,
+        voided: g.voided,
+        issuedMinor: int(g.issued),
+        outstandingMinor: int(g.outstanding),
+      })),
+      pos: {
+        activeLinks: p.active_links,
+        native: p.native,
+        managedUntil: p.managed_until ?? null,
+        configured: p.configured,
+        staleOpenSales: p.stale_open_sales,
+      },
       checkouts: checkouts.map((c) => ({
         id: c.id,
         cycle: c.cycle,
