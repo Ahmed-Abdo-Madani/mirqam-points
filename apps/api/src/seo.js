@@ -9,7 +9,7 @@
      - anything else: a real 404 (the shell still renders the "not found" page).
    Search-console verification tags are added to every HTML document only when
    GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION are set. */
-import { classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_URL, seoCopy } from '@mirqam-points/shared'
+import { APP_NAME, classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_NAME, SITE_URL, seoCopy } from '@mirqam-points/shared'
 
 const ROBOTS_INDEX = 'index,follow,max-image-preview:large'
 const ROBOTS_NOINDEX = 'noindex,nofollow'
@@ -44,16 +44,17 @@ function structuredData(page, copy, url) {
         {
           '@type': 'WebSite',
           '@id': `${SITE_URL}/#website`,
-          name: 'مرقام نقاط',
-          alternateName: 'Mirqam Points',
+          name: SITE_NAME.ar,
+          alternateName: SITE_NAME.en,
           url: `${SITE_URL}/`,
           inLanguage: 'ar',
           publisher: { '@id': organization['@id'] },
         },
         {
           '@type': 'SoftwareApplication',
-          name: 'مرقام نقاط',
-          alternateName: 'Mirqam Points',
+          name: SITE_NAME.ar,
+          // The merchant app is listed in the stores as «مرقام نقاط» / Mirqam Points.
+          alternateName: [SITE_NAME.en, APP_NAME.ar, APP_NAME.en],
           url: `${SITE_URL}/`,
           description: copy.description,
           applicationCategory: 'BusinessApplication',
@@ -69,7 +70,7 @@ function structuredData(page, copy, url) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: seoCopy.ar.home.title.split(' | ')[0], item: `${SITE_URL}/` },
+      { '@type': 'ListItem', position: 1, name: SITE_NAME.ar, item: `${SITE_URL}/` },
       { '@type': 'ListItem', position: 2, name: copy.title.split(' | ')[0], item: url },
     ],
   }
@@ -92,7 +93,7 @@ export function renderShell(html, path, config) {
       `<meta name="robots" content="${ROBOTS_INDEX}" />` +
       `<link rel="canonical" href="${url}" />` +
       '<meta property="og:type" content="website" />' +
-      '<meta property="og:site_name" content="مرقام نقاط" />' +
+      `<meta property="og:site_name" content="${esc(SITE_NAME.ar)}" />` +
       '<meta property="og:locale" content="ar_SA" />' +
       `<meta property="og:title" content="${esc(copy.title)}" />` +
       `<meta property="og:description" content="${esc(copy.description)}" />` +

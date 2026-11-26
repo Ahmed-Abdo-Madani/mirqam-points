@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { classifyPath, INDEXABLE_PAGES, OG_IMAGE, seoCopy } from '@mirqam-points/shared'
+import { APP_NAME, classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_NAME, seoCopy } from '@mirqam-points/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import ar from '../../web/src/i18n/ar.js'
 import en from '../../web/src/i18n/en.js'
@@ -25,11 +25,27 @@ describe('seo copy', () => {
         const { title, description } = seoCopy[lang][page]
         expect(length(title), `${lang}.${page}.title`).toBeLessThanOrEqual(60)
         expect(length(description), `${lang}.${page}.description`).toBeLessThanOrEqual(160)
-        expect(length(description), `${lang}.${page}.description`).toBeGreaterThan(50)
+        expect(length(description), `${lang}.${page}.description`).toBeGreaterThanOrEqual(120)
       }
     }
     const titles = Object.values(seoCopy.ar).map((c) => c.title)
     expect(new Set(titles).size).toBe(titles.length)
+  })
+
+  it('every public title carries the one website name that mirqam.sa uses for the product', () => {
+    for (const lang of ['ar', 'en']) {
+      const { home, ...rest } = seoCopy[lang]
+      expect(home.title.startsWith(`${SITE_NAME[lang]} | `), `${lang}.home`).toBe(true)
+      for (const [page, { title }] of Object.entries(rest)) expect(title.endsWith(` | ${SITE_NAME[lang]}`), `${lang}.${page}`).toBe(true)
+    }
+    for (const f of readdirSync(join(PUBLIC, 'blog')).filter((f) => f.endsWith('.html'))) {
+      const html = readFileSync(join(PUBLIC, 'blog', f), 'utf8')
+      const title = html.match(/<title>([^<]*)<\/title>/)[1]
+      expect(title, f).toContain(SITE_NAME.ar)
+      expect(title, f).not.toContain(APP_NAME.ar)
+      expect(html, f).toContain(`<meta property="og:site_name" content="${SITE_NAME.ar}">`)
+    }
+    expect(JSON.parse(readFileSync(join(PUBLIC, 'site.webmanifest'), 'utf8')).name).toBe(SITE_NAME.ar)
   })
 
   it('classifies console paths: public, private (noindex) or not found', () => {
@@ -63,6 +79,11 @@ describe('renderShell', () => {
     expect(ld['@graph'].map((n) => n['@type'])).toEqual(['Organization', 'WebSite', 'SoftwareApplication'])
     // The logo the structured data names is a real public file.
     expect(existsSync(join(PUBLIC, new URL(ld['@graph'][0].logo).pathname)), ld['@graph'][0].logo).toBe(true)
+    // One name for the website and the product; the store app's name is an alternate.
+    expect(ld['@graph'][1].name).toBe(SITE_NAME.ar)
+    expect(ld['@graph'][2].name).toBe(SITE_NAME.ar)
+    expect(ld['@graph'][2].alternateName).toContain('Mirqam Points')
+    expect(html).toContain(`<meta property="og:site_name" content="${SITE_NAME.ar}" />`)
     expect(html).not.toMatch(/site-verification|msvalidate/)
   })
 

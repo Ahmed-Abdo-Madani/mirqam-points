@@ -16,8 +16,8 @@ export default function PublicShell({ children }) {
       </a>
       <header className="mq-card sticky top-3 z-40 mx-3 mt-3 sm:mx-auto sm:w-[calc(100%-48px)] sm:max-w-[1240px]">
         <div className="flex min-h-[72px] items-center gap-3 px-4 sm:px-6">
-          <Link to="/" className="me-auto" aria-label={t('brand.name')}>
-            <Logo className="h-10 sm:h-12" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
+          <Link to="/" className="me-auto" aria-label={t('site.name')}>
+            <Logo className="h-10 sm:h-12" label={t('site.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('site.name')} />
           </Link>
           {REGISTRATION_IN_APP && (
             <a href="/blog/index.html" className="hidden text-sm font-semibold text-muted hover:text-accent sm:inline">
@@ -58,7 +58,7 @@ export default function PublicShell({ children }) {
       <footer className="mt-16 border-t border-line">
         <div className="mx-auto grid max-w-[1240px] gap-8 px-6 py-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
-            <Logo className="h-10" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
+            <Logo className="h-10" label={t('site.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('site.name')} />
             {REGISTRATION_IN_APP && (
               <nav aria-label={t('footer.family')} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
                 <span className="font-semibold text-ink">{t('footer.family')}</span>

@@ -1,6 +1,6 @@
 {
-  "name": "مرقام نقاط",
-  "short_name": "مرقام نقاط",
+  "name": "مرقام ولاء",
+  "short_name": "مرقام ولاء",
   "description": "بطاقات نقاط وأختام وهدايا لمتجرك في Apple Wallet وGoogle Wallet.",
   "lang": "ar",
   "dir": "rtl",
@@ -9,5 +9,16 @@
   "display": "browser",
   "background_color": "#172740",
   "theme_color": "#172740",
-  "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }, { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }]
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

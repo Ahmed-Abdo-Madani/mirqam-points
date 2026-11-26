@@ -1,4 +1,4 @@
-import { seoCopy } from '@mirqam-points/shared'
+import { SITE_NAME, seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
@@ -58,6 +58,8 @@ const base = {
   // Titles and descriptions of the public pages, shared with the server-rendered <head>.
   meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا', pages: seoCopy.ar },
   brand: { name: 'مرقام نقاط', label: 'نقاط' },
+  // The website's name (mirqam.sa calls the product this); brand is the app's store name.
+  site: { name: SITE_NAME.ar, label: 'ولاء' },
   common: {
     back: 'رجوع',
     cancel: 'إلغاء',

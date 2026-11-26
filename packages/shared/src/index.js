@@ -15,4 +15,4 @@ export {
 } from './design.js'
 export { computeEarn, DEFAULT_CONFIG, formatMinor, PROGRAM_TYPES, parseMoneyToMinor, validateProgramConfig } from './earn.js'
 export { isE164, normalizePhone } from './phone.js'
-export { classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_URL, seoCopy } from './seo.js'
+export { APP_NAME, classifyPath, INDEXABLE_PAGES, OG_IMAGE, SITE_NAME, SITE_URL, seoCopy } from './seo.js'
