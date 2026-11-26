@@ -8,6 +8,7 @@ import { loadConfig } from './config.js'
 import { CopyError, copyDatabase, verifyDatabase } from './db/copy.js'
 import { openDb } from './db/index.js'
 import { migrate } from './db/migrate.js'
+import { formatTotals, loyaltyTotals } from './db/totals.js'
 import { createForwarder, FORWARD_HEADER, signForwarded, verifyForwarded } from './forwarder.js'
 import { earn, ensureAccount, voidEntry } from './ledger.js'
 import { runtimeMode, upstreamOrigin } from './runtime-mode.js'
@@ -41,6 +42,34 @@ async function seed(db) {
 }
 
 const count = async (db, table) => Number((await db.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n)
+
+describe('loyalty totals', () => {
+  it('reports points and stamps apart, and accounts whose cached balance left the ledger', async () => {
+    const bare = await openDb('memory://')
+    expect(await loyaltyTotals(bare)).toBe(null)
+    expect(formatTotals('target', null)).toBe('totals target: no loyalty schema')
+    await bare.close()
+
+    const db = await migrated()
+    const points = await seedTenant(db)
+    const pts = { ...points, accountId: (await ensureAccount(db, points)).id }
+    await earn(db, { ...pts, points: 40, idempotencyKey: key(), purchaseMinor: 4000 })
+    const stamps = await seedTenant(db, { type: 'stamps' })
+    const stp = { ...stamps, accountId: (await ensureAccount(db, stamps)).id }
+    await earn(db, { ...stp, points: 3, idempotencyKey: key() })
+    const totals = await loyaltyTotals(db)
+    expect(totals.balances).toEqual({
+      points: { accounts: '1', balance: '40', lifetimeEarned: '40' },
+      stamps: { accounts: '1', balance: '3', lifetimeEarned: '3' },
+    })
+    expect(totals.counts).toMatchObject({ tenants: '2', accounts: '2', ledger_entries: '2' })
+    expect(totals.accountsOffLedger).toBe('0')
+    // A cache written outside the ledger shows up.
+    await db.query('UPDATE accounts SET balance = balance + 1 WHERE id = $1', [pts.accountId])
+    expect((await loyaltyTotals(db)).accountsOffLedger).toBe('1')
+    await db.close()
+  })
+})
 
 describe('runtime mode', () => {
   it('keeps a new service in standby until MIRQAM_LIVE=1 and lets FORWARD_TO win', () => {
@@ -125,6 +154,19 @@ describe('database copy', () => {
     expect(lines.find((l) => l.startsWith('FAIL'))).toMatch(/tenants: .*content differs/)
     await copyDatabase({ source, target, mode: 'replace', log: quiet })
     expect(await verifyDatabase({ source, target, log: quiet })).toBe(0)
+  })
+
+  it("verify prints both sides' row counts and balance totals from the same snapshot", async () => {
+    const lines = []
+    expect(await verifyDatabase({ source, target, log: (l) => lines.push(l) })).toBe(0)
+    const totals = lines.filter((l) => l.startsWith('totals '))
+    expect(totals).toHaveLength(2)
+    const [src, dst] = totals
+    expect(src).toMatch(
+      /^totals source: tenants \d+, members \d+, programs \d+, accounts \d+, ledger_entries \d+, gift_cards \d+, gift_card_entries \d+ \| points: \d+ accounts, balance \d+, earned \d+ \| gift cards: 0 halalas \| accounts off ledger: 0$/,
+    )
+    expect(dst.slice('totals target'.length)).toBe(src.slice('totals source'.length))
+    expect(lines.some((l) => l.startsWith('FAIL'))).toBe(false)
   })
 
   it('refuses mismatched releases and leaves the target unchanged', async () => {
