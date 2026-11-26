@@ -116,7 +116,7 @@ export default {
         ],
         [
           'Gift cards',
-          'A gift card is prepaid value at the issuing store only and is not exchangeable for cash unless the law requires it. The card link and code are equivalent to the card — keep them safe. Stores may freeze a card when misuse is suspected.',
+          'A gift card is prepaid value at the issuing store only and is not exchangeable for cash unless the law requires it. The card link and code are equivalent to the card, so keep them safe. Stores may freeze a card when misuse is suspected.',
         ],
         [
           'Accounts',
@@ -138,7 +138,7 @@ export default {
         ['تواصل معنا', `راسلنا على ${CONTACT_EMAIL} ونرد خلال يوم عمل.`],
         [
           'لعملاء المتاجر',
-          'لأسئلة الرصيد أو البطاقة، تواصل مع المتجر أولاً — فهو من يدير برنامجه. إن ضاعت بطاقتك فاطلب من المتجر «إعادة إصدار» البطاقة لتعطيل القديمة.',
+          'لأسئلة الرصيد أو البطاقة، تواصل مع المتجر أولاً، فهو من يدير برنامجه. إن ضاعت بطاقتك فاطلب من المتجر «إعادة إصدار» البطاقة لتعطيل القديمة.',
         ],
         ['لأصحاب المتاجر', 'أنشئ حساباً، ثم برنامجاً، وفعّله، وابدأ من شاشة الكاشير.'],
         ['حذف الحساب', `من التطبيق أو الموقع: الإعدادات ← حذف الحساب ← حذف حسابي. أو راسلنا من بريد حسابك على ${CONTACT_EMAIL}.`, deletionLink.ar],
@@ -148,10 +148,10 @@ export default {
       title: 'Support',
       updated: '',
       sections: [
-        ['Contact us', `Email ${CONTACT_EMAIL} — we reply within one business day.`],
+        ['Contact us', `Email ${CONTACT_EMAIL}. We reply within one business day.`],
         [
           'Store customers',
-          'For balance or card questions, contact the store first — it runs its own program. If you lose your card, ask the store to “reissue” it so the old one stops working.',
+          'For balance or card questions, contact the store first: it runs its own program. If you lose your card, ask the store to “reissue” it so the old one stops working.',
         ],
         ['Store owners', 'Create an account, create and activate a program, and start from the cashier screen.'],
         [
@@ -273,7 +273,7 @@ export default {
         },
         {
           heading: 'Store customers (loyalty members)',
-          body: `Ask the store to delete your data — it can do so from your member page — or email ${CONTACT_EMAIL} and we will pass your request to the store. Your phone number, name, email and marketing consent are deleted, your card stops working, and any remaining balance is forfeited.`,
+          body: `Ask the store to delete your data (it can do so from your member page), or email ${CONTACT_EMAIL} and we will pass your request to the store. Your phone number, name, email and marketing consent are deleted, your card stops working, and any remaining balance is forfeited.`,
         },
       ],
     },

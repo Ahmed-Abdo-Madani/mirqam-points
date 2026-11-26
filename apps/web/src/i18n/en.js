@@ -98,7 +98,7 @@ const base = {
     title: 'A loyalty program that lives',
     titleAccent: "in your customer's wallet",
     subtitle:
-      'Create points, stamp and gift cards that add to Apple Wallet and Google Wallet in one tap and update with every purchase — no app for your customers to install.',
+      'Create points, stamp and gift cards that add to Apple Wallet and Google Wallet in one tap and update with every purchase. Your customers install no app.',
     proof1: 'No customer app',
     proof3: 'Arabic-first',
     openConsole: 'Dashboard',
@@ -111,9 +111,15 @@ const base = {
     featuresKicker: 'Everything a loyalty program needs',
     featuresTitle: 'From the first stamp to the last gift card',
     features: {
-      passes: { title: 'Apple & Google Wallet passes', body: 'A card in your brand on the customer’s phone, with a live balance and reward reminders.' },
-      programs: { title: 'Points, stamps and tiers', body: 'Points per riyal or a stamp per visit, with minimum spend and per-transaction caps.' },
-      cashier: { title: 'Fast cashier', body: 'Phone number or pass scan, then the amount — points are calculated automatically, no typing errors.' },
+      passes: {
+        title: 'Apple & Google Wallet passes',
+        body: 'A card with your store’s logo and colours on the customer’s phone. The balance updates after every purchase.',
+      },
+      programs: { title: 'Points, stamps and rewards', body: 'Points per riyal or a stamp per visit, with minimum spend and per-transaction caps.' },
+      cashier: {
+        title: 'Fast cashier',
+        body: 'Phone number or pass scan, then the bill amount. The system works out the points, so the cashier never types them.',
+      },
       giftCards: { title: 'Gift cards', body: 'Sell digital gift cards at the counter, with partial redemption.' },
       trust: { title: 'Tamper-proof ledger', body: 'Every point has an immutable ledger entry; every correction is recorded with its reason and author.' },
     },
