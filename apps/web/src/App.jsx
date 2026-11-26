@@ -1,5 +1,6 @@
 import { EmptyState, MqSearch, Skeleton } from '@mirqam/ui'
-import { lazy, Suspense } from 'react'
+import { classifyPath } from '@mirqam-points/shared'
+import { lazy, Suspense, useEffect } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/AppShell.jsx'
 import PublicShell from './components/PublicShell.jsx'
@@ -57,9 +58,22 @@ function NotFound() {
   )
 }
 
+/* The tab title follows the page: public pages keep the title the server
+   rendered for them (packages/shared/src/seo.js), in the interface language. */
+function RouteTitle() {
+  const { pathname } = useLocation()
+  const { t } = useI18n()
+  useEffect(() => {
+    const { page } = classifyPath(pathname)
+    document.title = t(page ? `meta.pages.${page}.title` : 'meta.title')
+  }, [pathname, t])
+  return null
+}
+
 export default function App() {
   return (
     <Suspense fallback={<Skeleton className="p-10" rows={2} />}>
+      <RouteTitle />
       <Routes>
         <Route path="/hq-entry" element={<HqEntry />} />
         <Route path="/hq-admin" element={<HqAdmin />} />

@@ -51,7 +51,7 @@ describe('malformed URLs', () => {
   it('still serves well-formed paths, including encoded ones', async () => {
     expect((await fetch(`${base}/`)).status).toBe(200)
     expect((await fetch(`${base}/assets/app.js`)).status).toBe(200)
-    const spa = await fetch(`${base}/members/%D8%B9%D8%B6%D9%88`)
+    const spa = await fetch(`${base}/app/members/%D8%B9%D8%B6%D9%88`)
     expect(spa.status).toBe(200)
     expect(await spa.text()).toContain('console')
     expect((await fetch(`${base}/api/nope%20x`)).status).toBe(404)

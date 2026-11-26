@@ -1,3 +1,4 @@
+import { seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* English. Keep keys identical to ar.js — i18n.test.js enforces it. */
 
@@ -54,7 +55,8 @@ const base = {
     inactive: 'No active paid subscription',
     until: 'Valid until',
   },
-  meta: { title: 'Mirqam Points | Loyalty programs & gift cards' },
+  // Titles and descriptions of the public pages, shared with the server-rendered <head>.
+  meta: { title: 'Mirqam Points | Loyalty programs & gift cards', pages: seoCopy.en },
   brand: { name: 'Mirqam Points', label: 'Points' },
   common: {
     back: 'Back',

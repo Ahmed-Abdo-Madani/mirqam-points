@@ -1,3 +1,4 @@
+import { seoCopy } from '@mirqam-points/shared'
 import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 /* Arabic (primary). Keep keys identical to en.js — i18n.test.js enforces it. */
 
@@ -54,7 +55,8 @@ const base = {
     inactive: 'لا يوجد اشتراك مدفوع فعّال',
     until: 'صالح حتى',
   },
-  meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا' },
+  // Titles and descriptions of the public pages, shared with the server-rendered <head>.
+  meta: { title: 'مرقام نقاط | برامج الولاء وبطاقات الهدايا', pages: seoCopy.ar },
   brand: { name: 'مرقام نقاط', label: 'نقاط' },
   common: {
     back: 'رجوع',

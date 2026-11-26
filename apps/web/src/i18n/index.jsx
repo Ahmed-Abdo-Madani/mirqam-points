@@ -38,7 +38,6 @@ export function I18nProvider({ children }) {
     const html = document.documentElement
     html.lang = locale
     html.dir = locale === 'ar' ? 'rtl' : 'ltr'
-    document.title = translate(locale, 'meta.title')
     try {
       localStorage.setItem(STORAGE_KEY, locale)
     } catch {
