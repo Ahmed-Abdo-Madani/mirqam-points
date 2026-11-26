@@ -1,10 +1,22 @@
 User-agent: *
-Allow: /blog/
-Disallow: /api/
-Disallow: /app
-Disallow: /admin
+Allow: /
+# Sign-in, merchant console and platform administration. `/app$` + `/app/`
+# rather than `/app`: rules are prefixes, and `/app` would also block
+# /apple-touch-icon.png and /app-store-badge.svg.
 Disallow: /login
 Disallow: /register
 Disallow: /reset-password
+Disallow: /app$
+Disallow: /app/
+Disallow: /admin
+Disallow: /hq-entry
+Disallow: /hq-admin
+# API, wallet web services and webhooks; the app's update bundle
+Disallow: /api/
+Disallow: /live-update/
+# A member's own card, gift card or enrollment link
+Disallow: /p/
+Disallow: /gift/
+Disallow: /join/
 
 Sitemap: https://loyalty.mirqam.sa/sitemap.xml

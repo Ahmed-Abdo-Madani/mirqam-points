@@ -1,0 +1,13 @@
+{
+  "name": "مرقام نقاط",
+  "short_name": "مرقام نقاط",
+  "description": "بطاقات نقاط وأختام وهدايا لمتجرك في Apple Wallet وGoogle Wallet.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#172740",
+  "theme_color": "#172740",
+  "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }, { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }]
+}
