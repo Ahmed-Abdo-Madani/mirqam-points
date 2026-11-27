@@ -28,6 +28,7 @@ export {
   pagerBillingProducts,
   pagerBranchAddonCode,
   pagerFeatureKey,
+  pagerLoyaltyUpgrades,
   pagerPrice,
   pagerTotal,
 } from './pager-plans.js'

@@ -239,6 +239,14 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     async subAccountCancel(ref) {
       return call('POST', `subscriptions/${encodeURIComponent(ref)}/cancel`, {})
     },
+    /** Changes a sub-account's plan. A cheaper price is scheduled for the next renewal (nothing charged now). */
+    async subAccountChangePlan(ref, { plan, cycle }) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/change-plan`, { plan, cycle })
+    },
+    /** Undoes a stopped renewal (the subscription renews again at its price). */
+    async subAccountResume(ref) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/resume`, {})
+    },
     /** `listener(tenantId)` after each applied Loyalty entitlement (paid, renewed, lapsed). */
     onLoyaltyApplied(listener) {
       loyaltyListeners.push(listener)

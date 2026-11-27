@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/AppShell.jsx'
 import { PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
+import PagerPlusUpgrade from '../../components/PagerPlusUpgrade.jsx'
 import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
@@ -331,6 +332,13 @@ function TicketCard({ ticket, children }) {
 }
 
 /** Owners and managers: counter QR, TV link, branches, settings, brand, reports and the plan. */
+/** Owner on the website, Basic included with paid Loyalty: the one Plus upgrade card (nothing otherwise). */
+function UpgradeFromTab() {
+  const { data, reload } = useApi('/billing/pager')
+  if (!data?.included || !data.upgrade) return null
+  return <PagerPlusUpgrade offer={data} checkoutHost={data.checkoutHost} onDone={reload} />
+}
+
 function Manage({ state, reload }) {
   const { t } = useI18n()
   const { can } = useSession()
@@ -351,6 +359,7 @@ function Manage({ state, reload }) {
   const usable = state.branches.filter((b) => b.active !== false)
   return (
     <div className="grid gap-5">
+      {can('owner') && PURCHASES_IN_APP && <UpgradeFromTab />}
       {failure && (
         <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
           {errorText(failure)}

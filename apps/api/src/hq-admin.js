@@ -68,9 +68,9 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
     )
     // Paid pager subscriptions that a Loyalty plan took over (renewal stopped, nothing refunded): settle by hand.
     const { rows: pagerToSettle } = await db.query(
-      `SELECT p.tenant_id, t.name, p.tier, p.cycle, p.branches, p.with_loyalty, p.status, p.expires_at, p.included_since
+      `SELECT p.tenant_id, t.name, p.tier, p.cycle, p.branches, p.with_loyalty, p.status, p.expires_at, p.included_since, p.loyalty_action
          FROM pager_subscriptions p JOIN tenants t ON t.id = p.tenant_id
-        WHERE p.source = 'billing' AND p.included_since IS NOT NULL
+        WHERE p.source = 'billing' AND p.loyalty_action IS NOT NULL
         ORDER BY p.included_since DESC LIMIT 200`,
     )
     res.json({ asOf: new Date().toISOString(), tenants, paid: { count: paid.count, amount: String(paid.amount) }, wallet: wallet.status(), pagerToSettle })

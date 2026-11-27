@@ -36,6 +36,13 @@ export function HqEntry() {
     </main>
   )
 }
+/** What the Loyalty rules did to a paid pager subscription (pager_subscriptions.loyalty_action). */
+const PAGER_ACTION = {
+  renewal_stopped: 'hq.pagerActionRenewalStopped',
+  price_switched: 'hq.pagerActionPriceSwitched',
+  stopped_on_lapse: 'hq.pagerActionStoppedOnLapse',
+}
+
 export default function HqAdmin() {
   const { t, locale, setLocale } = useI18n(),
     [data, setData] = useState(null),
@@ -139,7 +146,7 @@ export default function HqAdmin() {
                   <table className="w-full text-start text-sm">
                     <thead>
                       <tr>
-                        {['name', 'pagerPlan', 'expires', 'pagerSince'].map((k) => (
+                        {['name', 'pagerPlan', 'pagerAction', 'expires', 'pagerSince'].map((k) => (
                           <th key={k} className="p-3 text-start">
                             {t(['hq', k].join('.'))}
                           </th>
@@ -154,6 +161,7 @@ export default function HqAdmin() {
                             {x.tier} · {x.cycle ?? '—'} · <span className="tnum">{x.branches}</span>
                             {x.with_loyalty ? ` · ${t('hq.loyaltyPrice')}` : ''}
                           </td>
+                          <td>{t(PAGER_ACTION[x.loyalty_action] ?? 'hq.pagerActionRenewalStopped')}</td>
                           <td className="tnum">{x.expires_at ? new Date(x.expires_at).toLocaleDateString() : '—'}</td>
                           <td className="tnum">{x.included_since ? new Date(x.included_since).toLocaleDateString() : '—'}</td>
                         </tr>

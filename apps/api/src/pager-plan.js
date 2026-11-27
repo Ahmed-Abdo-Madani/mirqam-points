@@ -1,17 +1,26 @@
 /* Mirqam Pager plan (بيجر مرقام) on the loyalty platform.
 
-   Two ways to have the pager (owner, 2026-11-28):
-   - INCLUDED with a paid Mirqam Loyalty plan (`hasPaidLoyalty`: active or expiring, or POS-managed): no
-     pager subscription, no checkout. What is included is PAGER_INCLUDED_WITH_LOYALTY. Tracked by a row
+   Two ways to have the pager (owner, 2026-11-28: "Basic included and Plus as a paid"):
+   - With a paid Mirqam Loyalty plan (`hasPaidLoyalty`: active or expiring, or POS-managed): BASIC is
+     INCLUDED (PAGER_INCLUDED_WITH_LOYALTY), with no pager subscription and no checkout. Tracked by a row
      with source 'loyalty' (made on the first visit to the Pager tab) so the POS push can be tracked and
-     retried. When Loyalty lapses the pager turns off through the bridge (data kept on the POS side), and
-     comes back on by itself when Loyalty is paid again.
+     retried. PLUS is a paid upgrade for these workspaces at the with-Loyalty Plus price (25 / 250 per
+     branch, `pager_plus_loyalty` + `pager_plus_loyalty_branch`). When Loyalty lapses the included pager
+     turns off through the bridge (data kept on the POS side) and comes back on by itself when Loyalty is
+     paid again.
    - STANDALONE for a business without paid Loyalty: Basic / Plus per branch, 14-day trial, checkout
      through mirqam-billing (platform "loyalty", sub-account `pager:<tenant>`, `<plan>_branch` add-ons).
 
-   A paid standalone subscription on a workspace that has (or later buys) paid Loyalty is never charged
-   again: its renewal is stopped once (included_since), the pager stays on as included, nothing is
-   refunded automatically, and the case is logged and listed in HQ admin for Mirqam to settle by hand.
+   A paid pager subscription on a workspace that has (or later buys) paid Loyalty (loyalty_action):
+   - Basic: never charged again; renewal stopped once, Basic stays on as included ('renewal_stopped').
+   - Plus at 49 / 490: keeps renewing as Plus, at the Loyalty price from its next renewal (billing
+     change-plan, scheduled; 'price_switched'). Its branch add-ons cannot be moved to the Loyalty add-on
+     without a charge, so they are listed to settle by hand.
+   - Plus at the Loyalty price, Loyalty lapses: the paid period runs to its end at the price paid; the
+     renewal is stopped ('stopped_on_lapse') and the page shows the standalone price (49 / 490) for the
+     owner to subscribe again, so nothing is charged at 49 without being shown first. Loyalty paid again
+     before the end: the renewal is resumed.
+   Nothing is refunded automatically; every case is logged and listed in HQ admin.
 
    Entitlement → POS: every change pushes `active` to the POS API (POST /v1/loyalty-bridge/pager). A
    failed push is kept on the row and retried by the lifecycle job. */
@@ -24,6 +33,7 @@ import {
   PAGER_TRIAL_DAYS,
   pagerBillingCode,
   pagerBranchAddonCode,
+  pagerLoyaltyUpgrades,
   pagerPrice,
 } from '@mirqam-points/shared'
 import { HttpError } from './http.js'
@@ -34,6 +44,7 @@ const LIVE = new Set(['trialing', 'active', 'past_due'])
 const PREFIX = 'pager'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ref = (tenantId) => `${PREFIX}:${tenantId}`
+const rank = (tier) => PAGER_TIERS.indexOf(tier)
 // A Loyalty plan with no end date known here (should not happen): keep the included pager a year ahead.
 const FAR = () => new Date(Date.now() + 365 * DAY)
 
@@ -43,7 +54,7 @@ export function parsePagerCode(code) {
   return m ? { tier: m[1], withLoyalty: Boolean(m[2]) } : null
 }
 
-/** What the included pager is, from the constant: tier and branch count (null = every branch). */
+/** What the included pager is, from the constant: the tier, on every branch. */
 export const includedPlan = () => ({
   tier: PAGER_INCLUDED_WITH_LOYALTY.tier,
   branches: PAGER_INCLUDED_WITH_LOYALTY.branches ?? PAGER_MAX_BRANCHES,
@@ -68,10 +79,12 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
   }
 
   const live = (r, now = new Date()) => Boolean(r && LIVE.has(r.status) && new Date(r.expires_at) > now)
+  /** A live paid subscription above what Loyalty includes (Plus). */
+  const paidUpgrade = (r, now = new Date()) => Boolean(r?.source === 'billing' && live(r, now) && rank(r.tier) > rank(includedPlan().tier))
 
-  /** What the POS should run for this workspace: included (paid Loyalty) wins over the row's own plan. */
+  /** What the POS should run for this workspace: a paid Plus, else the included Basic, else the row's own plan. */
   function effective(r, included, now = new Date()) {
-    if (included) return { active: true, ...includedPlan(), until: included.until }
+    if (included && !paidUpgrade(r, now)) return { active: true, ...includedPlan(), until: included.until }
     if (live(r, now)) return { active: true, tier: r.tier, branches: r.branches, until: new Date(r.expires_at) }
     return { active: false, tier: r?.tier ?? 'basic', branches: r?.branches ?? 1, until: null }
   }
@@ -132,11 +145,33 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
     return { ok: !error, reason: error }
   }
 
+  /** One billing call for a paid subscription; false (logged, retried by the lifecycle job) when it fails. */
+  async function billingStep(tenantId, what, fn) {
+    if (!billing.remote || typeof fn !== 'function') return false
+    try {
+      await fn(ref(tenantId))
+      return true
+    } catch (err) {
+      log.warn?.(`[pager] could not ${what} for ${ref(tenantId)}: ${err?.code || err?.message}`)
+      return false
+    }
+  }
+
+  async function markAction(tenantId, action) {
+    await db.query(
+      'UPDATE pager_subscriptions SET loyalty_action=$2, included_since = CASE WHEN $2::text IS NULL THEN NULL ELSE now() END, updated_at=now() WHERE tenant_id=$1',
+      [tenantId, action],
+    )
+  }
+
+  const describeRow = (r) => `${r.tier}${r.with_loyalty ? ' at the Loyalty price' : ''}, ${r.cycle ?? 'n/a'}, ${r.branches} branch`
+
   /**
    * Brings the row in line with the Loyalty plan. With paid Loyalty: no row yet → a 'loyalty' row (only
-   * when `create`, i.e. the first visit to the Pager tab); a trial or a lapsed loyalty row → included at
-   * once (no gap); a paid pager subscription → renewal stopped once, logged. Without paid Loyalty: a live
-   * 'loyalty' row lapses (pager off, data kept). Pushes to the POS when what it should run changed.
+   * when `create`, i.e. the first visit to the Pager tab); a trial, a lapsed loyalty row or an ended paid
+   * subscription → included at once (no gap); a paid subscription → see the header (loyalty_action).
+   * Without paid Loyalty: a live 'loyalty' row lapses (pager off, data kept), and a paid Plus at the
+   * Loyalty price stops renewing at that price. Pushes to the POS when what it should run changed.
    */
   async function ensureIncluded(tenantId, { create = false, now = new Date() } = {}) {
     const included = await paidLoyalty(tenantId)
@@ -153,35 +188,44 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
         await pushToPos(tenantId, included)
         return { included }
       }
-      if (r.source === 'trial' || r.source === 'loyalty') {
-        const changed = r.source !== 'loyalty' || !live(r, now) || new Date(r.expires_at).getTime() !== included.until.getTime() || r.tier !== tier
+      if (r.source === 'trial' || r.source === 'loyalty' || (r.source === 'billing' && !live(r, now))) {
+        const changed =
+          r.source !== 'loyalty' || !live(r, now) || new Date(r.expires_at).getTime() !== included.until.getTime() || r.tier !== tier || r.branches !== branches
         if (changed) {
           await db.query(
-            "UPDATE pager_subscriptions SET source='loyalty', status='active', tier=$2, branches=$3, expires_at=$4, updated_at=now() WHERE tenant_id=$1",
+            "UPDATE pager_subscriptions SET source='loyalty', status='active', tier=$2, branches=$3, expires_at=$4, loyalty_action=NULL, included_since=NULL, updated_at=now() WHERE tenant_id=$1",
             [tenantId, tier, branches, included.until],
           )
-          if (r.pos_state !== 'on' || r.source !== 'loyalty' || r.pos_error) await pushToPos(tenantId, included)
+          if (r.pos_state !== 'on' || r.source !== 'loyalty' || r.pos_error || r.tier !== tier) await pushToPos(tenantId, included)
         }
         return { included }
       }
-      // A paid standalone subscription: never charge it again; keep the pager on as included.
-      if (r.source === 'billing' && !r.included_since) {
-        let stopped = false
-        if (live(r, now) && billing.remote && billing.subAccountCancel) {
-          try {
-            await billing.subAccountCancel(ref(tenantId))
-            stopped = true
-          } catch (err) {
-            log.warn?.(`[pager] could not stop the renewal of ${ref(tenantId)} now that Loyalty includes it: ${err?.code || err?.message}`)
-          }
-        } else stopped = true
-        if (stopped) {
-          await db.query('UPDATE pager_subscriptions SET included_since=now(), updated_at=now() WHERE tenant_id=$1', [tenantId])
-          log.warn?.(
-            `[pager] settle by hand: ${ref(tenantId)} (${r.tier}${r.with_loyalty ? ', with-Loyalty price' : ''}, ${r.cycle ?? 'n/a'}, ${r.branches} branch) is now included with paid Loyalty; renewal stopped, nothing refunded`,
-          )
+      // A live paid subscription on a workspace with paid Loyalty.
+      if (!paidUpgrade(r, now)) {
+        // Basic (or anything Loyalty already includes): never charge it again; Basic stays on as included.
+        if (r.loyalty_action !== 'renewal_stopped' && (await billingStep(tenantId, 'stop the renewal', billing.subAccountCancel))) {
+          await markAction(tenantId, 'renewal_stopped')
+          log.warn?.(`[pager] settle by hand: ${ref(tenantId)} (${describeRow(r)}) is now included with paid Loyalty; renewal stopped, nothing refunded`)
           await pushToPos(tenantId, included)
         }
+        return { included }
+      }
+      // Plus at 49 / 490: keeps renewing as Plus, at the Loyalty price from its next renewal.
+      if (!r.with_loyalty && r.loyalty_action !== 'price_switched') {
+        const plan = { plan: pagerBillingCode(r.tier, true), cycle: r.cycle === 'yearly' ? 'yearly' : 'monthly' }
+        if (await billingStep(tenantId, 'switch to the Loyalty Plus price', (x) => billing.subAccountChangePlan?.(x, plan))) {
+          await markAction(tenantId, 'price_switched')
+          log.warn?.(
+            `[pager] settle by hand: ${ref(tenantId)} (${describeRow(r)}) renews at the Loyalty Plus price from its next renewal; nothing refunded` +
+              (r.branches > 1 ? `; its ${r.branches - 1} branch add-on(s) still renew at the standalone price: move them by hand` : ''),
+          )
+        }
+        return { included }
+      }
+      // Plus at the Loyalty price whose renewal was stopped by a lapse: Loyalty is paid again, renew as before.
+      if (r.with_loyalty && r.loyalty_action === 'stopped_on_lapse' && (await billingStep(tenantId, 'resume the renewal', billing.subAccountResume))) {
+        await markAction(tenantId, null)
+        log.warn?.(`[pager] ${ref(tenantId)} (${describeRow(r)}): Loyalty paid again, renewal at the Loyalty Plus price resumed`)
       }
       return { included }
     }
@@ -189,6 +233,20 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
     if (r?.source === 'loyalty' && live(r, now)) {
       await db.query("UPDATE pager_subscriptions SET status='expired', expires_at=$2, updated_at=now() WHERE tenant_id=$1", [tenantId, now])
       await pushToPos(tenantId, null)
+      return { included: null }
+    }
+    if (paidUpgrade(r, now)) {
+      // Plus at the Loyalty price: runs to its end at the price paid, never renews at it without Loyalty.
+      if (r.with_loyalty && r.loyalty_action !== 'stopped_on_lapse') {
+        if (await billingStep(tenantId, 'stop the Loyalty-price renewal', billing.subAccountCancel)) {
+          await markAction(tenantId, 'stopped_on_lapse')
+          log.warn?.(`[pager] ${ref(tenantId)} (${describeRow(r)}): Loyalty lapsed; Plus runs to its end, the owner is shown 49 / 490 to renew`)
+        }
+      } else if (!r.with_loyalty && r.loyalty_action === 'price_switched') {
+        // Switched to the Loyalty price but not renewed yet: keep the standalone price (billing drops the scheduled change).
+        const plan = { plan: pagerBillingCode(r.tier, false), cycle: r.cycle === 'yearly' ? 'yearly' : 'monthly' }
+        if (await billingStep(tenantId, 'keep the standalone Plus price', (x) => billing.subAccountChangePlan?.(x, plan))) await markAction(tenantId, null)
+      }
     }
     return { included: null }
   }
@@ -210,19 +268,23 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
       await tx.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE', [tenantId])
       const prior = await row(tenantId, tx)
       if (prior && prior.source === 'billing' && Number(prior.billing_version) > Number(ent.version || 0)) return false
+      // A renewal at the Loyalty price completes a price switch: nothing left to settle for it.
+      const settled = prior?.loyalty_action === 'price_switched' && plan.withLoyalty
       await tx.query(
         `INSERT INTO pager_subscriptions(tenant_id,tier,cycle,branches,with_loyalty,status,source,expires_at,billing_version,updated_at)
          VALUES($1,$2,$3,$4,$5,$6,'billing',$7,$8,now())
          ON CONFLICT(tenant_id) DO UPDATE SET tier=EXCLUDED.tier, cycle=EXCLUDED.cycle, branches=EXCLUDED.branches,
            with_loyalty=EXCLUDED.with_loyalty, status=EXCLUDED.status, source='billing', expires_at=EXCLUDED.expires_at,
-           billing_version=EXCLUDED.billing_version, updated_at=now()`,
-        [tenantId, plan.tier, ent.cycle === 'yearly' ? 'yearly' : 'monthly', branches, plan.withLoyalty, status, until, Number(ent.version || 0)],
+           billing_version=EXCLUDED.billing_version, updated_at=now(),
+           loyalty_action = CASE WHEN pager_subscriptions.source = 'billing' AND NOT $9 THEN pager_subscriptions.loyalty_action ELSE NULL END,
+           included_since = CASE WHEN pager_subscriptions.source = 'billing' AND NOT $9 THEN pager_subscriptions.included_since ELSE NULL END`,
+        [tenantId, plan.tier, ent.cycle === 'yearly' ? 'yearly' : 'monthly', branches, plan.withLoyalty, status, until, Number(ent.version || 0), settled],
       )
       return true
     })
     if (changed) {
       await pushToPos(tenantId)
-      // Paid Loyalty at the same time: stop this subscription's renewal (once).
+      // Paid Loyalty at the same time (or lapsed): follow the rules in the header.
       await ensureIncluded(tenantId)
     }
     return changed
@@ -232,18 +294,33 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
   // A Loyalty plan changed (paid, renewed, lapsed): the included pager follows it at once.
   if (billing.onLoyaltyApplied) billing.onLoyaltyApplied((tenantId) => ensureIncluded(tenantId).catch(() => {}))
 
-  /** Standalone prices (the only ones sold). */
-  function offers() {
+  /** What is sold to this workspace: with paid Loyalty only the upgrade (Plus) at the Loyalty price; else the standalone prices. */
+  function offers(included) {
+    const tiers = included ? pagerLoyaltyUpgrades() : PAGER_TIERS
     const out = {}
-    for (const tier of PAGER_TIERS) {
+    for (const tier of tiers) {
       out[tier] = {
-        monthly: pagerPrice(tier, 'monthly'),
-        yearly: pagerPrice(tier, 'yearly'),
+        monthly: pagerPrice(tier, 'monthly', Boolean(included)),
+        yearly: pagerPrice(tier, 'yearly', Boolean(included)),
         freeWithPosAdvanced: PAGER_PLANS[tier].freeWithPosAdvanced,
       }
     }
-    return { prices: out, cycles: PAGER_CYCLES }
+    return { prices: out, cycles: PAGER_CYCLES, withLoyaltyPrice: Boolean(included) }
   }
+
+  const subscriptionView = (r) => ({
+    tier: r.tier,
+    cycle: r.cycle,
+    branches: r.branches,
+    status: r.status,
+    source: r.source,
+    active: live(r),
+    expiresAt: r.expires_at,
+    posLinked: Boolean(r.pos_tenant),
+    posState: r.pos_state,
+    posError: r.pos_error,
+    withLoyaltyPrice: Boolean(r.with_loyalty) || r.loyalty_action === 'price_switched',
+  })
 
   return {
     applyEntitlement,
@@ -254,21 +331,29 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
     async status(tenantId) {
       const included = await paidLoyalty(tenantId)
       const r = await row(tenantId)
+      const upgraded = Boolean(included) && paidUpgrade(r)
       const base = {
-        ...offers(),
+        ...offers(included),
         currency: 'SAR',
         vatExcluded: true,
         trialDays: PAGER_TRIAL_DAYS,
         maxBranches: PAGER_MAX_BRANCHES,
-        // Included with paid Loyalty: nothing to buy, no trial.
+        // With paid Loyalty: Basic included, no trial; Plus offered (once) at the Loyalty price.
         included: Boolean(included),
+        includedTier: included ? includedPlan().tier : null,
+        upgrade: included && !upgraded ? (pagerLoyaltyUpgrades()[0] ?? null) : null,
         trialAvailable: !included && !r,
-        purchasable: !included && Boolean(billing.remote && billing.ready),
+        purchasable: Boolean(billing.remote && billing.ready) && (!included || (!upgraded && pagerLoyaltyUpgrades().length > 0)),
         checkoutHost: billing.checkoutHost || null,
         // An included pager whose Loyalty plan lapsed: the page offers both ways back.
         lapsedFromLoyalty: !included && r?.source === 'loyalty' && !live(r),
+        // Plus at the Loyalty price after a lapse: runs to its end; renewing is at the standalone price, shown here first.
+        renewsAtStandalone:
+          !included && paidUpgrade(r) && r.loyalty_action === 'stopped_on_lapse'
+            ? { tier: r.tier, until: r.expires_at, monthly: pagerPrice(r.tier, 'monthly'), yearly: pagerPrice(r.tier, 'yearly') }
+            : null,
       }
-      if (included) {
+      if (included && !upgraded) {
         const { tier, branches } = includedPlan()
         return {
           ...base,
@@ -283,31 +368,17 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
             posLinked: Boolean(r?.pos_tenant),
             posState: r?.pos_state ?? null,
             posError: r?.pos_error ?? null,
-            // A paid standalone subscription Loyalty took over: still listed until its period ends.
+            // A paid Basic subscription Loyalty took over: still listed until its period ends.
             ...(r?.source === 'billing'
-              ? { replacedSubscription: { tier: r.tier, cycle: r.cycle, expiresAt: r.expires_at, renewalStopped: Boolean(r.included_since) } }
+              ? { replacedSubscription: { tier: r.tier, cycle: r.cycle, expiresAt: r.expires_at, renewalStopped: r.loyalty_action === 'renewal_stopped' } }
               : {}),
           },
         }
       }
-      return {
-        ...base,
-        subscription: r && {
-          tier: r.tier,
-          cycle: r.cycle,
-          branches: r.branches,
-          status: r.status,
-          source: r.source,
-          active: live(r),
-          expiresAt: r.expires_at,
-          posLinked: Boolean(r.pos_tenant),
-          posState: r.pos_state,
-          posError: r.pos_error,
-        },
-      }
+      return { ...base, subscription: r && subscriptionView(r) }
     },
 
-    /** Starts the one free trial (no card). Turns the pager on in the POS right away. */
+    /** Starts the one free trial (no card). Turns the pager on in the POS right away. Not with paid Loyalty (Basic is included). */
     async startTrial(tenantId, tier) {
       if (!PAGER_TIERS.includes(tier)) throw new HttpError(400, 'validation_failed')
       if (await paidLoyalty(tenantId)) throw new HttpError(409, 'pager_included')
@@ -324,21 +395,22 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
       return this.status(tenantId)
     },
 
-    /** Standalone checkout. Never offered or accepted while the pager is included with paid Loyalty, and
-        only the standalone codes are ever sold (the pager_*_loyalty codes stay in the catalog for old invoices). */
+    /** Checkout. Without paid Loyalty: the standalone codes. With paid Loyalty: only the upgrade (Plus) at the
+        Loyalty price (`pager_plus_loyalty`); what is included (Basic) is refused, so pager_basic_loyalty is never sold. */
     async checkout(tenantId, { tier, cycle, branches, coupon, autoRenew }, requestKey, returnBase) {
       const n = Number(branches ?? 1)
       if (!PAGER_TIERS.includes(tier) || !PAGER_CYCLES.includes(cycle) || !Number.isInteger(n) || n < 1 || n > PAGER_MAX_BRANCHES)
         throw new HttpError(400, 'validation_failed')
-      if (await paidLoyalty(tenantId)) throw new HttpError(409, 'pager_included')
+      const withLoyalty = Boolean(await paidLoyalty(tenantId))
+      if (withLoyalty && !pagerLoyaltyUpgrades().includes(tier)) throw new HttpError(409, 'pager_included')
       if (!billing.remote || !billing.subAccountCheckout) throw new HttpError(503, 'billing_unavailable')
       const r = await billing.subAccountCheckout(
         tenantId,
         ref(tenantId),
         {
-          plan: pagerBillingCode(tier),
+          plan: pagerBillingCode(tier, withLoyalty),
           cycle,
-          items: n > 1 ? [{ plan: pagerBranchAddonCode(tier), quantity: n - 1 }] : [],
+          items: n > 1 ? [{ plan: pagerBranchAddonCode(tier, withLoyalty), quantity: n - 1 }] : [],
           // HQ coupons (e.g. a 100% test coupon) are checked by billing against the pager_* plan codes.
           coupon: typeof coupon === 'string' && coupon.trim() ? coupon.trim().slice(0, 40) : undefined,
           autoRenew,
@@ -357,19 +429,19 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
       return applyEntitlement(await billing.subAccountEntitlement(ref(tenantId)))
     },
 
-    /** HQ admin: paid pager subscriptions Loyalty took over (renewal stopped, nothing refunded): settle by hand. */
+    /** HQ admin: paid pager subscriptions the Loyalty rules changed (nothing refunded): settle by hand. */
     async toSettle() {
       return (
         await db.query(
-          `SELECT p.tenant_id, t.name, p.tier, p.cycle, p.branches, p.with_loyalty, p.status, p.expires_at, p.included_since
+          `SELECT p.tenant_id, t.name, p.tier, p.cycle, p.branches, p.with_loyalty, p.status, p.expires_at, p.included_since, p.loyalty_action
              FROM pager_subscriptions p JOIN tenants t ON t.id = p.tenant_id
-            WHERE p.source = 'billing' AND p.included_since IS NOT NULL
+            WHERE p.source = 'billing' AND p.loyalty_action IS NOT NULL
             ORDER BY p.included_since DESC LIMIT 200`,
         )
       ).rows
     },
 
-    /* Lifecycle job: ends lapsed trials, follows the Loyalty plan (included, lapse, comeback, stopped renewals),
+    /* Lifecycle job: ends lapsed trials, follows the Loyalty plan (included, lapse, comeback, paid subscriptions),
        and retries POS pushes that failed or are out of date. */
     async runLifecycle(now = new Date()) {
       await db.query("UPDATE pager_subscriptions SET status='expired', updated_at=now() WHERE source='trial' AND status='trialing' AND expires_at <= $1", [now])
@@ -378,7 +450,7 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
           `SELECT tenant_id FROM pager_subscriptions
             WHERE source = 'loyalty'
                OR (source = 'trial' AND status = 'trialing')
-               OR (source = 'billing' AND included_since IS NULL AND status IN ('trialing','active','past_due'))
+               OR (source = 'billing' AND status IN ('trialing','active','past_due'))
                OR pos_error IS NOT NULL
                OR pos_state IS NULL
                OR (pos_state = 'on') <> (status IN ('trialing','active','past_due') AND expires_at > $1)

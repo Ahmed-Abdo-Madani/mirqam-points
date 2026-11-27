@@ -27,9 +27,13 @@ const standalone = {
 const included = {
   ...standalone,
   included: true,
+  includedTier: 'basic',
+  upgrade: 'plus',
+  withLoyaltyPrice: true,
+  prices: { plus: { monthly: 2500, yearly: 25000 } },
   trialAvailable: false,
-  purchasable: false,
-  subscription: { tier: 'plus', branches: 50, status: 'active', source: 'loyalty', active: true, expiresAt: '2027-06-01T00:00:00Z' },
+  purchasable: true,
+  subscription: { tier: 'basic', branches: 50, status: 'active', source: 'loyalty', active: true, expiresAt: '2027-06-01T00:00:00Z' },
 }
 const render = (data) => {
   state.data = data
@@ -37,22 +41,66 @@ const render = (data) => {
 }
 
 describe('in-app pager plan page', () => {
-  it('included with paid Loyalty: one "included" card and the way to the Pager tab; no prices, trial or checkout', () => {
+  it('paid Loyalty: Basic included, the way to the Pager tab, and ONE Plus upgrade card at 25 / 250; no trial, no Basic price', () => {
     const html = render(included)
-    expect(html).toContain('مشمول في اشتراكك في مرقام ولاء')
+    expect(html).toContain('البيجر الأساسي مشمول في اشتراكك في مرقام ولاء')
     expect(html).toContain('href="/app/pager"')
-    expect(html).not.toContain('ر.س')
+    expect(html).toContain('بلس — 25 ر.س / فرع / شهر أو 250 ر.س / سنة')
+    expect(html.split('رقِّ إلى بلس').length - 1).toBe(1)
+    expect(html).not.toContain('29 ر.س')
+    expect(html).not.toContain('15 ر.س')
     expect(html).not.toContain('ابدأ التجربة')
-    expect(html).not.toContain('>اشترك<')
   })
 
-  it('standalone: the yearly switch, the list prices and the confirmed yearly rule (290 = 10 × 29)', () => {
+  it('paid Loyalty with Plus bought: the Plus subscription at the Loyalty price, Basic stays included, no upgrade card', () => {
+    const html = render({
+      ...included,
+      upgrade: null,
+      purchasable: false,
+      subscription: {
+        tier: 'plus',
+        cycle: 'monthly',
+        branches: 2,
+        status: 'active',
+        source: 'billing',
+        active: true,
+        withLoyaltyPrice: true,
+        expiresAt: '2027-01-01T00:00:00Z',
+      },
+    })
+    expect(html).toContain('بسعر مشتركي مرقام ولاء')
+    expect(html).toContain('الأساسي يبقى مشمولاً')
+    expect(html).not.toContain('رقِّ إلى بلس')
+  })
+
+  it('Loyalty lapsed with Plus at the Loyalty price: the standalone price is shown before any renewal', () => {
+    const html = render({
+      ...standalone,
+      trialAvailable: false,
+      renewsAtStandalone: { tier: 'plus', until: '2027-01-01T00:00:00Z', monthly: 4900, yearly: 49000 },
+      subscription: {
+        tier: 'plus',
+        cycle: 'monthly',
+        branches: 1,
+        status: 'active',
+        source: 'billing',
+        active: true,
+        withLoyaltyPrice: true,
+        expiresAt: '2027-01-01T00:00:00Z',
+      },
+    })
+    expect(html).toContain('49 ر.س / فرع / شهر أو 490 ر.س / سنة')
+    expect(html).toContain('لن يتجدد بسعر مشتركي الولاء')
+  })
+
+  it('standalone: the yearly switch, the list prices, Basic included with Loyalty and the Plus Loyalty price', () => {
     const html = render(standalone)
     expect(html).toContain('السنوي بسعر عشرة أشهر')
     expect(html).toContain('سنوي')
     expect(html).toContain('29 ر.س')
-    // The old with-Loyalty price line is gone; the inclusion is stated without a price.
+    // No Basic with-Loyalty price (15) any more; Basic says it is included, Plus says its Loyalty price.
     expect(html).not.toContain('15 ر.س')
     expect(html).toContain('مشمول مع أي اشتراك مدفوع في مرقام ولاء')
+    expect(html).toContain('مع مرقام ولاء: 25 ر.س / فرع / شهر')
   })
 })

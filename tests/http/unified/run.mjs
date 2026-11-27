@@ -32,8 +32,13 @@ function fake(handler) {
 
 // mirqam-billing: nothing is subscribed through it in this stage except what the webhooks say.
 const billingCalls = []
-const billing = await fake(async (req) => {
+const billingBodies = []
+const billing = await fake(async (req, body) => {
   billingCalls.push(`${req.method} ${req.url}`)
+  if (req.url.startsWith('/v1/checkout-sessions')) {
+    billingBodies.push(body)
+    return [200, { id: 'cs_unified', url: 'https://billing.example/pay/cs_unified' }]
+  }
   if (req.url.startsWith('/v1/entitlements/')) return [200, { status: 'none', allowed: false }]
   if (req.url.startsWith('/v1/catalog')) return [200, { plans: [] }]
   if (req.url.startsWith('/v1/portal/')) return [200, { entitlement: null, invoices: [] }]
@@ -131,7 +136,7 @@ if (!healthy) {
   console.log(`FAIL server did not become healthy\n${serverLog}`)
 } else {
   await check(
-    'unified billing: paid Loyalty includes the pager (no checkout), a lapse turns it off with both ways back, paying again brings it back',
+    'unified billing: paid Loyalty includes Basic, sells Plus at 25 / 250; a lapse turns it off with both ways back; paying again brings it back',
     async () => {
       const owner = await Agent.owner()
       const tenantId = owner.me.tenant.id
@@ -141,14 +146,18 @@ if (!healthy) {
       expect(before.body.included, 'included on the Loyalty trial').toBe(false)
       expect(before.body.trialAvailable, 'pager trial on the Loyalty trial').toBe(true)
 
-      // Loyalty paid: included, nothing to buy.
+      // Loyalty paid: Basic included; the only thing sold is Plus at the Loyalty price.
       await loyalty(tenantId, 'active', 30)
       const paid = await owner.get('/api/billing/pager')
       expect(paid.body.included, 'included once Loyalty is paid').toBe(true)
-      expect(paid.body.purchasable, 'nothing to buy').toBe(false)
       expect(paid.body.subscription.source, 'source').toBe('loyalty')
+      expect(paid.body.subscription.tier, 'included tier').toBe('basic')
+      expect(paid.body.upgrade, 'the one upgrade').toBe('plus')
+      expect(Object.keys(paid.body.prices), 'only Plus offered').toEqual(['plus'])
+      expect(paid.body.prices.plus.monthly, 'Plus at the Loyalty price').toBe(2500)
+      expect(paid.body.prices.plus.yearly, 'Plus yearly at the Loyalty price').toBe(25000)
       expectStatus(
-        await owner.post('/api/billing/pager/checkout', { tier: 'plus', cycle: 'monthly', branches: 1 }, { headers: { 'idempotency-key': key() } }),
+        await owner.post('/api/billing/pager/checkout', { tier: 'basic', cycle: 'monthly', branches: 1 }, { headers: { 'idempotency-key': key() } }),
         409,
         'pager_included',
       )
@@ -158,11 +167,13 @@ if (!healthy) {
       expectStatus(live, 200)
       expect(live.body.status, 'Pager tab').toBe('live')
       expect(lastPush(tenantId)?.active, 'POS on').toBe(true)
-      expect(lastPush(tenantId)?.plan, 'included tier').toBe('plus')
-      expect(
-        billingCalls.some((c) => c.includes('checkout-sessions')),
-        'no checkout',
-      ).toBe(false)
+      expect(lastPush(tenantId)?.plan, 'included tier on the POS').toBe('basic')
+      expect(billingBodies.length, 'nothing sent to checkout for Basic').toBe(0)
+      // The Plus upgrade goes to checkout at the Loyalty price.
+      const up = await owner.post('/api/billing/pager/checkout', { tier: 'plus', cycle: 'yearly', branches: 2 }, { headers: { 'idempotency-key': key() } })
+      expectStatus(up, 200)
+      expect(billingBodies.at(-1)?.plan, 'Loyalty Plus code').toBe('pager_plus_loyalty')
+      expect(billingBodies.at(-1)?.items?.[0]?.plan, 'Loyalty Plus branch add-on').toBe('pager_plus_loyalty_branch')
 
       // Loyalty lapses: the pager turns off through the bridge; the tab offers renewing Loyalty or the standalone plan.
       await loyalty(tenantId, 'expired', -1)
@@ -173,6 +184,7 @@ if (!healthy) {
       expect(off.body.plan.lapsedFromLoyalty, 'both ways back').toBe(true)
       expect(off.body.plan.purchasable, 'standalone on sale').toBe(true)
       expect(off.body.plan.prices.plus.monthly, 'standalone price').toBe(4900)
+      expect(off.body.plan.prices.basic.monthly, 'standalone Basic').toBe(2900)
 
       // Loyalty paid again: on by itself.
       await loyalty(tenantId, 'active', 30)

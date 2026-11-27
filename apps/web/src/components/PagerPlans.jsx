@@ -56,7 +56,11 @@ export function PagerPlanCards({ cycle, prices, action, highlight }) {
               <span className="tnum text-[34px] font-bold leading-none">{price(amount, locale)}</span>
               <span className="text-sm text-muted">{t(cycle === 'monthly' ? 'pager.perMonth' : 'pager.perYear')}</span>
             </p>
-            <p className="mt-2 text-xs text-muted">{t('pager.includedWithLoyalty')}</p>
+            <p className="mt-2 text-xs text-muted">
+              {tier === 'basic'
+                ? t('pager.includedWithLoyalty')
+                : t(cycle === 'monthly' ? 'pager.plusWithLoyaltyMonthly' : 'pager.plusWithLoyaltyYearly', { amount: price(plan.withLoyalty[cycle], locale) })}
+            </p>
             {plan.freeWithPosAdvanced && <p className="mt-1 text-xs text-muted">{t('pager.freeWithPos')}</p>}
             <ul className="mt-5 grid gap-2.5 text-sm">
               {plan.features.map((f) => (
