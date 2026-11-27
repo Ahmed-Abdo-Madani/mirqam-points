@@ -1,7 +1,7 @@
 import express from 'express'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { errorHandler } from './http.js'
-import { createPagerOffer, installPagerOffer, posBridgeGate } from './pager-offer.js'
+import { createPagerOffer, installPagerOffer, pagerOfferRoutes, posBridgeGate } from './pager-offer.js'
 import { freshDb, seedTenant } from './testing.js'
 
 const KEY = 'b'.repeat(48)
@@ -131,5 +131,65 @@ describe('pager offer: server to server from the POS API', () => {
     allowed = false
     await expect(offer.pick(tenantId, 'branch_1', { programId }, counter)).rejects.toMatchObject({ status: 409, code: 'program_not_offerable' })
     await expect(offer.pick(tenantId, '../x', { programId: null }, counter)).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('Setup routes: country and WhatsApp alerts go to the POS bridge', () => {
+  let srv
+  let url
+  const calls = []
+  const live = true
+  const counter = {
+    requireLive: async () => {
+      if (!live) throw Object.assign(new Error('pager_no_plan'), { status: 409 })
+    },
+    bridge: async (...args) => {
+      calls.push(args)
+      if (args[2] === '/whatsapp') return { allowed: true, linked: false, connected: false, status: 'not_linked' }
+      if (args[2] === '/whatsapp/pair') return { qrDataUrl: 'data:image/png;base64,QR', status: 'pairing' }
+      return { ok: true }
+    },
+  }
+  beforeAll(async () => {
+    const app = express()
+    app.use(express.json())
+    app.use((req, _res, next) => {
+      req.auth = { tenantId, role: req.get('x-role') || 'owner' }
+      next()
+    })
+    app.use('/api/pager', pagerOfferRoutes({ offer, counter }))
+    app.use(errorHandler)
+    await new Promise((done) => {
+      srv = app.listen(0, '127.0.0.1', done)
+    })
+    url = `http://127.0.0.1:${srv.address().port}/api/pager`
+  })
+  afterAll(async () => {
+    await new Promise((done) => srv?.close(done))
+  })
+  const send = async (method, path, body, role) => {
+    const res = await fetch(`${url}${path}`, {
+      method,
+      headers: { 'content-type': 'application/json', ...(role ? { 'x-role': role } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+    return { status: res.status, body: await res.json().catch(() => ({})) }
+  }
+
+  it('country: ISO-2 only, saved through PUT /settings', async () => {
+    expect((await send('PUT', '/country', { country: 'AE' })).status).toBe(200)
+    expect(calls.at(-1)).toEqual([tenantId, 'PUT', '/settings', { country: 'AE' }])
+    expect((await send('PUT', '/country', { country: 'uae' })).status).toBe(400)
+  })
+
+  it('whatsapp: state, pair (QR) and unlink pass through; cashiers cannot', async () => {
+    expect((await send('GET', '/whatsapp')).body).toMatchObject({ allowed: true, status: 'not_linked' })
+    const pair = await send('POST', '/whatsapp/pair', {})
+    expect(pair.body.qrDataUrl).toMatch(/^data:image\/png/)
+    expect(calls.at(-1)).toEqual([tenantId, 'POST', '/whatsapp/pair', {}])
+    await send('POST', '/whatsapp/unlink', {})
+    expect(calls.at(-1)).toEqual([tenantId, 'POST', '/whatsapp/unlink', {}])
+    expect((await send('POST', '/whatsapp/pair', {}, 'cashier')).status).toBe(403)
+    expect((await send('POST', '/whatsapp/pair', { phone: 'not a phone' })).status).toBe(400)
   })
 })

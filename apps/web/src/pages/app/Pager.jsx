@@ -9,6 +9,7 @@ import { api, useApi } from '../../lib/api.js'
 import { canEditBusiness, counterColumns, pagerPageState, pickBranch } from '../../lib/pager-page.js'
 import { PURCHASES_IN_APP } from '../../lib/platform.js'
 import { useSession } from '../../lib/session.jsx'
+import PagerLoyaltySetup from './pager/PagerLoyaltySetup.jsx'
 
 const POLL_MS = 3000
 const minutes = (iso) => Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000))
@@ -377,6 +378,7 @@ function Manage({ state, reload }) {
       )}
       <Branches state={state} act={act} />
       <SettingsCard state={state} act={act} />
+      <PagerLoyaltySetup state={state} reload={reload} />
       {canEditBusiness(state) && <BrandCard state={state} act={act} />}
       <Reports state={state} />
       {can('owner') && PURCHASES_IN_APP && (
