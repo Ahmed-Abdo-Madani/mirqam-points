@@ -10,6 +10,7 @@ import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError, rejectMalformedPath } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
 import { createPagerCounter } from './pager-counter.js'
+import { createPagerOffer, installPagerOffer, pagerOfferRoutes } from './pager-offer.js'
 import { createPagerPlan } from './pager-plan.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
@@ -210,12 +211,17 @@ export function createApp({ db, config }) {
   installLoyaltyPosBridge({ app, db, config, billing })
   installPosLoyalty({ app, db, billing, wallet })
   installHqAdmin(app, { db, config, wallet })
+  // The customer pager page joins a program here, server to server from the POS API (pager-offer.js).
+  const pagerOffer = createPagerOffer({ db, config, billing, wallet })
+  installPagerOffer({ app, offer: pagerOffer })
   app.use('/api', billing.gate())
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
   app.use('/api/billing', billingRoutes(billing, { db, pager }))
   // The pager counter inside Loyalty (pager-counter.js); outside the loyalty paywall like /billing.
-  app.use('/api/pager', pagerRoutes(createPagerCounter({ db, config, pager })))
+  const pagerCounter = createPagerCounter({ db, config, pager })
+  app.use('/api/pager', pagerOfferRoutes({ offer: pagerOffer, counter: pagerCounter }))
+  app.use('/api/pager', pagerRoutes(pagerCounter))
   app.use('/api/auth', authRoutes({ db, config, billing, wallet }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))
