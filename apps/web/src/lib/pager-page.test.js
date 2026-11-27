@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
-import { canEditBusiness, counterColumns, pagerPageState, phoneTabs, pickBranch } from './pager-page.js'
+import { amountMinor, canEditBusiness, counterColumns, counterFigures, lastClosed, pagerPageState, phoneTabs, pickBranch, riyadhDay } from './pager-page.js'
 
 describe('the /app/pager page states', () => {
   it('no plan: the explanation, the trial and the prices', () => {
@@ -22,7 +22,7 @@ describe('the /app/pager page states', () => {
 
   it('the copy for each state exists in Arabic and English and never sends anyone to the Cashier app', () => {
     for (const locale of ['ar', 'en']) {
-      for (const k of ['noPlan', 'starting', 'unavailable', 'retry', 'newNumber', 'call', 'recall', 'done', 'askOwner', 'notOnYet']) {
+      for (const k of ['noPlan', 'starting', 'unavailable', 'retry', 'add', 'emptyBoard', 'openTv', 'call', 'recall', 'done', 'askOwner', 'notOnYet']) {
         const text = translate(locale, `pager.page.${k}`)
         expect(text, `${locale} ${k}`).not.toBe(`pager.page.${k}`)
         expect(text).not.toMatch(/كاشير|cashier|pos\.mirqam/i)
@@ -87,5 +87,36 @@ describe('phone tabs: the counter is one tap away', () => {
   it('no pager: as before', () => {
     expect(phoneTabs({ pagerLive: false, hasProgram: true, canTransact: true })).toEqual(['home', 'scan', 'settings'])
     expect(phoneTabs({ pagerLive: true, hasProgram: true, canTransact: false })).toEqual(['home', 'settings'])
+  })
+})
+
+describe('the counter top row and side rail', () => {
+  const at = (m) => new Date(Date.UTC(2026, 10, 28, 9, m)).toISOString()
+  it("live figures: preparing, ready and today's average wait (made → ready) in minutes", () => {
+    const f = counterFigures([
+      { status: 'WAITING', createdAt: at(0) },
+      { status: 'READY', createdAt: at(0), readyAt: at(6) },
+      { status: 'COLLECTED', createdAt: at(10), readyAt: at(14) },
+    ])
+    expect(f).toEqual({ preparing: 1, ready: 1, avgWaitMinutes: 5 })
+    expect(counterFigures([]).avgWaitMinutes).toBeNull()
+  })
+  it('the last five numbers collected, newest first', () => {
+    const done = Array.from({ length: 7 }, (_, i) => ({ id: `d${i}`, number: String(i), status: 'COLLECTED', collectedAt: at(i) }))
+    expect(lastClosed([...done, { id: 'w', status: 'WAITING', createdAt: at(30) }]).map((x) => x.number)).toEqual(['6', '5', '4', '3', '2'])
+  })
+  it('the amount typed at the till: halalas, empty = none, Arabic digits accepted, nonsense refused', () => {
+    expect(amountMinor('25.5')).toBe(2550)
+    expect(amountMinor('٢٥٫٥٠')).toBe(2550)
+    expect(amountMinor('')).toBeUndefined()
+    expect(Number.isNaN(amountMinor('2.555'))).toBe(true)
+    expect(Number.isNaN(amountMinor('abc'))).toBe(true)
+  })
+})
+
+describe('report dates', () => {
+  it('are Riyadh days: 22:30 UTC is already the next day in Riyadh', () => {
+    expect(riyadhDay(new Date('2026-11-28T22:30:00Z'))).toBe('2026-11-29')
+    expect(riyadhDay(new Date('2026-11-28T09:00:00Z'))).toBe('2026-11-28')
   })
 })
