@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
-import { authLanding, authProduct, PAGER_LANDING, rememberLanding, takeLanding } from './auth-landing.js'
+import { authLanding, authProduct, forgetLanding, PAGER_LANDING, rememberLanding, takeLanding } from './auth-landing.js'
 
 const q = (s) => new URLSearchParams(s)
 
@@ -43,7 +43,18 @@ describe('where a sign-up or sign-in lands', () => {
     expect(s.m.size).toBe(0)
     s.setItem('mirqam-auth-landing', 'https://evil.example')
     expect(takeLanding(s)).toBeNull()
+    s.setItem('mirqam-auth-landing', JSON.stringify({ to: 'https://evil.example', at: Date.now() }))
+    expect(takeLanding(s)).toBeNull()
     expect(s.m.size).toBe(0)
+  })
+
+  it('a stale landing never outlives its attempt: forgotten when the sign-in page opens again, and expires', () => {
+    const s = memoryStorage()
+    rememberLanding(PAGER_LANDING, s)
+    forgetLanding(s)
+    expect(takeLanding(s)).toBeNull()
+    rememberLanding(PAGER_LANDING, s, 1_000)
+    expect(takeLanding(s, 1_000 + 11 * 60_000)).toBeNull()
   })
 })
 

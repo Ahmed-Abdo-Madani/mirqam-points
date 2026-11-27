@@ -6,7 +6,7 @@ import { LocaleToggle } from '../components/AppShell.jsx'
 import PassPreview from '../components/PassPreview.jsx'
 import { useErrorText, useI18n } from '../i18n/index.jsx'
 import { api } from '../lib/api.js'
-import { authLanding, authProduct, rememberLanding } from '../lib/auth-landing.js'
+import { authLanding, authProduct, forgetLanding, rememberLanding } from '../lib/auth-landing.js'
 import { PURCHASES_IN_APP, REGISTRATION_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
@@ -33,6 +33,13 @@ export default function Auth({ mode }) {
       .catch(() => {})
   }, [])
   const register = mode === 'register'
+  // A new sign-in attempt starts here: a landing kept by an earlier, abandoned social sign-in must not
+  // decide where this one lands (an explicit ?next or ?product does). The native social hand-off comes
+  // back to this page with ?social=, and keeps it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per visit.
+  useEffect(() => {
+    if (!params.has('social')) forgetLanding()
+  }, [])
   // ?product=pager: a Mirqam Pager sign-up (mirqam.sa, pos.mirqam.sa). The pager plan lives in Billing,
   // which the iOS app does not offer, so there it falls back to the dashboard.
   const pager = authProduct(params) === 'pager'
@@ -76,7 +83,7 @@ export default function Auth({ mode }) {
       <section className="mp-welcome relative m-3 hidden overflow-hidden rounded-[28px] text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
         <Pattern variant="waves" opacity={0.1} className="text-brand-300" />
         <Link to="/" className="relative" aria-label={t('brand.name')}>
-          <Logo inverse className="h-12" label={t('brand.label')} sublabel="LOYALTY & GIFT CARDS" alt={t('brand.name')} />
+          <Logo inverse className="h-12" label={t('brand.label')} sublabel={pager ? 'MIRQAM PAGER' : 'LOYALTY & GIFT CARDS'} alt={t('brand.name')} />
         </Link>
         <div className="relative max-w-md">
           <h2 className="text-3xl font-bold leading-snug">{t(pk('panelTitle'), days)}</h2>
