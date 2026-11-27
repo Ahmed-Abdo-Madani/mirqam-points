@@ -26,6 +26,12 @@ export default function PagerPlan({ checkoutHost }) {
     api('/billing/pager/confirm', { method: 'POST', body: {} }).then(reload).catch(setFailure)
   }, [])
 
+  // Arrived from a pager sign-up (#pager-plan-title): bring the pager plan into view once it has loaded.
+  useEffect(() => {
+    if (loading || window.location.hash !== '#pager-plan-title') return
+    document.getElementById('pager-plan-title')?.scrollIntoView({ block: 'start' })
+  }, [loading])
+
   async function act(fn) {
     setBusy(true)
     setFailure(null)
@@ -65,7 +71,7 @@ export default function PagerPlan({ checkoutHost }) {
   return (
     <section aria-labelledby="pager-plan-title" className="grid gap-4">
       <div>
-        <h2 id="pager-plan-title" className="text-[17px] font-bold">
+        <h2 id="pager-plan-title" className="scroll-mt-28 text-[17px] font-bold">
           {t('pager.console.title')}
         </h2>
         <p className="mt-1 text-sm text-muted">{t('pager.console.intro')}</p>

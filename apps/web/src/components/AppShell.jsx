@@ -15,9 +15,11 @@ import {
   MqUsers,
   ThemeToggle,
 } from '@mirqam/ui'
+import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
 import { useApi } from '../lib/api.js'
+import { takeLanding } from '../lib/auth-landing.js'
 import { PURCHASES_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
@@ -169,6 +171,12 @@ export default function AppShell() {
   const { t } = useI18n()
   const { me, logout } = useSession()
   const navigate = useNavigate()
+  // Back from a social sign-in that started on a pager sign-up: go where the visitor was headed, once.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once on mount.
+  useEffect(() => {
+    const to = takeLanding()
+    if (to) navigate(to, { replace: true })
+  }, [])
 
   return (
     <div className="min-h-dvh lg:flex">
