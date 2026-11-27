@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
-import { authLanding, authProduct, PAGER_LANDING, rememberLanding, takeLanding } from './auth-landing.js'
+import { authLanding, authProduct, forgetLanding, PAGER_LANDING, rememberLanding, takeLanding } from './auth-landing.js'
 
 const q = (s) => new URLSearchParams(s)
 
@@ -10,9 +10,9 @@ function memoryStorage() {
 }
 
 describe('where a sign-up or sign-in lands', () => {
-  it('product=pager lands on the pager plan in Billing (register and login use the same rule)', () => {
-    expect(authLanding(q('product=pager'))).toBe('/app/billing#pager-plan-title')
-    expect(PAGER_LANDING).toBe('/app/billing#pager-plan-title')
+  it('product=pager lands on the pager page (register and login use the same rule)', () => {
+    expect(authLanding(q('product=pager'))).toBe('/app/pager')
+    expect(PAGER_LANDING).toBe('/app/pager')
   })
 
   it('a valid next always wins, also over product=pager', () => {
@@ -43,7 +43,18 @@ describe('where a sign-up or sign-in lands', () => {
     expect(s.m.size).toBe(0)
     s.setItem('mirqam-auth-landing', 'https://evil.example')
     expect(takeLanding(s)).toBeNull()
+    s.setItem('mirqam-auth-landing', JSON.stringify({ to: 'https://evil.example', at: Date.now() }))
+    expect(takeLanding(s)).toBeNull()
     expect(s.m.size).toBe(0)
+  })
+
+  it('a stale landing never outlives its attempt: forgotten when the sign-in page opens again, and expires', () => {
+    const s = memoryStorage()
+    rememberLanding(PAGER_LANDING, s)
+    forgetLanding(s)
+    expect(takeLanding(s)).toBeNull()
+    rememberLanding(PAGER_LANDING, s, 1_000)
+    expect(takeLanding(s, 1_000 + 11 * 60_000)).toBeNull()
   })
 })
 
@@ -56,10 +67,11 @@ describe('pager sign-up copy', () => {
     expect(translate('en', 'auth.pager.registerTitle', vars)).toContain('Mirqam Pager')
     expect(translate('en', 'auth.pager.registerSubtitle', vars)).toContain('14-day free trial')
     expect(translate('en', 'auth.pager.loginTitle', vars)).toContain('Mirqam Pager')
-    // The side panel speaks about the pager, not loyalty programs.
-    for (const k of ['panelTitle', 'panel1', 'panel2', 'panel3']) {
-      expect(translate('en', `auth.pager.${k}`, vars)).not.toMatch(/loyalty/i)
-      expect(translate('ar', `auth.pager.${k}`, vars)).not.toMatch(/ولاء/)
+    // The side panel speaks about the pager (which runs in Mirqam Loyalty), not loyalty programmes,
+    // and never sends anyone to the Cashier app.
+    for (const k of ['panelTitle', 'panel1', 'panel2', 'panel3', 'loginSubtitle']) {
+      expect(translate('en', `auth.pager.${k}`, vars)).not.toMatch(/loyalty program|cashier/i)
+      expect(translate('ar', `auth.pager.${k}`, vars)).not.toMatch(/برامج الولاء|كاشير/)
     }
   })
 })

@@ -306,11 +306,16 @@ export function createBilling({ db, config, fetcher = fetch, mailer = createMail
       if (!req.auth) return next()
       if (
         !config.billingEnforce &&
-        !(await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1 UNION ALL SELECT 1 FROM pos_native_tenants WHERE tenant_id=$1', [req.auth.tenantId])).rows.length
+        !(
+          await db.query('SELECT 1 FROM pos_provisioned_accounts WHERE tenant_id=$1 UNION ALL SELECT 1 FROM pos_native_tenants WHERE tenant_id=$1', [
+            req.auth.tenantId,
+          ])
+        ).rows.length
       )
         return next()
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
-      if (/^\/(auth|billing|public)(\/|$)/.test(req.path)) return next()
+      // The pager has its own plan: a pager-only business never needs a loyalty subscription to page customers.
+      if (/^\/(auth|billing|public|pager)(\/|$)/.test(req.path)) return next()
       // Erasing a member or removing staff is a privacy request: it never waits on a subscription.
       if (req.method === 'DELETE' && /^\/(members|staff)\/[^/]+$/.test(req.path)) return next()
       if ((await entitlement(req.auth.tenantId)).allowed) return next()

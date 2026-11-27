@@ -2,6 +2,7 @@ import {
   Badge,
   Logo,
   Menu,
+  MqBell,
   MqCoins,
   MqDashboard,
   MqGift,
@@ -20,6 +21,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/index.jsx'
 import { useApi } from '../lib/api.js'
 import { takeLanding } from '../lib/auth-landing.js'
+import { phoneTabs } from '../lib/pager-page.js'
 import { PURCHASES_IN_APP } from '../lib/platform.js'
 import { useSession } from '../lib/session.jsx'
 
@@ -31,6 +33,8 @@ export function useNavItems() {
     { to: '/app/billing', icon: MqCoins, label: t('billing.title'), show: can('owner') && PURCHASES_IN_APP },
     { to: '/app', end: true, icon: MqDashboard, label: t('nav.dashboard') },
     { to: '/app/cashier', icon: MqScan, label: t('nav.cashier'), show: can('transact') },
+    // Mirqam Pager runs here (no Cashier app): its own tab, as the owner asked, for every role that runs tickets.
+    { to: '/app/pager', icon: MqBell, label: t('nav.pager'), show: can('transact') },
     { to: '/app/members', icon: MqUsers, label: t('nav.members') },
     { to: '/app/programs', icon: MqCoins, label: t('nav.programs') },
     { to: '/app/campaigns', icon: MqMegaphone, label: t('nav.campaigns'), show: can('manage') },
@@ -73,6 +77,11 @@ function SideNav() {
 function BottomTabs() {
   const { t } = useI18n()
   const { can } = useSession()
+  // Whether this workspace runs the pager (and has a loyalty programme): a cheap local read, no POS call.
+  const { data: nav } = useApi('/pager/nav')
+  const tabs = phoneTabs({ pagerLive: Boolean(nav?.pagerLive), hasProgram: nav ? nav.hasProgram : true, canTransact: can('transact') })
+  const centre = tabs.includes('scan') ? 'scan' : tabs.includes('pager') && !tabs.includes('scan') ? 'pager' : null
+  const side = tabs.includes('scan') && tabs.includes('pager')
   const tab = ({ isActive }) =>
     `flex min-h-14 flex-col items-center justify-end gap-1 text-[11.5px] font-semibold transition ${isActive ? 'text-accent' : 'text-muted hover:text-ink'}`
   return (
@@ -81,26 +90,32 @@ function BottomTabs() {
       className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 px-3 pt-1.5 backdrop-blur lg:hidden"
       style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}
     >
-      <div className="mx-auto grid max-w-md grid-cols-3 items-end">
+      <div className={`mx-auto grid max-w-md items-end ${side ? 'grid-cols-4' : 'grid-cols-3'}`}>
         <NavLink to="/app" end className={tab}>
           <MqDashboard className="h-[22px] w-[22px]" />
           {t('tabs.home')}
         </NavLink>
-        {can('transact') ? (
-          <NavLink to="/app/cashier" className={tab}>
+        {centre ? (
+          <NavLink to={centre === 'pager' ? '/app/pager' : '/app/cashier'} className={tab}>
             {({ isActive }) => (
               <>
                 <span
                   className={`-mt-7 flex h-[60px] w-[60px] items-center justify-center rounded-full border-[5px] border-surface text-on-primary shadow-card ${isActive ? 'bg-accent' : 'bg-primary'}`}
                 >
-                  <MqScan className="h-7 w-7" />
+                  {centre === 'pager' ? <MqBell className="h-7 w-7" /> : <MqScan className="h-7 w-7" />}
                 </span>
-                {t('tabs.scan')}
+                {t(centre === 'pager' ? 'tabs.pager' : 'tabs.scan')}
               </>
             )}
           </NavLink>
         ) : (
           <span />
+        )}
+        {side && (
+          <NavLink to="/app/pager" className={tab}>
+            <MqBell className="h-[22px] w-[22px]" />
+            {t('tabs.pager')}
+          </NavLink>
         )}
         <NavLink to="/app/preferences" className={tab}>
           <MqSettings className="h-[22px] w-[22px]" />
