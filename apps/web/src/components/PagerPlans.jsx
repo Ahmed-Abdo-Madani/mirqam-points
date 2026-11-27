@@ -1,5 +1,5 @@
 import { MqCheck } from '@mirqam/ui'
-import { PAGER_PLANS, PAGER_TIERS, PAGER_TRIAL_DAYS, pagerFeatureKey } from '@mirqam-points/shared'
+import { PAGER_PLANS, PAGER_TIERS, PAGER_TRIAL_DAYS } from '@mirqam-points/shared'
 import { useI18n } from '../i18n/index.jsx'
 import { money } from '../lib/format.js'
 
@@ -67,7 +67,7 @@ export function PagerPlanCards({ cycle, prices, action, highlight }) {
                 <li key={f} className="flex items-start gap-2">
                   <MqCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                   <span>
-                    {t(`pager.features.${pagerFeatureKey(plan, f)}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })}
+                    {t(`pager.features.${f}`)}
                     {plan.comingSoon?.includes(f) && (
                       <span className="ms-2 inline-flex rounded-full border border-line bg-soft px-2 py-0.5 text-[11px] font-semibold text-muted">
                         {t('pager.soon')}

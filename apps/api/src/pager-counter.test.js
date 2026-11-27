@@ -63,6 +63,38 @@ describe('the pager inside Loyalty: overview', () => {
     expect((await counter.overview(tenantId)).status).toBe('starting')
   })
 
+  it('starting after a failed first push: each look tries the push again and says why it failed', async () => {
+    answer = () => json(404, { code: 'pager_not_linked' })
+    const pushes = []
+    let pushAnswer = { ok: false, reason: 'pos_unreachable' }
+    const failing = createPagerCounter({
+      db,
+      config,
+      fetcher: async (url, init) => answer(String(url), init),
+      pager: {
+        status: async () => ({ subscription: { tier: 'basic', active: true, posError: 'pos_unreachable' } }),
+        pushToPos: async (id) => {
+          pushes.push(id)
+          return pushAnswer
+        },
+      },
+    })
+    const logged = []
+    const warn = console.warn
+    console.warn = (m) => logged.push(m)
+    try {
+      expect(await failing.overview(tenantId)).toMatchObject({ status: 'starting', posError: 'pos_unreachable' })
+      expect(pushes).toEqual([tenantId])
+      expect(logged).toEqual([`[pager] setup not finished: tenant=${tenantId} code=pos_unreachable`])
+      pushAnswer = { ok: true, reason: null }
+      expect(await failing.overview(tenantId)).toMatchObject({ status: 'starting', posError: null })
+    } finally {
+      console.warn = warn
+    }
+    // No failure on the row (the first push still on its way): no extra push, nothing logged.
+    expect(await counter.overview(tenantId)).toMatchObject({ status: 'starting', posError: null })
+  })
+
   it('live: the POS state for this workspace, over the bridge key, plus the loyalty-side subscription', async () => {
     answer = (_url, init) => (init.method === 'PUT' ? json(200, posState().brand) : json(200, posState({ nameAr: 'متجر' })))
     const o = await counter.overview(tenantId)

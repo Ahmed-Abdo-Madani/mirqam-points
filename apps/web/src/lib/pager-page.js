@@ -10,6 +10,25 @@ export function pagerPageState({ data, error, loading }) {
   return 'unavailable'
 }
 
+/** "Starting" stops after this many failed tries or this long, whichever comes first. */
+export const STARTING_MAX_FAILED = 3
+export const STARTING_MAX_MS = 60_000
+/** Where the page sends a business whose setup did not finish (the support WhatsApp, as the floating button). */
+export const SUPPORT_WHATSAPP = 'https://wa.me/966552090433'
+
+/** The "starting" watch after one more answer: counts the failed tries (an answer with posError) from when it began. */
+export function nextStartingWatch(watch, data, now = Date.now()) {
+  const since = watch?.since ?? now
+  const failed = (watch?.failed ?? 0) + (data?.posError ? 1 : 0)
+  return { since, failed }
+}
+
+/** True once the page should stop waiting: STARTING_MAX_FAILED failed tries, or STARTING_MAX_MS since it began. */
+export function startingGaveUp(watch, now = Date.now()) {
+  if (!watch) return false
+  return watch.failed >= STARTING_MAX_FAILED || now - watch.since >= STARTING_MAX_MS
+}
+
 /** The counter's columns: waiting first (oldest first), then ready (most recent call first), then today's done. */
 export function counterColumns(tickets = []) {
   const waiting = tickets.filter((t) => t.status === 'WAITING').sort((a, b) => a.createdAt.localeCompare(b.createdAt))

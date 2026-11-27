@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
-import { canEditBusiness, counterColumns, pagerPageState, phoneTabs, pickBranch } from './pager-page.js'
+import {
+  canEditBusiness,
+  counterColumns,
+  nextStartingWatch,
+  pagerPageState,
+  phoneTabs,
+  pickBranch,
+  STARTING_MAX_FAILED,
+  STARTING_MAX_MS,
+  startingGaveUp,
+} from './pager-page.js'
 
 describe('the /app/pager page states', () => {
   it('no plan: the explanation, the trial and the prices', () => {
@@ -11,6 +21,31 @@ describe('the /app/pager page states', () => {
   it('trial or paid plan: the live counter (a trial is a live plan)', () => {
     expect(pagerPageState({ data: { status: 'live', subscription: { status: 'trialing', active: true }, branches: [] } })).toBe('live')
     expect(pagerPageState({ data: { status: 'starting' } })).toBe('starting')
+  })
+
+  it('starting gives up after 3 failed tries or 60 seconds, whichever comes first', () => {
+    expect(STARTING_MAX_FAILED).toBe(3)
+    expect(STARTING_MAX_MS).toBe(60_000)
+    let w = null
+    // Answers without a failure (the first push still on its way) are not failed tries.
+    for (let i = 0; i < 5; i++) w = nextStartingWatch(w, { status: 'starting', posError: null }, 1000 + i)
+    expect(w).toEqual({ since: 1000, failed: 0 })
+    expect(startingGaveUp(w, 1000 + 59_999)).toBe(false)
+    expect(startingGaveUp(w, 1000 + 60_000)).toBe(true)
+    // Three failed tries, well inside the minute.
+    w = null
+    w = nextStartingWatch(w, { posError: 'pos_unreachable' }, 0)
+    w = nextStartingWatch(w, { posError: 'pos_http_502' }, 4000)
+    expect(startingGaveUp(w, 8000)).toBe(false)
+    w = nextStartingWatch(w, { posError: 'pager_tenant_exists' }, 8000)
+    expect(startingGaveUp(w, 8000)).toBe(true)
+    expect(startingGaveUp(null)).toBe(false)
+  })
+
+  it('the give-up message, Retry and the WhatsApp link exist in Arabic and English', () => {
+    for (const locale of ['ar', 'en']) {
+      for (const k of ['setupFailed', 'retry', 'contactWhatsapp']) expect(translate(locale, `pager.page.${k}`)).not.toBe(`pager.page.${k}`)
+    }
   })
 
   it('POS unreachable, or anything unexpected: the plain message and a retry, never a blank page', () => {

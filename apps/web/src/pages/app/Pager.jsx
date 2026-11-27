@@ -8,7 +8,7 @@ import PagerPlusUpgrade from '../../components/PagerPlusUpgrade.jsx'
 import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
-import { canEditBusiness, counterColumns, pagerPageState, pickBranch } from '../../lib/pager-page.js'
+import { canEditBusiness, counterColumns, nextStartingWatch, pagerPageState, pickBranch, SUPPORT_WHATSAPP, startingGaveUp } from '../../lib/pager-page.js'
 import { PURCHASES_IN_APP } from '../../lib/platform.js'
 import { useSession } from '../../lib/session.jsx'
 
@@ -25,19 +25,34 @@ export default function Pager() {
   const state = pagerPageState({ data, error, loading })
   const [tab, setTab] = useState('counter')
 
-  // While the first activation reaches the POS, look again every few seconds.
+  // While the first activation reaches the POS, look again every few seconds (each answer starts the next
+  // wait, so looks never overlap); give up after 3 failed tries or 60 seconds.
+  const [watch, setWatch] = useState(null)
   useEffect(() => {
-    if (state !== 'starting') return undefined
-    const timer = setInterval(reload, 4000)
-    return () => clearInterval(timer)
-  }, [state, reload])
+    if (state !== 'starting') {
+      setWatch(null)
+      return
+    }
+    setWatch((w) => nextStartingWatch(w, data))
+  }, [state, data])
+  const gaveUp = state === 'starting' && startingGaveUp(watch)
+  useEffect(() => {
+    if (state !== 'starting' || !watch || startingGaveUp(watch)) return undefined
+    const timer = setTimeout(reload, 4000)
+    return () => clearTimeout(timer)
+  }, [state, watch, reload])
+  const retrySetup = () => {
+    setWatch(null)
+    reload()
+  }
 
   return (
     <>
       <PageHeader title={t('pager.page.title')} subtitle={t('pager.page.subtitle')} />
       {state === 'loading' && <Skeleton rows={3} />}
       {state === 'unavailable' && <Unavailable onRetry={reload} />}
-      {state === 'starting' && (
+      {gaveUp && <SetupFailed onRetry={retrySetup} />}
+      {state === 'starting' && !gaveUp && (
         <Card>
           <p role="status" className="text-sm">
             {t('pager.page.starting')}
@@ -80,6 +95,31 @@ function Unavailable({ onRetry }) {
       <Button className="mt-4" variant="outline" onClick={onRetry}>
         {t('pager.page.retry')}
       </Button>
+    </Card>
+  )
+}
+
+/** The first setup did not finish in time: say so plainly, Retry, and the way to Mirqam on WhatsApp. */
+function SetupFailed({ onRetry }) {
+  const { t } = useI18n()
+  return (
+    <Card>
+      <p role="alert" className="text-sm">
+        {t('pager.page.setupFailed')}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button variant="outline" onClick={onRetry}>
+          {t('pager.page.retry')}
+        </Button>
+        <a
+          href={SUPPORT_WHATSAPP}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 items-center rounded-xl border border-line px-4 text-sm font-semibold text-accent"
+        >
+          {t('pager.page.contactWhatsapp')}
+        </a>
+      </div>
     </Card>
   )
 }
