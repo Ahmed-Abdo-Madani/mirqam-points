@@ -1,5 +1,6 @@
 import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/AppShell.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
@@ -215,6 +216,12 @@ export default function Billing() {
                     <Card key={cycle} title={t(`billing.${cycle}`)} action={mine && <Badge tone="teal">{t('billing.currentPlan')}</Badge>}>
                       <p className="mb-1 text-2xl font-bold tnum">{data.prices[cycle] != null ? money(data.prices[cycle], locale) : '—'}</p>
                       <p className="mb-4 text-xs text-muted">{t(cycle === 'monthly' ? 'billing.perMonth' : 'billing.perYear')}</p>
+                      <p className="mb-4 text-xs">
+                        ✓ {t('billing.includesPager')}{' '}
+                        <Link to="/app/pager" className="font-semibold text-accent underline">
+                          {t('billing.openPager')}
+                        </Link>
+                      </p>
                       <Button disabled={busy || !data.ready || data.prices[cycle] == null} loading={busy} onClick={() => subscribe(cycle)}>
                         {t(label)}
                       </Button>

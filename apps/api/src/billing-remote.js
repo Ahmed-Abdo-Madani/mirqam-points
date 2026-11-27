@@ -19,6 +19,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
   let catalogCache = null
   // Products billed on the loyalty platform under a sub-account `<prefix>:<tenant>` (the pager plan).
   const subAccounts = new Map()
+  // Listeners told when a workspace's Loyalty plan changed (the included pager follows it).
+  const loyaltyListeners = []
 
   async function call(method, path, body, idempotencyKey) {
     if (!ready) throw new HttpError(503, 'billing_unavailable')
@@ -76,7 +78,7 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     // A deleted workspace (closed, then purged) never gets its entitlement cache back.
     if (!(await db.query('SELECT 1 FROM tenants WHERE id=$1 AND closed_at IS NULL', [tenantId])).rows[0]) return false
     if (ent.status === 'none') return false
-    return db.tx(async (tx) => {
+    const applied = await db.tx(async (tx) => {
       await tx.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE', [tenantId])
       const prior = (await tx.query('SELECT * FROM subscriptions WHERE tenant_id=$1', [tenantId])).rows[0]
       if (prior && Number(prior.billing_version || 0) > Number(ent.version || 0)) return false
@@ -117,6 +119,8 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       }
       return true
     })
+    if (applied) for (const listener of loyaltyListeners) await listener(tenantId)
+    return applied
   }
 
   async function sync(tenantId) {
@@ -230,6 +234,22 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
     /** The billing entitlement of a sub-account. */
     async subAccountEntitlement(ref) {
       return call('GET', `entitlements/${encodeURIComponent(ref)}`)
+    },
+    /** Stops a sub-account's renewal (cancel at the end of the paid period; nothing is refunded). */
+    async subAccountCancel(ref) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/cancel`, {})
+    },
+    /** Changes a sub-account's plan. A cheaper price is scheduled for the next renewal (nothing charged now). */
+    async subAccountChangePlan(ref, { plan, cycle }) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/change-plan`, { plan, cycle })
+    },
+    /** Undoes a stopped renewal (the subscription renews again at its price). */
+    async subAccountResume(ref) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/resume`, {})
+    },
+    /** `listener(tenantId)` after each applied Loyalty entitlement (paid, renewed, lapsed). */
+    onLoyaltyApplied(listener) {
+      loyaltyListeners.push(listener)
     },
     gate,
     async checkout(tenantId, cycle, requestKey, opts = {}) {

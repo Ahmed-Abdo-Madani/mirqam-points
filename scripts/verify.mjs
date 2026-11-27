@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Mandatory post-edit gate (see AGENTS.md).
    1. Unit tests (vitest): ledger invariants, earn rules, phone normalization.
+   2b. A second HTTP stage with unified billing (fake mirqam-billing + POS bridge): tests/http/unified/run.mjs.
    2. Boots the API on a free port with an in-memory Postgres (PGlite, or
       VERIFY_DATABASE_URL when set), waits
       for /api/health, runs the HTTP battery, tears the server down.
@@ -111,6 +112,10 @@ if (/\[api\] (GET|POST|PATCH|DELETE) /.test(serverLog)) {
   )
   stages.push(['server-errors', 1])
 }
+
+// Unified billing as production runs it (fake mirqam-billing + POS bridge): the pager included with Loyalty.
+console.log('\n== 2b HTTP battery, unified billing ==')
+stages.push(['http-unified', await run(process.execPath, ['tests/http/unified/run.mjs'], { shell: false })])
 
 if (!skipBuild) {
   console.log('\n== 3/3 web build ==')

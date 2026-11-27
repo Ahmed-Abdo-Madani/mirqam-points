@@ -52,11 +52,11 @@ await check('pager plan: owner-only, prices from the catalog, one trial per work
   const s = await a.get('/api/billing/pager')
   expectStatus(s, 200)
   const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, o?.[k]]))
-  expect(pick(s.body, ['vatExcluded', 'trialDays', 'trialAvailable', 'withLoyalty', 'subscription'])).toEqual({
+  expect(pick(s.body, ['vatExcluded', 'trialDays', 'trialAvailable', 'included', 'subscription'])).toEqual({
     vatExcluded: true,
     trialDays: 14,
     trialAvailable: true,
-    withLoyalty: false,
+    included: false,
     subscription: null,
   })
   expect(pick(s.body.prices.basic, ['monthly', 'yearly'])).toEqual({ monthly: 2900, yearly: 29000 })

@@ -66,6 +66,13 @@ export function installHqAdmin(app, { db, config, wallet, request = fetch }) {
     } = await db.query(
       "SELECT count(*)::int AS count,COALESCE(sum(amount),0)::bigint AS amount FROM subscription_checkouts c WHERE status='paid' AND NOT EXISTS(SELECT 1 FROM hq_admin_access a WHERE a.tenant_id=c.tenant_id)",
     )
-    res.json({ asOf: new Date().toISOString(), tenants, paid: { count: paid.count, amount: String(paid.amount) }, wallet: wallet.status() })
+    // Paid pager subscriptions that a Loyalty plan took over (renewal stopped, nothing refunded): settle by hand.
+    const { rows: pagerToSettle } = await db.query(
+      `SELECT p.tenant_id, t.name, p.tier, p.cycle, p.branches, p.with_loyalty, p.status, p.expires_at, p.included_since, p.loyalty_action
+         FROM pager_subscriptions p JOIN tenants t ON t.id = p.tenant_id
+        WHERE p.source = 'billing' AND p.loyalty_action IS NOT NULL
+        ORDER BY p.included_since DESC LIMIT 200`,
+    )
+    res.json({ asOf: new Date().toISOString(), tenants, paid: { count: paid.count, amount: String(paid.amount) }, wallet: wallet.status(), pagerToSettle })
   })
 }

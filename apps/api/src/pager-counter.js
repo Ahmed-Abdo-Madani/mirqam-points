@@ -85,6 +85,8 @@ export function createPagerCounter({ db, config, pager, fetcher = fetch }) {
 
     /** Everything the /app/pager page needs to choose its state. */
     async overview(tenantId) {
+      // Included with paid Loyalty: the first visit makes the pager (and its POS business) at once.
+      if (pager.ensureIncluded) await pager.ensureIncluded(tenantId, { create: true })
       const plan = await pager.status(tenantId)
       if (!plan.subscription?.active) return { status: 'no_plan', plan }
       try {

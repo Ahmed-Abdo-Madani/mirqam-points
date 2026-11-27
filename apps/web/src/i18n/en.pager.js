@@ -11,8 +11,9 @@ export default {
     yearlyNote: 'Yearly costs ten months',
     vat: 'Prices exclude VAT (15%).',
     trial: '{days}-day free trial, no card',
-    withLoyalty: 'With Mirqam Loyalty: {amount} / branch / month',
-    withLoyaltyApplied: 'Mirqam Loyalty subscriber price',
+    includedWithLoyalty: 'Included with any paid Mirqam Loyalty plan',
+    plusWithLoyaltyMonthly: 'With Mirqam Loyalty: {amount} / branch / month',
+    plusWithLoyaltyYearly: 'With Mirqam Loyalty: {amount} / branch / year',
     freeWithPos: 'Free with the Pro plan of Mirqam POS',
     cta: 'Start the free trial',
     soon: 'Coming soon',
@@ -35,6 +36,10 @@ export default {
     page: {
       title: 'Pager',
       subtitle: 'Call your customer when the order is ready, right from here.',
+      lapsedLoyalty:
+        'Your Mirqam Loyalty plan has ended, so the pager it includes is off. Your settings, branches and QR codes are kept. Renew Mirqam Loyalty and the pager comes back by itself.',
+      renewLoyalty: 'Renew Mirqam Loyalty',
+      orStandalone: 'Or subscribe to the pager on its own:',
       noPlan:
         'Mirqam Pager sends your customer “your order is ready” on their phone: they scan a QR at the counter, and you call their number from this page. It runs here, in Mirqam Loyalty and its app, with no hardware and no other app.',
       askOwner: 'Ask the account owner to turn the pager on.',
@@ -102,7 +107,16 @@ export default {
     console: {
       title: 'Mirqam Pager',
       intro: 'A subscription of its own, separate from Mirqam Loyalty, per branch. The pager runs here, in Mirqam Loyalty and its app, from the Pager page.',
-      loyaltyMonthlyOnly: 'The Mirqam Loyalty price is monthly for now.',
+      included: 'Pager Basic is included in your Mirqam Loyalty plan',
+      includedHint: 'Basic is part of your paid Mirqam Loyalty plan on all your branches, with no separate subscription. Open it from the Pager page.',
+      replaced: 'Your earlier Basic pager subscription will not renew; it stays listed here until {date}.',
+      upgradeTitle: 'Plus — {monthly} / branch / month or {yearly} / year',
+      upgradeHint: '“Your order is ready” on WhatsApp, full reports and every branch, at the Mirqam Loyalty price.',
+      upgrade: 'Upgrade to Plus',
+      loyaltyPricePlan: 'At the Mirqam Loyalty price.',
+      basicStaysIncluded: 'Basic stays included in your Mirqam Loyalty plan after Plus ends.',
+      renewsAtStandalone:
+        'Your Mirqam Loyalty plan has ended: Plus runs until {date} at the price you paid and will not renew at the Loyalty price. After that it is {monthly} / branch / month or {yearly} / year: renew Mirqam Loyalty to keep the member price, or subscribe again at this price.',
       openPager: 'Open the pager',
       branches: 'Branches',
       total: 'Total before VAT: {amount}',

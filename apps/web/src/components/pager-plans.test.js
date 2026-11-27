@@ -1,4 +1,4 @@
-import { PAGER_PLANS, PAGER_WHATSAPP_FAIR_USE, pagerCycles, pagerFeatureKey } from '@mirqam-points/shared'
+import { PAGER_PLANS, PAGER_WHATSAPP_FAIR_USE, pagerFeatureKey } from '@mirqam-points/shared'
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
 import { cycleChoice } from './PagerPlans.jsx'
@@ -22,18 +22,14 @@ describe('Plus card: the WhatsApp line', () => {
 })
 
 describe('the cycle switch in the app', () => {
-  it('with the Loyalty price: no yearly option, monthly only', () => {
-    expect(pagerCycles(true)).toEqual(['monthly'])
-    expect(cycleChoice(pagerCycles(true), 'yearly')).toEqual({ offered: ['monthly'], shown: 'monthly', switchable: false })
+  it('monthly and yearly are both sold (standalone)', () => {
+    expect(cycleChoice(['monthly', 'yearly'], 'yearly')).toEqual({ offered: ['monthly', 'yearly'], shown: 'yearly', switchable: true })
+    expect(cycleChoice(undefined, 'monthly')).toMatchObject({ shown: 'monthly', switchable: true })
   })
 
-  it('without Loyalty: monthly and yearly as before', () => {
-    expect(pagerCycles(false)).toEqual(['monthly', 'yearly'])
-    expect(cycleChoice(pagerCycles(false), 'yearly')).toEqual({ offered: ['monthly', 'yearly'], shown: 'yearly', switchable: true })
-  })
-
-  it('the monthly-only line exists in Arabic and English', () => {
-    expect(translate('ar', 'pager.console.loyaltyMonthlyOnly')).toContain('شهري')
-    expect(translate('en', 'pager.console.loyaltyMonthlyOnly')).toContain('monthly')
+  it('the cards say the pager is included with paid Loyalty, with no price, in Arabic and English', () => {
+    expect(translate('ar', 'pager.includedWithLoyalty')).toBe('مشمول مع أي اشتراك مدفوع في مرقام ولاء')
+    expect(translate('en', 'pager.includedWithLoyalty')).toBe('Included with any paid Mirqam Loyalty plan')
+    for (const l of ['ar', 'en']) expect(translate(l, 'pager.includedWithLoyalty')).not.toMatch(/\d/)
   })
 })
