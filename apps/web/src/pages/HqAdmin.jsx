@@ -133,6 +133,36 @@ export default function HqAdmin() {
                 {!tenants.length && <p className="p-4 text-muted">{t('hq.empty')}</p>}
               </div>
             </Card>
+            {data.pagerToSettle?.length > 0 && (
+              <Card title={t('hq.pagerSettle')} subtitle={t('hq.pagerSettleHint')}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-start text-sm">
+                    <thead>
+                      <tr>
+                        {['name', 'pagerPlan', 'expires', 'pagerSince'].map((k) => (
+                          <th key={k} className="p-3 text-start">
+                            {t(['hq', k].join('.'))}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.pagerToSettle.map((x) => (
+                        <tr key={x.tenant_id} className="border-t border-line">
+                          <td className="p-3 font-semibold">{x.name}</td>
+                          <td>
+                            {x.tier} · {x.cycle ?? '—'} · <span className="tnum">{x.branches}</span>
+                            {x.with_loyalty ? ` · ${t('hq.loyaltyPrice')}` : ''}
+                          </td>
+                          <td className="tnum">{x.expires_at ? new Date(x.expires_at).toLocaleDateString() : '—'}</td>
+                          <td className="tnum">{x.included_since ? new Date(x.included_since).toLocaleDateString() : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
             <p className="text-sm text-muted">{t('hq.note')}</p>
           </>
         )}

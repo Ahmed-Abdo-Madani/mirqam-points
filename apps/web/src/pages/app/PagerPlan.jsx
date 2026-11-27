@@ -40,8 +40,6 @@ export default function PagerPlan({ checkoutHost }) {
       await fn()
     } catch (e) {
       setFailure(e)
-      // The workspace's price changed (e.g. it now has the Loyalty price, monthly only): show the current offer.
-      if (e?.code === 'pager_loyalty_yearly_unavailable') reload()
     } finally {
       setBusy(false)
     }
@@ -69,9 +67,27 @@ export default function PagerPlan({ checkoutHost }) {
   if (loading) return <Skeleton rows={2} />
   if (!data) return error ? <p className="text-sm text-err">{errorText(error)}</p> : null
   const sub = data.subscription
-  // With the Loyalty price the plan is monthly only for now (the API says which cycles it sells).
-  const { offered, shown, switchable } = cycleChoice(data.cycles, cycle)
+  const { shown } = cycleChoice(data.cycles, cycle)
   const total = data.prices.basic && ((tier) => data.prices[tier][shown] * branches)
+
+  // Included with the paid Mirqam Loyalty plan: nothing to buy here.
+  if (data.included)
+    return (
+      <section aria-labelledby="pager-plan-title" className="grid gap-3">
+        <h2 id="pager-plan-title" className="scroll-mt-28 text-[17px] font-bold">
+          {t('pager.console.title')}
+        </h2>
+        <Card title={t('pager.console.included')} action={<Badge tone="green">{t('pager.console.status.active')}</Badge>}>
+          <p className="text-sm">{t('pager.console.includedHint')}</p>
+          {sub?.replacedSubscription && (
+            <p className="mt-2 text-sm text-muted">{t('pager.console.replaced', { date: day(sub.replacedSubscription.expiresAt, locale) })}</p>
+          )}
+          <Link to="/app/pager" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-on-primary">
+            {t('pager.console.openPager')}
+          </Link>
+        </Card>
+      </section>
+    )
 
   return (
     <section aria-labelledby="pager-plan-title" className="grid gap-4">
@@ -102,7 +118,7 @@ export default function PagerPlan({ checkoutHost }) {
         </Card>
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        {switchable ? <CycleSwitch cycle={shown} onChange={setCycle} /> : <p className="text-sm text-muted">{t('pager.console.loyaltyMonthlyOnly')}</p>}
+        <CycleSwitch cycle={shown} onChange={setCycle} />
         <label className="grid gap-1 text-sm">
           {t('pager.console.branches')}
           <input
@@ -127,7 +143,6 @@ export default function PagerPlan({ checkoutHost }) {
       <PagerPlanCards
         cycle={shown}
         prices={data.prices}
-        withLoyalty={data.withLoyalty}
         highlight={sub?.active ? sub.tier : undefined}
         action={(tier) => (
           <div className="grid gap-2">
@@ -144,7 +159,7 @@ export default function PagerPlan({ checkoutHost }) {
           </div>
         )}
       />
-      <PagerFinePrint yearly={offered.includes('yearly')} />
+      <PagerFinePrint />
     </section>
   )
 }

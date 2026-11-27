@@ -17,7 +17,7 @@ export { computeEarn, DEFAULT_CONFIG, formatMinor, PROGRAM_TYPES, parseMoneyToMi
 export {
   billingAmountMinor,
   PAGER_CYCLES,
-  PAGER_LOYALTY_YEARLY,
+  PAGER_INCLUDED_WITH_LOYALTY,
   PAGER_MAX_BRANCHES,
   PAGER_PLANS,
   PAGER_TIERS,
@@ -27,7 +27,6 @@ export {
   pagerBillingCode,
   pagerBillingProducts,
   pagerBranchAddonCode,
-  pagerCycles,
   pagerFeatureKey,
   pagerPrice,
   pagerTotal,

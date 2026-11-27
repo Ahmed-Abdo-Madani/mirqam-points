@@ -39,11 +39,10 @@ export function CycleSwitch({ cycle, onChange }) {
  * @param {object} props
  * @param {'monthly'|'yearly'} props.cycle
  * @param {Record<string,{monthly:number,yearly:number}>} [props.prices] per-tier prices for this workspace (defaults to list prices)
- * @param {boolean} [props.withLoyalty] the prices shown already are the Mirqam Loyalty ones
  * @param {(tier:string)=>import('react').ReactNode} [props.action] the card's button
  * @param {string} [props.highlight] tier to mark (current plan)
  */
-export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, highlight }) {
+export function PagerPlanCards({ cycle, prices, action, highlight }) {
   const { t, locale } = useI18n()
   return (
     <div className="grid gap-5 md:grid-cols-2">
@@ -57,11 +56,7 @@ export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, hig
               <span className="tnum text-[34px] font-bold leading-none">{price(amount, locale)}</span>
               <span className="text-sm text-muted">{t(cycle === 'monthly' ? 'pager.perMonth' : 'pager.perYear')}</span>
             </p>
-            {withLoyalty ? (
-              <p className="mt-2 text-xs font-semibold text-accent">{t('pager.withLoyaltyApplied')}</p>
-            ) : (
-              <p className="mt-2 text-xs text-muted">{t('pager.withLoyalty', { amount: price(plan.withLoyalty.monthly, locale) })}</p>
-            )}
+            <p className="mt-2 text-xs text-muted">{t('pager.includedWithLoyalty')}</p>
             {plan.freeWithPosAdvanced && <p className="mt-1 text-xs text-muted">{t('pager.freeWithPos')}</p>}
             <ul className="mt-5 grid gap-2.5 text-sm">
               {plan.features.map((f) => (
@@ -87,7 +82,7 @@ export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, hig
 }
 
 /** Fine print under the cards: VAT, the trial, and the yearly rule only where yearly is offered
-    (the list price; the Loyalty price has no confirmed yearly price). */
+    (both cycles are sold; the prop stays for a cycle that is not). */
 export function PagerFinePrint({ yearly = true }) {
   const { t } = useI18n()
   return (

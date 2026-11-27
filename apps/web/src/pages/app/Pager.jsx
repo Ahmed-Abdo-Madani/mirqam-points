@@ -104,8 +104,18 @@ function NoPlan({ plan, onStarted }) {
   }
   return (
     <div className="grid gap-4">
+      {plan?.lapsedFromLoyalty && (
+        <Card>
+          <p className="text-sm leading-relaxed">{t('pager.page.lapsedLoyalty')}</p>
+          {owner && (
+            <Link to="/app/billing" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-on-primary">
+              {t('pager.page.renewLoyalty')}
+            </Link>
+          )}
+        </Card>
+      )}
       <Card>
-        <p className="text-sm leading-relaxed">{t('pager.page.noPlan')}</p>
+        <p className="text-sm leading-relaxed">{t(plan?.lapsedFromLoyalty ? 'pager.page.orStandalone' : 'pager.page.noPlan')}</p>
         {!owner && <p className="mt-2 text-sm text-muted">{t(PURCHASES_IN_APP ? 'pager.page.askOwner' : 'pager.page.notOnYet')}</p>}
       </Card>
       {failure && (
@@ -118,7 +128,6 @@ function NoPlan({ plan, onStarted }) {
           <PagerPlanCards
             cycle="monthly"
             prices={plan?.prices}
-            withLoyalty={plan?.withLoyalty}
             action={(tier) =>
               plan?.trialAvailable !== false ? (
                 <Button className="w-full" size="lg" loading={busy} onClick={() => trial(tier)}>
@@ -131,8 +140,7 @@ function NoPlan({ plan, onStarted }) {
               )
             }
           />
-          {/* The yearly rule only where yearly is offered (never for the with-Loyalty price). */}
-          <PagerFinePrint yearly={(plan?.cycles ?? ['monthly', 'yearly']).includes('yearly')} />
+          <PagerFinePrint />
         </>
       )}
     </div>

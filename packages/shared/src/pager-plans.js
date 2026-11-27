@@ -3,12 +3,12 @@
    Prices are per branch, in halalas, EXCLUDING VAT (the page says so). The unified
    billing service stores VAT-inclusive amounts, so `billingAmountMinor` adds it.
 
-   Owner-approved 2026-11-26:
-   - Basic 29/month or 290/year, Plus 49/month or 490/year (per branch).
-   - With a paid Mirqam Loyalty subscription: Basic 15/month, Plus 25/month. No yearly
-     with-Loyalty price was given (see PAGER_LOYALTY_YEARLY).
-   - Basic is included free with Mirqam POS ADVANCED.
-   - 14-day free trial, no card. */
+   Owner-approved 2026-11-26, changed 2026-11-28:
+   - Standalone (a business without a paid Mirqam Loyalty plan): Basic 29/month or 290/year,
+     Plus 49/month or 490/year per branch; 14-day free trial, no card.
+   - With a paid Mirqam Loyalty plan the pager is INCLUDED (no pager subscription, no checkout):
+     see PAGER_INCLUDED_WITH_LOYALTY. The old with-Loyalty prices (15/25) are no longer sold.
+   - Basic is included free with Mirqam POS ADVANCED. */
 
 export const PAGER_VAT_RATE = 0.15
 export const PAGER_TRIAL_DAYS = 14
@@ -20,17 +20,19 @@ export const PAGER_CYCLES = ['monthly', 'yearly']
    his answer is a one-line change here. */
 /** WhatsApp «جاهز» messages per branch per month on Plus. null = no limit stated (and none enforced). */
 export const PAGER_WHATSAPP_FAIR_USE = null
-/** Whether a with-Loyalty workspace may buy yearly. false = monthly only (the yearly amounts below stay in
-    billing for any subscription that already exists, which renews as it is). */
-export const PAGER_LOYALTY_YEARLY = false
-
-/** Billing cycles a workspace may buy: with the Loyalty price, monthly only until PAGER_LOYALTY_YEARLY. */
-export const pagerCycles = (withLoyalty) => (withLoyalty && !PAGER_LOYALTY_YEARLY ? ['monthly'] : PAGER_CYCLES)
+/**
+ * What a workspace with a paid Mirqam Loyalty plan gets, included, with no pager subscription.
+ * tier: 'basic' | 'plus'; branches: a number, or null = every branch up to PAGER_MAX_BRANCHES.
+ * The owner may narrow this (e.g. to Basic): one line here; the tests read this constant.
+ */
+export const PAGER_INCLUDED_WITH_LOYALTY = Object.freeze({ tier: 'plus', branches: null })
 
 export const PAGER_PLANS = Object.freeze({
   basic: Object.freeze({
     tier: 'basic',
     prices: Object.freeze({ monthly: 2900, yearly: 29000 }),
+    // Legacy, not sold since 2026-11-28 (the pager is included with paid Loyalty): kept only so the billing
+    // catalog's pager_*_loyalty codes and old invoices still resolve.
     withLoyalty: Object.freeze({ monthly: 1500, yearly: 15000 }),
     freeWithPosAdvanced: true,
     features: Object.freeze(['unlimitedCalls', 'webAlerts', 'inLoyalty', 'qr', 'tv', 'basicReports', 'branding']),
