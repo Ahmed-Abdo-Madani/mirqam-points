@@ -131,7 +131,8 @@ function NoPlan({ plan, onStarted }) {
               )
             }
           />
-          <PagerFinePrint />
+          {/* The yearly rule only where yearly is offered (never for the with-Loyalty price). */}
+          <PagerFinePrint yearly={(plan?.cycles ?? ['monthly', 'yearly']).includes('yearly')} />
         </>
       )}
     </div>
