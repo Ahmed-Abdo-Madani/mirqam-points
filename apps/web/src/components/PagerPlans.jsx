@@ -1,5 +1,5 @@
 import { MqCheck } from '@mirqam/ui'
-import { PAGER_PLANS, PAGER_TIERS, PAGER_TRIAL_DAYS } from '@mirqam-points/shared'
+import { PAGER_PLANS, PAGER_TIERS, PAGER_TRIAL_DAYS, pagerFeatureKey } from '@mirqam-points/shared'
 import { useI18n } from '../i18n/index.jsx'
 import { money } from '../lib/format.js'
 
@@ -8,6 +8,12 @@ import { money } from '../lib/format.js'
 
 /** Whole riyals without decimals (29 ر.س), halalas only when there are some. */
 export const price = (minor, locale) => (minor % 100 ? money(minor, locale) : locale === 'ar' ? `${minor / 100} ر.س` : `SAR ${minor / 100}`)
+
+/** The cycle switch offers only what the API sells this workspace (`cycles`); a cycle it does not sell is never shown. */
+export function cycleChoice(cycles, cycle) {
+  const offered = cycles?.length ? cycles : ['monthly', 'yearly']
+  return { offered, shown: offered.includes(cycle) ? cycle : offered[0], switchable: offered.length > 1 }
+}
 
 /** Monthly / yearly switch shared by the landing page and the console. */
 export function CycleSwitch({ cycle, onChange }) {
@@ -62,7 +68,7 @@ export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, hig
                 <li key={f} className="flex items-start gap-2">
                   <MqCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                   <span>
-                    {t(`pager.features.${f}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })}
+                    {t(`pager.features.${pagerFeatureKey(plan, f)}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })}
                     {plan.comingSoon?.includes(f) && (
                       <span className="ms-2 inline-flex rounded-full border border-line bg-soft px-2 py-0.5 text-[11px] font-semibold text-muted">
                         {t('pager.soon')}

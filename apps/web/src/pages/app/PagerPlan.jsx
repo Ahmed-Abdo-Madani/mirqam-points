@@ -1,7 +1,7 @@
 import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
 import { PAGER_MAX_BRANCHES } from '@mirqam-points/shared'
 import { useEffect, useState } from 'react'
-import { CycleSwitch, PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
+import { CycleSwitch, cycleChoice, PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
 import { day, money } from '../../lib/format.js'
@@ -54,7 +54,7 @@ export default function PagerPlan({ checkoutHost }) {
     act(async () => {
       const r = await api('/billing/pager/checkout', {
         method: 'POST',
-        body: { tier, cycle, branches, coupon: coupon.trim() || undefined, autoRenew: true },
+        body: { tier, cycle: cycleChoice(data?.cycles, cycle).shown, branches, coupon: coupon.trim() || undefined, autoRenew: true },
         idempotencyKey: crypto.randomUUID(),
       })
       if (!r.url) return reload()
@@ -66,7 +66,9 @@ export default function PagerPlan({ checkoutHost }) {
   if (loading) return <Skeleton rows={2} />
   if (!data) return error ? <p className="text-sm text-err">{errorText(error)}</p> : null
   const sub = data.subscription
-  const total = data.prices.basic && ((tier) => data.prices[tier][cycle] * branches)
+  // With the Loyalty price the plan is monthly only for now (the API says which cycles it sells).
+  const { shown, switchable } = cycleChoice(data.cycles, cycle)
+  const total = data.prices.basic && ((tier) => data.prices[tier][shown] * branches)
 
   return (
     <section aria-labelledby="pager-plan-title" className="grid gap-4">
@@ -111,7 +113,7 @@ export default function PagerPlan({ checkoutHost }) {
         </Card>
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <CycleSwitch cycle={cycle} onChange={setCycle} />
+        {switchable ? <CycleSwitch cycle={shown} onChange={setCycle} /> : <p className="text-sm text-muted">{t('pager.console.loyaltyMonthlyOnly')}</p>}
         <label className="grid gap-1 text-sm">
           {t('pager.console.branches')}
           <input
@@ -134,7 +136,7 @@ export default function PagerPlan({ checkoutHost }) {
         </label>
       </div>
       <PagerPlanCards
-        cycle={cycle}
+        cycle={shown}
         prices={data.prices}
         withLoyalty={data.withLoyalty}
         highlight={sub?.active ? sub.tier : undefined}

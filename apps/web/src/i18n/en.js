@@ -460,6 +460,7 @@ const base = {
     generic: 'Something went wrong. Please try again.',
     network_error: 'Could not connect. Check your connection and retry — the transaction will not be duplicated.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
+    pager_loyalty_yearly_unavailable: 'The Mirqam Loyalty price is monthly only for now. Choose monthly.',
     pager_trial_used: 'You have already used the pager free trial. Subscribe to continue.',
     validation_failed: 'Please check the highlighted fields.',
     invalid_credentials: 'Incorrect email or password.',
