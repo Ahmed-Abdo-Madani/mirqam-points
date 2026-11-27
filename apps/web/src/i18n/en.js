@@ -5,6 +5,7 @@ import { bridgeCopy } from '../../../api/src/pos-bridge/copy.mjs'
 import billing from './en.billing.js'
 import campaigns from './en.campaigns.js'
 import pager from './en.pager.js'
+import pagerOffer from './en.pager-offer.js'
 import wallet from './en.wallet.js'
 import { mergeDict } from './merge.js'
 
@@ -522,4 +523,4 @@ const base = {
   },
 }
 
-export default mergeDict(base, wallet, campaigns, billing, pager)
+export default mergeDict(base, wallet, campaigns, billing, pager, pagerOffer)
