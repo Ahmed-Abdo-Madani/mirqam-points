@@ -38,3 +38,43 @@ export function phoneTabs({ pagerLive, hasProgram, canTransact }) {
   if (pagerLive) return ['home', 'scan', 'pager', 'settings']
   return ['home', 'scan', 'settings']
 }
+
+const DONE = new Set(['COLLECTED', 'CLOSED', 'CANCELLED', 'EXPIRED'])
+
+/** The three live figures on the counter's top row: preparing, ready, and today's average wait
+    (from the number being made to it being ready), in whole minutes, or null when nothing was ready yet. */
+export function counterFigures(tickets = []) {
+  const waits = tickets
+    .filter((t) => t.readyAt && t.createdAt)
+    .map((t) => (Date.parse(t.readyAt) - Date.parse(t.createdAt)) / 60000)
+    .filter((m) => Number.isFinite(m) && m >= 0)
+  return {
+    preparing: tickets.filter((t) => t.status === 'WAITING').length,
+    ready: tickets.filter((t) => t.status === 'READY').length,
+    avgWaitMinutes: waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : null,
+  }
+}
+
+/** The last numbers closed today, newest first (the side rail shows five). */
+export function lastClosed(tickets = [], n = 5) {
+  const at = (t) => t.collectedAt || t.closedAt || t.updatedAt || t.readyAt || t.createdAt || ''
+  return tickets
+    .filter((t) => DONE.has(t.status))
+    .sort((a, b) => at(b).localeCompare(at(a)))
+    .slice(0, n)
+}
+
+/** The amount typed at the counter (e.g. "25.5") in halalas, or undefined when empty; NaN when invalid. */
+export function amountMinor(text) {
+  const s = String(text ?? '')
+    .trim()
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace('٫', '.')
+  if (!s) return undefined
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(s)) return Number.NaN
+  return Math.round(Number(s) * 100)
+}
+
+/** A Riyadh calendar day (YYYY-MM-DD): the POS counts pager reports in Riyadh days. */
+export const riyadhDay = (at = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)

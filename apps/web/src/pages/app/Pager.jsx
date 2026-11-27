@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
+import { Badge, Button, Card, Modal, Skeleton } from '@mirqam/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/AppShell.jsx'
@@ -6,7 +6,7 @@ import { PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
 import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
-import { canEditBusiness, counterColumns, pagerPageState, pickBranch } from '../../lib/pager-page.js'
+import { amountMinor, canEditBusiness, counterColumns, counterFigures, lastClosed, pagerPageState, pickBranch, riyadhDay } from '../../lib/pager-page.js'
 import { PURCHASES_IN_APP } from '../../lib/platform.js'
 import { useSession } from '../../lib/session.jsx'
 
@@ -139,7 +139,22 @@ function NoPlan({ plan, onStarted }) {
   )
 }
 
-/** The counter a cashier runs one-handed at the till. Polls the list every few seconds (cheap when nothing changed). */
+/** Prints one QR on its own page (a new window, so the console around it is not printed). */
+async function printQr(url, title) {
+  const w = window.open('', '_blank', 'width=480,height=640')
+  if (!w) return
+  const { default: QRCode } = await import('qrcode')
+  const src = await QRCode.toDataURL(url, { margin: 1, width: 640, errorCorrectionLevel: 'M' })
+  const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  w.document.write(
+    `<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title></head><body style="margin:0;display:grid;place-items:center;min-height:100vh;font-family:sans-serif;text-align:center"><div><h1 style="font-size:22px">${esc(title)}</h1><img src="${src}" width="320" height="320" alt=""><p style="font-size:12px;direction:ltr">${esc(url)}</p></div></body></html>`,
+  )
+  w.document.close()
+  w.focus()
+  w.print()
+}
+
+/** The counter a cashier keeps open all day: the form and live figures on one row, a dense board, a side rail. */
 function Counter({ state }) {
   const { t } = useI18n()
   const errorText = useErrorText()
@@ -151,6 +166,11 @@ function Counter({ state }) {
   const [busy, setBusy] = useState(null)
   const [failure, setFailure] = useState(null)
   const [shown, setShown] = useState(null)
+  const [number, setNumber] = useState('')
+  const [amount, setAmount] = useState('')
+  const [qrOpen, setQrOpen] = useState(false)
+  const [screen, setScreen] = useState(null)
+  const numberRef = useRef(null)
   const version = useRef('')
 
   const load = useCallback(async () => {
@@ -175,6 +195,19 @@ function Counter({ state }) {
     return () => clearInterval(timer)
   }, [load])
 
+  // The branch's TV link, for the rail (read only; made in Setup).
+  useEffect(() => {
+    if (!branchId) return undefined
+    let alive = true
+    setScreen(null)
+    api(`/pager/branches/${encodeURIComponent(branchId)}/call-screen`)
+      .then((r) => alive && setScreen(r.screen?.url ?? null))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [branchId])
+
   async function run(id, fn) {
     setBusy(id)
     setFailure(null)
@@ -190,114 +223,221 @@ function Counter({ state }) {
     }
   }
 
+  async function add(e) {
+    e.preventDefault()
+    const minor = amountMinor(amount)
+    if (Number.isNaN(minor)) return setFailure({ code: 'validation_failed' })
+    const body = { ...(number.trim() ? { number: number.trim() } : {}), ...(minor !== undefined ? { amountMinor: minor } : {}) }
+    const made = await run('new', () => api(`/pager/branches/${encodeURIComponent(branchId)}/tickets`, { method: 'POST', body }))
+    if (made) {
+      setShown(made)
+      setNumber('')
+      setAmount('')
+    }
+    numberRef.current?.focus()
+  }
+
   const pick = (id) => {
     setBranchId(id)
     localStorage.setItem(key, id)
   }
   const { waiting, ready } = counterColumns(tickets)
+  const figures = counterFigures(tickets)
+  const closed = lastClosed(tickets)
   const usable = state.branches.filter((b) => b.active !== false && b.inPlan !== false)
+  const branch = usable.find((b) => b.id === branchId)
+  const call = (x) => run(x.id, () => api(`/pager/tickets/${x.id}/call`, { method: 'POST', body: {} }))
+  const close = (x) => run(x.id, () => api(`/pager/tickets/${x.id}/close`, { method: 'POST', body: {} }))
+  const input = 'min-h-11 rounded-xl border border-line bg-surface px-3 text-sm'
 
   return (
-    <div className="grid gap-4">
-      {usable.length > 1 && (
-        <label className="grid max-w-xs gap-1 text-sm">
-          {t('pager.page.branch')}
-          <select className="min-h-11 rounded-xl border border-line bg-surface px-3" value={branchId ?? ''} onChange={(e) => pick(e.target.value)}>
-            {usable.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+    <div className="grid gap-3">
+      {/* Top row: branch, the new-number form (Enter adds; the cursor returns to the number), live figures. */}
+      <div className="mq-card flex flex-wrap items-end gap-3 p-3">
+        {usable.length > 1 && (
+          <label className="grid gap-1 text-xs text-muted">
+            {t('pager.page.branch')}
+            <select className={input} value={branchId ?? ''} onChange={(e) => pick(e.target.value)}>
+              {usable.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <form onSubmit={add} className="flex flex-1 flex-wrap items-end gap-2">
+          <label className="grid gap-1 text-xs text-muted">
+            {t('pager.page.number')}
+            <input
+              ref={numberRef}
+              className={`${input} tnum w-28`}
+              inputMode="numeric"
+              maxLength={6}
+              placeholder={t('pager.page.auto')}
+              value={number}
+              onChange={(e) => setNumber(e.target.value.replace(/[^\d٠-٩]/g, ''))}
+            />
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            {t('pager.page.amount')}
+            <input
+              className={`${input} tnum w-28`}
+              inputMode="decimal"
+              placeholder={t('pager.page.optional')}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </label>
+          <Button type="submit" className="min-h-11 px-6" disabled={!branchId} loading={busy === 'new'}>
+            + {t('pager.page.add')}
+          </Button>
+        </form>
+        <dl className="flex gap-2 text-center">
+          <Figure label={t('pager.page.figPreparing')} value={figures.preparing} />
+          <Figure label={t('pager.page.figReady')} value={figures.ready} />
+          <Figure label={t('pager.page.figWait')} value={figures.avgWaitMinutes == null ? '—' : t('pager.page.minutesShort', { n: figures.avgWaitMinutes })} />
+        </dl>
+      </div>
+
       {offline && (
         <p role="status" className="rounded-xl border border-warn/20 bg-warn-bg px-4 py-2 text-sm text-warn">
           {t('pager.page.reconnecting')}
         </p>
       )}
       {failure && (
-        <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
+        <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-2 text-sm text-err">
           {errorText(failure)}
         </p>
       )}
-      <Button
-        size="lg"
-        className="min-h-16 w-full text-lg sm:w-auto"
-        disabled={!branchId}
-        loading={busy === 'new'}
-        onClick={async () => {
-          const made = await run('new', () => api(`/pager/branches/${encodeURIComponent(branchId)}/tickets`, { method: 'POST', body: {} }))
-          if (made) setShown(made)
-        }}
-      >
-        + {t('pager.page.newNumber')}
-      </Button>
-      {shown && (
-        <Card>
-          <div className="flex flex-wrap items-center gap-6">
-            <Qr value={shown.url} size={180} label={t('pager.page.ticketQr', { n: shown.number })} />
-            <div>
-              <p className="text-sm text-muted">{t('pager.page.number')}</p>
-              <p className="tnum text-5xl font-bold">{shown.number}</p>
-              <p className="mt-2 max-w-xs text-sm text-muted">{t('pager.page.scanToFollow')}</p>
-              <Button className="mt-3" variant="outline" onClick={() => setShown(null)}>
-                {t('pager.page.hide')}
+
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+        {/* Board: on a phone Ready comes first (the numbers to hand out), then Preparing. */}
+        <div className="mq-card grid gap-4 p-3 lg:grid-cols-2">
+          {!waiting.length && !ready.length ? (
+            <p className="text-sm text-muted lg:col-span-2">{t('pager.page.emptyBoard')}</p>
+          ) : (
+            <>
+              <Column className="order-2 lg:order-1" title={t('pager.page.waiting', { n: waiting.length })}>
+                {waiting.map((x) => (
+                  <TicketCard key={x.id} ticket={x}>
+                    <Button className="min-h-11 w-full" loading={busy === x.id} onClick={() => call(x)}>
+                      🔔 {t('pager.page.call')}
+                    </Button>
+                  </TicketCard>
+                ))}
+              </Column>
+              <Column className="order-1 lg:order-2" title={t('pager.page.ready', { n: ready.length })}>
+                {ready.map((x) => (
+                  <TicketCard key={x.id} ticket={x}>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Button variant="outline" className="min-h-11 px-2" disabled={busy === x.id} onClick={() => call(x)}>
+                        {t('pager.page.recall')}
+                      </Button>
+                      <Button className="min-h-11 px-2" loading={busy === x.id} onClick={() => close(x)}>
+                        ✓ {t('pager.page.done')}
+                      </Button>
+                    </div>
+                  </TicketCard>
+                ))}
+              </Column>
+            </>
+          )}
+        </div>
+
+        {/* Side rail: the branch's counter QR, the TV link, the last closed numbers. On a phone: two buttons. */}
+        <aside className="grid content-start gap-3">
+          <div className="mq-card hidden gap-2 p-3 text-center lg:grid">
+            {branch && <Qr value={branch.counterUrl} size={150} label={t('pager.page.counterQr')} className="mx-auto" />}
+            <p className="text-xs text-muted">{t('pager.page.counterQrHint')}</p>
+            {branch && (
+              <Button variant="outline" className="min-h-10" onClick={() => printQr(branch.counterUrl, branch.name)}>
+                {t('pager.page.print')}
               </Button>
-            </div>
+            )}
+            {screen && (
+              <a href={screen} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-accent underline">
+                {t('pager.page.openTv')}
+              </a>
+            )}
           </div>
-        </Card>
-      )}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Column title={t('pager.page.waiting', { n: waiting.length })}>
-          {waiting.map((x) => (
-            <TicketCard key={x.id} ticket={x}>
-              <Button
-                size="lg"
-                className="min-h-14 w-full text-base"
-                loading={busy === x.id}
-                onClick={() => run(x.id, () => api(`/pager/tickets/${x.id}/call`, { method: 'POST', body: {} }))}
+          <div className="grid grid-cols-2 gap-2 lg:hidden">
+            <Button variant="outline" className="min-h-11" disabled={!branch} onClick={() => setQrOpen(true)}>
+              {t('pager.page.counterQr')}
+            </Button>
+            {screen ? (
+              <a
+                href={screen}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-line text-sm font-semibold"
               >
-                🔔 {t('pager.page.call')}
+                {t('pager.page.openTv')}
+              </a>
+            ) : (
+              <Button variant="outline" className="min-h-11" disabled>
+                {t('pager.page.openTv')}
               </Button>
-            </TicketCard>
-          ))}
-          {!waiting.length && <p className="text-sm text-muted">{t('pager.page.emptyWaiting')}</p>}
-        </Column>
-        <Column title={t('pager.page.ready', { n: ready.length })}>
-          {ready.map((x) => (
-            <TicketCard key={x.id} ticket={x}>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="min-h-14"
-                  disabled={busy === x.id}
-                  onClick={() => run(x.id, () => api(`/pager/tickets/${x.id}/call`, { method: 'POST', body: {} }))}
-                >
-                  {t('pager.page.recall')}
-                </Button>
-                <Button
-                  className="min-h-14"
-                  loading={busy === x.id}
-                  onClick={() => run(x.id, () => api(`/pager/tickets/${x.id}/close`, { method: 'POST', body: {} }))}
-                >
-                  ✓ {t('pager.page.done')}
-                </Button>
-              </div>
-            </TicketCard>
-          ))}
-          {!ready.length && <p className="text-sm text-muted">{t('pager.page.emptyReady')}</p>}
-        </Column>
+            )}
+          </div>
+          {closed.length > 0 && (
+            <div className="mq-card hidden p-3 lg:block">
+              <p className="mb-2 text-xs font-semibold text-muted">{t('pager.page.lastClosed')}</p>
+              <p className="tnum flex flex-wrap gap-1.5 text-sm font-bold">
+                {closed.map((x) => (
+                  <span key={x.id} className="rounded-lg bg-soft px-2 py-1">
+                    {x.number}
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+        </aside>
       </div>
+
+      <Modal
+        open={Boolean(shown)}
+        onClose={() => setShown(null)}
+        title={shown ? t('pager.page.ticketQr', { n: shown.number }) : ''}
+        closeLabel={t('pager.page.hide')}
+      >
+        {shown && (
+          <div className="grid justify-items-center gap-2 text-center">
+            <p className="tnum text-6xl font-bold">{shown.number}</p>
+            <Qr value={shown.url} size={220} label={t('pager.page.ticketQr', { n: shown.number })} />
+            <p className="max-w-xs text-sm text-muted">{t('pager.page.scanToFollow')}</p>
+          </div>
+        )}
+      </Modal>
+      <Modal open={qrOpen} onClose={() => setQrOpen(false)} title={branch?.name ?? ''} closeLabel={t('pager.page.hide')}>
+        {branch && (
+          <div className="grid justify-items-center gap-3 text-center">
+            <Qr value={branch.counterUrl} size={240} label={t('pager.page.counterQr')} />
+            <p className="text-sm text-muted">{t('pager.page.counterQrHint')}</p>
+            <Button variant="outline" onClick={() => printQr(branch.counterUrl, branch.name)}>
+              {t('pager.page.print')}
+            </Button>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
 
-function Column({ title, children }) {
+function Figure({ label, value }) {
   return (
-    <section className="grid content-start gap-3">
-      <h2 className="text-base font-bold">{title}</h2>
-      {children}
+    <div className="min-w-[72px] rounded-xl bg-soft px-3 py-1.5">
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd className="tnum text-lg font-bold leading-tight">{value}</dd>
+    </div>
+  )
+}
+
+function Column({ title, className = '', children }) {
+  return (
+    <section className={`grid content-start gap-2 ${className}`}>
+      <h2 className="text-sm font-bold">{title}</h2>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">{children}</div>
     </section>
   )
 }
@@ -306,45 +446,48 @@ function TicketCard({ ticket, children }) {
   const { t } = useI18n()
   const since = ticket.status === 'READY' && ticket.readyAt ? ticket.readyAt : ticket.createdAt
   return (
-    <article className="mq-card grid gap-3 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="tnum text-4xl font-bold leading-none">{ticket.number}</p>
-        <p className="text-xs text-muted">{t('pager.page.minutesAgo', { n: minutes(since) })}</p>
+    <article className="grid gap-2 rounded-xl border border-line bg-surface p-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="tnum text-3xl font-bold leading-none">{ticket.number}</p>
+        <p className="text-[11px] text-muted">{t('pager.page.minutesAgo', { n: minutes(since) })}</p>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {ticket.onTheWayAt && <Badge tone="teal">{t('pager.page.onTheWay')}</Badge>}
-        {ticket.openedAt && !ticket.onTheWayAt && <Badge tone="blue">{t('pager.page.opened')}</Badge>}
-        {(ticket.pushEnabled || ticket.whatsappEnabled) && <Badge tone="green">{t('pager.page.alertOn')}</Badge>}
-        {ticket.calls > 1 && <Badge tone="amber">{t('pager.page.calledN', { n: ticket.calls })}</Badge>}
-      </div>
+      {(ticket.onTheWayAt || ticket.openedAt || ticket.pushEnabled || ticket.whatsappEnabled || ticket.calls > 1) && (
+        <div className="flex flex-wrap gap-1">
+          {ticket.onTheWayAt && <Badge tone="teal">{t('pager.page.onTheWay')}</Badge>}
+          {ticket.openedAt && !ticket.onTheWayAt && <Badge tone="blue">{t('pager.page.opened')}</Badge>}
+          {(ticket.pushEnabled || ticket.whatsappEnabled) && <Badge tone="green">{t('pager.page.alertOn')}</Badge>}
+          {ticket.calls > 1 && <Badge tone="amber">{t('pager.page.calledN', { n: ticket.calls })}</Badge>}
+        </div>
+      )}
       {children}
     </article>
   )
 }
 
-/** Owners and managers: counter QR, TV link, branches, settings, brand, reports and the plan. */
+/** Owners and managers: the report figures on top, then branches (QR, TV link) and settings beside the customer-page look. */
 function Manage({ state, reload }) {
   const { t } = useI18n()
   const { can } = useSession()
   const errorText = useErrorText()
   const [failure, setFailure] = useState(null)
-  const [saved, setSaved] = useState(null)
-  const act = async (fn, okKey) => {
+  const [saved, setSaved] = useState(false)
+  const act = async (fn) => {
     setFailure(null)
-    setSaved(null)
+    setSaved(false)
     try {
       await fn()
-      if (okKey) setSaved(okKey)
+      setSaved(true)
       reload()
     } catch (e) {
       setFailure(e)
     }
   }
-  const usable = state.branches.filter((b) => b.active !== false)
+  const editable = canEditBusiness(state)
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4">
+      <Reports state={state} />
       {failure && (
-        <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-3 text-sm text-err">
+        <p role="alert" className="rounded-xl border border-err/20 bg-err-bg px-4 py-2 text-sm text-err">
           {errorText(failure)}
         </p>
       )}
@@ -353,172 +496,225 @@ function Manage({ state, reload }) {
           {t('pager.page.saved')}
         </p>
       )}
-      <Card title={t('pager.page.counterQr')} subtitle={t('pager.page.counterQrHint')}>
-        <div className="grid gap-6 sm:grid-cols-2">
-          {usable.map((b) => (
-            <div key={b.id} className="print-area grid justify-items-center gap-2 text-center">
-              <p className="font-bold">{b.name}</p>
-              <Qr value={b.counterUrl} size={200} label={b.name} />
-              <p className="text-xs text-muted" dir="ltr">
-                {b.counterUrl}
-              </p>
-            </div>
-          ))}
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <div className="grid gap-4 lg:col-span-7">
+          <Branches state={state} act={act} onError={setFailure} />
+          {can('owner') && PURCHASES_IN_APP && (
+            <p className="text-sm">
+              {t('pager.page.planLine', { tier: t(`pager.tiers.${state.subscription?.tier ?? state.plan?.tier ?? 'basic'}`) })}{' '}
+              <Link to="/app/billing#pager-plan-title" className="font-semibold text-accent underline">
+                {t('pager.page.managePlan')}
+              </Link>
+            </p>
+          )}
         </div>
-        <Button className="no-print mt-4" variant="outline" onClick={() => window.print()}>
-          {t('pager.page.print')}
-        </Button>
-      </Card>
-      <CallScreens branches={usable} onError={setFailure} />
-      {!canEditBusiness(state) && (
-        <p role="note" className="rounded-xl border border-line bg-soft px-4 py-3 text-sm">
-          {t('pager.page.managedInPos')}
-        </p>
-      )}
-      <Branches state={state} act={act} />
-      <SettingsCard state={state} act={act} />
-      {canEditBusiness(state) && <BrandCard state={state} act={act} />}
-      <Reports state={state} />
-      {can('owner') && PURCHASES_IN_APP && (
-        <p className="text-sm">
-          {t('pager.page.planLine', { tier: t(`pager.tiers.${state.subscription?.tier ?? state.plan?.tier ?? 'basic'}`) })}{' '}
-          <Link to="/app/billing#pager-plan-title" className="font-semibold text-accent underline">
-            {t('pager.page.managePlan')}
-          </Link>
-        </p>
-      )}
+        <div className="lg:sticky lg:top-24 lg:col-span-5">
+          {editable ? (
+            <BrandCard state={state} act={act} />
+          ) : (
+            <p role="note" className="rounded-xl border border-line bg-soft px-4 py-3 text-sm">
+              {t('pager.page.managedInPos')}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
-function CallScreens({ branches, onError }) {
-  const { t } = useI18n()
-  const [links, setLinks] = useState({})
-  const make = async (id) => {
-    try {
-      const r = await api(`/pager/branches/${encodeURIComponent(id)}/call-screen`, { method: 'POST', body: {} })
-      setLinks((l) => ({ ...l, [id]: r.screen?.url }))
-    } catch (e) {
-      onError(e)
-    }
-  }
-  return (
-    <Card title={t('pager.page.tv')} subtitle={t('pager.page.tvHint')}>
-      <ul className="grid gap-3">
-        {branches.map((b) => (
-          <li key={b.id} className="flex flex-wrap items-center justify-between gap-3">
-            <span className="font-semibold">{b.name}</span>
-            {links[b.id] ? (
-              <a href={links[b.id]} target="_blank" rel="noopener noreferrer" className="text-sm text-accent underline" dir="ltr">
-                {links[b.id]}
-              </a>
-            ) : (
-              <Button variant="outline" onClick={() => make(b.id)}>
-                {t('pager.page.makeTvLink')}
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </Card>
-  )
-}
-
-function Branches({ state, act }) {
+/** One table for the branches: name, counter QR, TV link (and a column kept for the loyalty-programme picker),
+    with Add branch and the plan's limit in its header and the counter settings in one row under it. */
+function Branches({ state, act, onError }) {
   const { t } = useI18n()
   const editable = canEditBusiness(state)
   const [name, setName] = useState('')
   const [names, setNames] = useState({})
+  const [links, setLinks] = useState({})
+  const [qr, setQr] = useState(null)
+  const [copied, setCopied] = useState(null)
+  const active = state.branches.filter((b) => b.active !== false)
   const limit = state.plan?.branchLimit ?? state.subscription?.branches ?? null
-  const active = state.branches.filter((b) => b.active !== false).length
-  const room = limit === null || active < limit
+  const room = limit === null || active.length < limit
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per branch list (active is derived from it).
+  useEffect(() => {
+    let alive = true
+    for (const b of active)
+      api(`/pager/branches/${encodeURIComponent(b.id)}/call-screen`)
+        .then((r) => alive && setLinks((l) => ({ ...l, [b.id]: r.screen?.url ?? null })))
+        .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [state.branches])
+
+  const makeLink = async (id) => {
+    try {
+      const r = await api(`/pager/branches/${encodeURIComponent(id)}/call-screen`, { method: 'POST', body: {} })
+      setLinks((l) => ({ ...l, [id]: r.screen?.url ?? null }))
+    } catch (e) {
+      onError(e)
+    }
+  }
+  const copy = async (id, url) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(id)
+    } catch {}
+  }
+  const input = 'min-h-10 rounded-xl border border-line bg-surface px-3 text-sm'
+
   return (
-    <Card title={t('pager.page.branches')} subtitle={limit ? t('pager.page.branchesOf', { n: active, limit }) : undefined}>
-      <ul className="grid gap-2">
-        {!editable &&
-          state.branches.map((b) => (
-            <li key={b.id} className="min-h-11 rounded-xl border border-line bg-surface px-3 py-2.5">
-              {b.name}
-            </li>
-          ))}
-        {editable &&
-          state.branches.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-2">
-              <input
-                className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3"
-                aria-label={t('pager.page.branchName')}
-                value={names[b.id] ?? b.name}
-                maxLength={120}
-                onChange={(e) => setNames((n) => ({ ...n, [b.id]: e.target.value }))}
-              />
-              <Button
-                variant="outline"
-                disabled={!names[b.id] || names[b.id].trim() === b.name}
-                onClick={() => act(() => api(`/pager/branches/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: { name: names[b.id].trim() } }), 'saved')}
-              >
-                {t('pager.page.save')}
-              </Button>
-              {b.inPlan === false && <Badge tone="gray">{t('pager.page.notInPlan')}</Badge>}
-            </li>
-          ))}
-      </ul>
-      {!editable ? null : room ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3"
-            placeholder={t('pager.page.newBranch')}
-            aria-label={t('pager.page.newBranch')}
-            value={name}
-            maxLength={120}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Button
-            disabled={name.trim().length < 2}
-            onClick={() => act(() => api('/pager/branches', { method: 'POST', body: { name: name.trim() } }).then(() => setName('')), 'saved')}
-          >
-            {t('pager.page.addBranch')}
-          </Button>
+    <section className="mq-card overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+        <div>
+          <h2 className="text-[15px] font-bold">{t('pager.page.branches')}</h2>
+          {limit && <p className="text-xs text-muted">{t('pager.page.branchesOf', { n: active.length, limit })}</p>}
         </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted">{t('pager.page.branchLimit')}</p>
-      )}
-    </Card>
+        {editable && room && (
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (name.trim().length >= 2) act(() => api('/pager/branches', { method: 'POST', body: { name: name.trim() } }).then(() => setName('')))
+            }}
+          >
+            <input
+              className={`${input} w-40`}
+              placeholder={t('pager.page.newBranch')}
+              aria-label={t('pager.page.newBranch')}
+              value={name}
+              maxLength={120}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Button type="submit" className="min-h-10" disabled={name.trim().length < 2}>
+              {t('pager.page.addBranch')}
+            </Button>
+          </form>
+        )}
+        {editable && !room && <p className="text-xs text-muted">{t('pager.page.branchLimit')}</p>}
+      </header>
+
+      <div className="hidden grid-cols-[minmax(0,1fr)_64px_minmax(0,1.2fr)_minmax(0,0.8fr)] gap-3 border-b border-line bg-soft px-4 py-2 text-xs font-semibold text-muted sm:grid">
+        <span>{t('pager.page.branchName')}</span>
+        <span>{t('pager.page.qr')}</span>
+        <span>{t('pager.page.tv')}</span>
+        {/* Kept for the loyalty-programme picker (another PR). */}
+        <span />
+      </div>
+      <ul>
+        {state.branches.map((b) => (
+          <li
+            key={b.id}
+            className="grid items-center gap-3 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_64px_minmax(0,1.2fr)_minmax(0,0.8fr)]"
+          >
+            <div className="flex items-center gap-2">
+              {editable ? (
+                <>
+                  <input
+                    className={`${input} min-w-0 flex-1`}
+                    aria-label={t('pager.page.branchName')}
+                    value={names[b.id] ?? b.name}
+                    maxLength={120}
+                    onChange={(e) => setNames((n) => ({ ...n, [b.id]: e.target.value }))}
+                  />
+                  {names[b.id] && names[b.id].trim() !== b.name && (
+                    <Button
+                      variant="outline"
+                      className="min-h-10"
+                      onClick={() => act(() => api(`/pager/branches/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: { name: names[b.id].trim() } }))}
+                    >
+                      {t('pager.page.save')}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <span className="font-semibold">{b.name}</span>
+              )}
+              {b.inPlan === false && <Badge tone="gray">{t('pager.page.notInPlan')}</Badge>}
+            </div>
+            <button
+              type="button"
+              className="w-fit rounded-lg border border-line p-0.5"
+              onClick={() => setQr(b)}
+              aria-label={t('pager.page.enlargeQr', { name: b.name })}
+            >
+              <Qr value={b.counterUrl} size={52} label="" />
+            </button>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {links[b.id] ? (
+                <>
+                  <a href={links[b.id]} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent underline">
+                    {t('pager.page.openTv')}
+                  </a>
+                  <button type="button" className="text-muted underline" onClick={() => copy(b.id, links[b.id])}>
+                    {copied === b.id ? t('pager.page.copied') : t('pager.page.copy')}
+                  </button>
+                </>
+              ) : (
+                <Button variant="outline" className="min-h-10" onClick={() => makeLink(b.id)}>
+                  {t('pager.page.makeTvLink')}
+                </Button>
+              )}
+            </div>
+            <span aria-hidden="true" className="hidden sm:block" />
+          </li>
+        ))}
+      </ul>
+
+      <SettingsRow state={state} act={act} />
+
+      <Modal open={Boolean(qr)} onClose={() => setQr(null)} title={qr?.name ?? ''} closeLabel={t('pager.page.hide')}>
+        {qr && (
+          <div className="grid justify-items-center gap-3 text-center">
+            <Qr value={qr.counterUrl} size={240} label={t('pager.page.counterQr')} />
+            <p className="text-sm text-muted">{t('pager.page.counterQrHint')}</p>
+            <p className="text-xs text-muted" dir="ltr">
+              {qr.counterUrl}
+            </p>
+            <Button variant="outline" onClick={() => printQr(qr.counterUrl, qr.name)}>
+              {t('pager.page.print')}
+            </Button>
+          </div>
+        )}
+      </Modal>
+    </section>
   )
 }
 
-function SettingsCard({ state, act }) {
+function SettingsRow({ state, act }) {
   const { t } = useI18n()
   const [sound, setSound] = useState(state.settings?.sound ?? 'chime')
   const [hours, setHours] = useState(state.settings?.expiryHours ?? 12)
+  const input = 'min-h-10 rounded-xl border border-line bg-surface px-3 text-sm'
   return (
-    <Card title={t('pager.page.settings')}>
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="grid gap-1 text-sm">
-          {t('pager.page.sound')}
-          <select className="min-h-11 rounded-xl border border-line bg-surface px-3" value={sound} onChange={(e) => setSound(e.target.value)}>
-            {['chime', 'bell', 'beep'].map((s) => (
-              <option key={s} value={s}>
-                {t(`pager.page.sounds.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          {t('pager.page.expiry')}
-          <input
-            type="number"
-            min={1}
-            max={48}
-            className="tnum min-h-11 w-24 rounded-xl border border-line bg-surface px-3"
-            value={hours}
-            onChange={(e) => setHours(Math.min(48, Math.max(1, Number.parseInt(e.target.value, 10) || 1)))}
-          />
-        </label>
-        <Button onClick={() => act(() => api('/pager/settings', { method: 'PUT', body: { sound, expiryHours: hours } }), 'saved')}>
-          {t('pager.page.save')}
-        </Button>
-      </div>
-    </Card>
+    <div className="flex flex-wrap items-end gap-3 border-t border-line bg-soft/50 px-4 py-3">
+      <p className="w-full text-xs font-semibold text-muted sm:w-auto sm:self-center">{t('pager.page.settings')}</p>
+      <label className="grid gap-1 text-xs text-muted">
+        {t('pager.page.sound')}
+        <select className={input} value={sound} onChange={(e) => setSound(e.target.value)}>
+          {['chime', 'bell', 'beep'].map((s) => (
+            <option key={s} value={s}>
+              {t(`pager.page.sounds.${s}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1 text-xs text-muted">
+        {t('pager.page.expiry')}
+        <input
+          type="number"
+          min={1}
+          max={48}
+          className={`${input} tnum w-20`}
+          value={hours}
+          onChange={(e) => setHours(Math.min(48, Math.max(1, Number.parseInt(e.target.value, 10) || 1)))}
+        />
+      </label>
+      <Button className="min-h-10" onClick={() => act(() => api('/pager/settings', { method: 'PUT', body: { sound, expiryHours: hours } }))}>
+        {t('pager.page.save')}
+      </Button>
+    </div>
   )
 }
 
@@ -535,55 +731,59 @@ function BrandCard({ state, act }) {
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const shownName = locale === 'ar' && form.nameAr ? form.nameAr : form.name
+  const input = 'min-h-10 rounded-xl border border-line bg-surface px-3 text-sm'
   return (
-    <Card title={t('pager.page.brand')} subtitle={t('pager.page.brandHint')}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <div className="grid gap-3">
-          {['name', 'nameAr', 'logoUrl'].map((k) => (
-            <label key={k} className="grid gap-1 text-sm">
+    <section className="mq-card grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+      <div className="grid min-w-0 content-start gap-2.5">
+        <div>
+          <h2 className="text-[15px] font-bold">{t('pager.page.brand')}</h2>
+          <p className="text-xs text-muted">{t('pager.page.brandHint')}</p>
+        </div>
+        {['name', 'nameAr', 'logoUrl'].map((k) => (
+          <label key={k} className="grid min-w-0 gap-1 text-xs text-muted">
+            {t(`pager.page.brandFields.${k}`)}
+            <input
+              className={`${input} w-full min-w-0`}
+              dir={k === 'logoUrl' ? 'ltr' : undefined}
+              value={form[k]}
+              maxLength={k === 'logoUrl' ? 2048 : 120}
+              onChange={set(k)}
+            />
+          </label>
+        ))}
+        <div className="flex items-end gap-3">
+          {['primaryColor', 'accentColor'].map((k) => (
+            <label key={k} className="grid gap-1 text-xs text-muted">
               {t(`pager.page.brandFields.${k}`)}
-              <input
-                className="min-h-11 rounded-xl border border-line bg-surface px-3"
-                dir={k === 'logoUrl' ? 'ltr' : undefined}
-                value={form[k]}
-                maxLength={k === 'logoUrl' ? 2048 : 120}
-                onChange={set(k)}
-              />
+              <input type="color" className="h-10 w-16 rounded-xl border border-line bg-surface" value={form[k]} onChange={set(k)} />
             </label>
           ))}
-          <div className="flex gap-4">
-            {['primaryColor', 'accentColor'].map((k) => (
-              <label key={k} className="grid gap-1 text-sm">
-                {t(`pager.page.brandFields.${k}`)}
-                <input type="color" className="h-11 w-20 rounded-xl border border-line bg-surface" value={form[k]} onChange={set(k)} />
-              </label>
-            ))}
-          </div>
-          <Button className="w-fit" onClick={() => act(() => api('/pager/brand', { method: 'PUT', body: form }), 'saved')}>
+          <Button className="min-h-10" onClick={() => act(() => api('/pager/brand', { method: 'PUT', body: form }))}>
             {t('pager.page.save')}
           </Button>
         </div>
-        <section
-          aria-label={t('pager.page.preview')}
-          className="overflow-hidden rounded-3xl border border-line bg-white text-center text-[#172740] shadow-card"
-        >
-          <div className="grid justify-items-center gap-2 p-5" style={{ background: form.primaryColor, color: '#fff' }}>
-            {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-12 w-12 rounded-full bg-white object-contain" /> : null}
-            <p className="font-bold">{shownName}</p>
-          </div>
-          <div className="grid gap-1 p-5">
-            <p className="text-xs">{t('pager.page.previewNumber')}</p>
-            <p className="tnum text-5xl font-bold">12</p>
-            <p className="mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: form.accentColor }}>
-              {t('pager.page.previewStatus')}
-            </p>
-          </div>
-        </section>
       </div>
-    </Card>
+      <section
+        aria-label={t('pager.page.preview')}
+        className="h-fit overflow-hidden rounded-3xl border border-line bg-white text-center text-[#172740] shadow-card"
+      >
+        <div className="grid justify-items-center gap-1.5 p-4" style={{ background: form.primaryColor, color: '#fff' }}>
+          {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-10 w-10 rounded-full bg-white object-contain" /> : null}
+          <p className="text-sm font-bold">{shownName}</p>
+        </div>
+        <div className="grid gap-1 p-4">
+          <p className="text-[11px]">{t('pager.page.previewNumber')}</p>
+          <p className="tnum text-4xl font-bold">12</p>
+          <p className="mt-1 inline-block rounded-full px-3 py-1 text-[11px] font-semibold text-white" style={{ background: form.accentColor }}>
+            {t('pager.page.previewStatus')}
+          </p>
+        </div>
+      </section>
+    </section>
   )
 }
 
+/** The report as a strip of four figures (last 7 days), with the Plus note or CSV under it. */
 function Reports({ state }) {
   const { t } = useI18n()
   const errorText = useErrorText()
@@ -592,8 +792,9 @@ function Reports({ state }) {
   const [branchId, setBranchId] = useState(plus ? '' : (usable[0]?.id ?? ''))
   const [report, setReport] = useState(null)
   const [failure, setFailure] = useState(null)
-  const to = new Date().toISOString().slice(0, 10)
-  const from = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10)
+  // Riyadh days, as the POS counts them (a UTC date missed today's numbers after 21:00 UTC).
+  const to = riyadhDay()
+  const from = riyadhDay(new Date(Date.now() - 6 * 86_400_000))
   useEffect(() => {
     let alive = true
     setFailure(null)
@@ -620,47 +821,51 @@ function Reports({ state }) {
   const s = report?.summary
   const secs = (v) => (v == null ? '—' : t('pager.page.minutesShort', { n: Math.round(v / 60) }))
   return (
-    <Card title={t('pager.page.reports')} subtitle={t('pager.page.last7')}>
-      {usable.length > 1 && (
-        <select
-          className="mb-4 min-h-11 rounded-xl border border-line bg-surface px-3"
-          value={branchId}
-          onChange={(e) => setBranchId(e.target.value)}
-          aria-label={t('pager.page.branch')}
-        >
-          {plus && <option value="">{t('pager.page.allBranches')}</option>}
-          {usable.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      )}
+    <section className="grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-bold">
+          {t('pager.page.reports')} <span className="text-xs font-normal text-muted">· {t('pager.page.last7')}</span>
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {usable.length > 1 && (
+            <select
+              className="min-h-10 rounded-xl border border-line bg-surface px-3 text-sm"
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+              aria-label={t('pager.page.branch')}
+            >
+              {plus && <option value="">{t('pager.page.allBranches')}</option>}
+              {usable.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {plus && (
+            <Button variant="outline" className="min-h-10" onClick={csv}>
+              {t('pager.page.csv')}
+            </Button>
+          )}
+        </div>
+      </div>
       {failure && <p className="text-sm text-err">{errorText(failure)}</p>}
-      {s && (
-        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <Stat label={t('pager.page.stats.tickets')} value={s.tickets} />
-          <Stat label={t('pager.page.stats.collected')} value={`${s.collectedPct}%`} />
-          <Stat label={t('pager.page.stats.prep')} value={secs(s.avgPrepSeconds)} />
-          <Stat label={t('pager.page.stats.wait')} value={secs(s.avgWaitAfterReadySeconds)} />
-        </dl>
-      )}
-      {plus ? (
-        <Button className="mt-4" variant="outline" onClick={csv}>
-          {t('pager.page.csv')}
-        </Button>
-      ) : (
-        <p className="mt-4 text-sm text-muted">{t('pager.page.plusReports')}</p>
-      )}
-    </Card>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat label={t('pager.page.stats.tickets')} value={s ? s.tickets : '—'} />
+        <Stat label={t('pager.page.stats.collected')} value={s ? `${s.collectedPct}%` : '—'} />
+        <Stat label={t('pager.page.stats.prep')} value={s ? secs(s.avgPrepSeconds) : '—'} />
+        <Stat label={t('pager.page.stats.wait')} value={s ? secs(s.avgWaitAfterReadySeconds) : '—'} />
+      </dl>
+      {!plus && <p className="text-xs text-muted">{t('pager.page.plusReports')}</p>}
+    </section>
   )
 }
 
 function Stat({ label, value }) {
   return (
-    <div className="rounded-xl bg-soft p-3">
+    <div className="mq-card px-3 py-2">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className="tnum mt-1 text-lg font-bold">{value}</dd>
+      <dd className="tnum mt-0.5 text-lg font-bold">{value}</dd>
     </div>
   )
 }

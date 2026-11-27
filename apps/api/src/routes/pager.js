@@ -75,9 +75,10 @@ export default function pagerRoutes(counter) {
     live,
     pass('PATCH', (req) => `/branches/${id(req.params.branchId)}`, ['name']),
   )
+  // Read for every staff role (the counter's side rail opens it); making or replacing it stays with managers.
   r.get(
     '/branches/:branchId/call-screen',
-    ...manage,
+    ...staff,
     live,
     pass('GET', (req) => `/branches/${id(req.params.branchId)}/call-screen`),
   )
