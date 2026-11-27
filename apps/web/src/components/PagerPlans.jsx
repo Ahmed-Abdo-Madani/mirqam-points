@@ -86,12 +86,14 @@ export function PagerPlanCards({ cycle, prices, withLoyalty = false, action, hig
   )
 }
 
-/** Fine print under the cards: VAT and the trial. */
-export function PagerFinePrint() {
+/** Fine print under the cards: VAT, the trial, and the yearly rule only where yearly is offered
+    (the list price; the Loyalty price has no confirmed yearly price). */
+export function PagerFinePrint({ yearly = true }) {
   const { t } = useI18n()
   return (
     <p className="mt-4 text-center text-xs text-muted">
-      {t('pager.vat')} · {t('pager.trial', { days: PAGER_TRIAL_DAYS })} · {t('pager.yearlyNote')}
+      {t('pager.vat')} · {t('pager.trial', { days: PAGER_TRIAL_DAYS })}
+      {yearly && ` · ${t('pager.yearlyNote')}`}
     </p>
   )
 }

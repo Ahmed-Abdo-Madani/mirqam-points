@@ -175,6 +175,17 @@ describe('checkout through mirqam-billing', () => {
     expect(billingCalls.filter((x) => x.url.endsWith('/checkout-sessions'))).toHaveLength(0)
   })
 
+  it('offers: with paid Loyalty the yearly price is not stated (null); without, 290 / 490', async () => {
+    await db.query("INSERT INTO subscriptions (tenant_id, cycle, expires_at, status) VALUES ($1, 'yearly', now() + interval '200 days', 'active')", [tenantId])
+    const withLoyalty = await pager.status(tenantId)
+    expect(withLoyalty.prices.basic).toMatchObject({ monthly: 1500, yearly: null })
+    expect(withLoyalty.prices.plus).toMatchObject({ monthly: 2500, yearly: null })
+    await db.query('DELETE FROM subscriptions WHERE tenant_id = $1', [tenantId])
+    const list = await pager.status(tenantId)
+    expect(list.prices.basic).toMatchObject({ monthly: 2900, yearly: 29000 })
+    expect(list.prices.plus).toMatchObject({ monthly: 4900, yearly: 49000 })
+  })
+
   it('without Loyalty, yearly is unchanged: 290 / 490 per branch, both cycles sold', async () => {
     const s = await pager.status(tenantId)
     expect(s.withLoyalty).toBe(false)
