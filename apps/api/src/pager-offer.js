@@ -15,6 +15,7 @@
    - Console: GET /api/pager/offers (programs the picker lists), PUT /api/pager/offers/:branchId { programId | null }. */
 import { normalizePhone } from '@mirqam-points/shared'
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { requireAuth, requireRole } from './auth.js'
 import { UNIQUE_VIOLATION } from './db/index.js'
@@ -32,6 +33,13 @@ const joinBody = z.object({
 })
 const offerBody = z.object({ loyaltyTenantId: id, programId: id })
 const pickBody = z.object({ programId: id.nullable() })
+const countryBody = z.object({ country: z.string().regex(/^[A-Z]{2}$/) })
+const pairBody = z.object({
+  phone: z
+    .string()
+    .regex(/^\+?\d{8,15}$/)
+    .optional(),
+})
 const BRANCH = /^[A-Za-z0-9_-]{1,80}$/
 
 export function createPagerOffer({ db, config, billing, wallet }) {
@@ -162,6 +170,28 @@ export function pagerOfferRoutes({ offer, counter }) {
   r.put('/offers/:branchId', ...manage, async (req, res) => {
     await counter.requireLive(req.auth.tenantId)
     res.json(await offer.pick(req.auth.tenantId, req.params.branchId, req.body, counter))
+  })
+
+  // The business's country: the customer page's phone forms default to it.
+  r.put('/country', ...manage, async (req, res) => {
+    const { country } = parse(countryBody, req.body)
+    await counter.requireLive(req.auth.tenantId)
+    res.json(await counter.bridge(req.auth.tenantId, 'PUT', '/settings', { country }))
+  })
+
+  // WhatsApp alerts from the business's own number (Plus): link with the bot's QR, state, unlink.
+  r.get('/whatsapp', ...manage, async (req, res) => {
+    await counter.requireLive(req.auth.tenantId)
+    res.json(await counter.bridge(req.auth.tenantId, 'GET', '/whatsapp'))
+  })
+  r.post('/whatsapp/pair', ...manage, rateLimit({ windowMs: 60_000, limit: 10 }), async (req, res) => {
+    const { phone } = parse(pairBody, req.body ?? {})
+    await counter.requireLive(req.auth.tenantId)
+    res.json(await counter.bridge(req.auth.tenantId, 'POST', '/whatsapp/pair', phone ? { phone } : {}))
+  })
+  r.post('/whatsapp/unlink', ...manage, async (req, res) => {
+    await counter.requireLive(req.auth.tenantId)
+    res.json(await counter.bridge(req.auth.tenantId, 'POST', '/whatsapp/unlink', {}))
   })
   return r
 }
