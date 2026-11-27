@@ -39,6 +39,8 @@ export default function PagerPlan({ checkoutHost }) {
       await fn()
     } catch (e) {
       setFailure(e)
+      // The workspace's price changed (e.g. it now has the Loyalty price, monthly only): show the current offer.
+      if (e?.code === 'pager_loyalty_yearly_unavailable') reload()
     } finally {
       setBusy(false)
     }
@@ -67,7 +69,7 @@ export default function PagerPlan({ checkoutHost }) {
   if (!data) return error ? <p className="text-sm text-err">{errorText(error)}</p> : null
   const sub = data.subscription
   // With the Loyalty price the plan is monthly only for now (the API says which cycles it sells).
-  const { shown, switchable } = cycleChoice(data.cycles, cycle)
+  const { offered, shown, switchable } = cycleChoice(data.cycles, cycle)
   const total = data.prices.basic && ((tier) => data.prices[tier][shown] * branches)
 
   return (
@@ -155,7 +157,7 @@ export default function PagerPlan({ checkoutHost }) {
           </div>
         )}
       />
-      <PagerFinePrint />
+      <PagerFinePrint yearly={offered.includes('yearly')} />
     </section>
   )
 }

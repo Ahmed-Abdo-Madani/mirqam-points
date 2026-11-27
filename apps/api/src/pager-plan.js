@@ -146,18 +146,20 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch }) {
 
   async function offers(tenantId) {
     const withLoyalty = await hasPaidLoyalty(tenantId)
+    const cycles = pagerCycles(withLoyalty)
     const out = {}
     for (const tier of PAGER_TIERS) {
       out[tier] = {
         monthly: pagerPrice(tier, 'monthly', withLoyalty),
-        yearly: pagerPrice(tier, 'yearly', withLoyalty),
+        // null where yearly is not sold (the Loyalty price has no confirmed yearly price): never state it.
+        yearly: cycles.includes('yearly') ? pagerPrice(tier, 'yearly', withLoyalty) : null,
         listMonthly: PAGER_PLANS[tier].prices.monthly,
         listYearly: PAGER_PLANS[tier].prices.yearly,
         freeWithPosAdvanced: PAGER_PLANS[tier].freeWithPosAdvanced,
       }
     }
     // The cycles this workspace may buy (with the Loyalty price: monthly only until the owner sets a yearly price).
-    return { withLoyalty, prices: out, cycles: pagerCycles(withLoyalty) }
+    return { withLoyalty, prices: out, cycles }
   }
 
   return {
