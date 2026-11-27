@@ -463,6 +463,7 @@ const base = {
     network_error: 'Could not connect. Check your connection and retry — the transaction will not be duplicated.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
     pager_loyalty_yearly_unavailable: 'The Mirqam Loyalty price is monthly only for now. Choose monthly.',
+    managed_in_pos: 'Branches and the customer page look are managed in Mirqam POS.',
     pager_no_plan: 'The pager is not on for this account. Start the trial or subscribe on the Pager page.',
     pager_starting: 'Setting up the pager, try again in a moment.',
     pager_unavailable: 'The pager cannot be reached right now. Try again.',

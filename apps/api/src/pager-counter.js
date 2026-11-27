@@ -13,7 +13,7 @@ import { HttpError } from './http.js'
 const TIMEOUT_MS = 8000
 const HEX = /^#[0-9a-f]{6}$/i
 // What the POS sends back that the page can explain; anything else becomes pager_unavailable.
-const PASS_THROUGH = new Set(['pager_branch_limit', 'pager_plus_required', 'branch_not_found', 'invalid_logo_url', 'validation_failed'])
+const PASS_THROUGH = new Set(['pager_branch_limit', 'pager_plus_required', 'branch_not_found', 'invalid_logo_url', 'managed_in_pos', 'validation_failed'])
 
 export function createPagerCounter({ db, config, pager, fetcher = fetch }) {
   const ready = () => (config.posBridgeKey || '').length >= 32 && /^(https:\/\/|http:\/\/(localhost|127\.0\.0\.1)[:/])/.test(config.posApiUrl || '')
@@ -56,6 +56,8 @@ export function createPagerCounter({ db, config, pager, fetcher = fetch }) {
    * (default colour, no logo, no Arabic name), so the owner's own changes are never overwritten.
    */
   async function seedBrand(tenantId, state) {
+    // A real POS business (managedInPos): its brand is its live store's; never filled from here.
+    if (state?.managedInPos) return state
     const b = state?.brand
     if (!b || b.logoUrl || b.nameAr || String(b.primaryColor).toUpperCase() !== '#0F766E') return state
     const t = (await db.query('SELECT name, slug, logo_version FROM tenants WHERE id=$1', [tenantId])).rows[0]

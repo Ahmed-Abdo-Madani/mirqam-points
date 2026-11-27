@@ -87,6 +87,15 @@ describe('the pager inside Loyalty: overview', () => {
     expect(calls.some((c) => c.method === 'PUT')).toBe(false)
   })
 
+  it('a real POS business (managedInPos): its live store brand is never filled from Loyalty', async () => {
+    answer = () => json(200, { ...posState(), managedInPos: true })
+    const o = await counter.overview(tenantId)
+    expect(o.managedInPos).toBe(true)
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
+    answer = () => json(403, { code: 'managed_in_pos' })
+    await expect(counter.bridge(tenantId, 'PUT', '/brand', { name: 'x' })).rejects.toMatchObject({ status: 403, code: 'managed_in_pos' })
+  })
+
   it('POS unreachable or timing out: 503 pager_unavailable (the page shows a retry)', async () => {
     answer = () => {
       throw new TypeError('fetch failed')

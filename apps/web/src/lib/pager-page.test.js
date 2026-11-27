@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { translate } from '../i18n/index.jsx'
-import { counterColumns, pagerPageState, phoneTabs, pickBranch } from './pager-page.js'
+import { canEditBusiness, counterColumns, pagerPageState, phoneTabs, pickBranch } from './pager-page.js'
 
 describe('the /app/pager page states', () => {
   it('no plan: the explanation, the trial and the prices', () => {
@@ -57,6 +57,23 @@ describe('the counter', () => {
     expect(pickBranch(branches, 'x')).toBe('y')
     expect(pickBranch(branches, null)).toBe('y')
     expect(pickBranch([], null)).toBeNull()
+  })
+})
+
+describe('a real POS business (managed in Mirqam POS)', () => {
+  it('branches and brand cannot be changed here; a business the plan made can', () => {
+    expect(canEditBusiness({ managedInPos: true })).toBe(false)
+    expect(canEditBusiness({ managedInPos: false })).toBe(true)
+    expect(canEditBusiness({})).toBe(true)
+  })
+  it('says so plainly in Arabic and English', () => {
+    expect(translate('ar', 'pager.page.managedInPos')).toContain('مرقام محاسبي')
+    expect(translate('en', 'pager.page.managedInPos')).toContain('Mirqam POS')
+    expect(translate('ar', 'errors.managed_in_pos')).toContain('مرقام محاسبي')
+  })
+  it('the counter says the link was opened (a preview can open it too), not that the customer saw it', () => {
+    expect(translate('ar', 'pager.page.opened')).toBe('فتح الرابط')
+    expect(translate('en', 'pager.page.opened')).toBe('Link opened')
   })
 })
 

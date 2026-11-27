@@ -6,7 +6,7 @@ import { PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
 import Qr from '../../components/Qr.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
-import { counterColumns, pagerPageState, pickBranch } from '../../lib/pager-page.js'
+import { canEditBusiness, counterColumns, pagerPageState, pickBranch } from '../../lib/pager-page.js'
 import { PURCHASES_IN_APP } from '../../lib/platform.js'
 import { useSession } from '../../lib/session.jsx'
 
@@ -369,9 +369,14 @@ function Manage({ state, reload }) {
         </Button>
       </Card>
       <CallScreens branches={usable} onError={setFailure} />
+      {!canEditBusiness(state) && (
+        <p role="note" className="rounded-xl border border-line bg-soft px-4 py-3 text-sm">
+          {t('pager.page.managedInPos')}
+        </p>
+      )}
       <Branches state={state} act={act} />
       <SettingsCard state={state} act={act} />
-      <BrandCard state={state} act={act} />
+      {canEditBusiness(state) && <BrandCard state={state} act={act} />}
       <Reports state={state} />
       {can('owner') && PURCHASES_IN_APP && (
         <p className="text-sm">
@@ -420,6 +425,7 @@ function CallScreens({ branches, onError }) {
 
 function Branches({ state, act }) {
   const { t } = useI18n()
+  const editable = canEditBusiness(state)
   const [name, setName] = useState('')
   const [names, setNames] = useState({})
   const limit = state.plan?.branchLimit ?? state.subscription?.branches ?? null
@@ -428,27 +434,34 @@ function Branches({ state, act }) {
   return (
     <Card title={t('pager.page.branches')} subtitle={limit ? t('pager.page.branchesOf', { n: active, limit }) : undefined}>
       <ul className="grid gap-2">
-        {state.branches.map((b) => (
-          <li key={b.id} className="flex flex-wrap items-center gap-2">
-            <input
-              className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3"
-              aria-label={t('pager.page.branchName')}
-              value={names[b.id] ?? b.name}
-              maxLength={120}
-              onChange={(e) => setNames((n) => ({ ...n, [b.id]: e.target.value }))}
-            />
-            <Button
-              variant="outline"
-              disabled={!names[b.id] || names[b.id].trim() === b.name}
-              onClick={() => act(() => api(`/pager/branches/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: { name: names[b.id].trim() } }), 'saved')}
-            >
-              {t('pager.page.save')}
-            </Button>
-            {b.inPlan === false && <Badge tone="gray">{t('pager.page.notInPlan')}</Badge>}
-          </li>
-        ))}
+        {!editable &&
+          state.branches.map((b) => (
+            <li key={b.id} className="min-h-11 rounded-xl border border-line bg-surface px-3 py-2.5">
+              {b.name}
+            </li>
+          ))}
+        {editable &&
+          state.branches.map((b) => (
+            <li key={b.id} className="flex flex-wrap items-center gap-2">
+              <input
+                className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3"
+                aria-label={t('pager.page.branchName')}
+                value={names[b.id] ?? b.name}
+                maxLength={120}
+                onChange={(e) => setNames((n) => ({ ...n, [b.id]: e.target.value }))}
+              />
+              <Button
+                variant="outline"
+                disabled={!names[b.id] || names[b.id].trim() === b.name}
+                onClick={() => act(() => api(`/pager/branches/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: { name: names[b.id].trim() } }), 'saved')}
+              >
+                {t('pager.page.save')}
+              </Button>
+              {b.inPlan === false && <Badge tone="gray">{t('pager.page.notInPlan')}</Badge>}
+            </li>
+          ))}
       </ul>
-      {room ? (
+      {!editable ? null : room ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <input
             className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3"

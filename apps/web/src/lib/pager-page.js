@@ -24,6 +24,10 @@ export function pickBranch(branches = [], saved) {
   return (usable.find((b) => b.id === saved) ?? usable[0] ?? null)?.id ?? null
 }
 
+/** Branches and the customer-page brand can be changed here only for a business the pager plan made; a
+    real POS business manages them in Mirqam POS (the POS answers 403 managed_in_pos). */
+export const canEditBusiness = (state) => state?.managedInPos !== true
+
 /** The phone tabs: Home, the centre button, Settings, and the pager where it fits.
     - pager live, no active loyalty programme → the centre button is the pager (3 tabs);
     - pager live and a programme → Home, Scan, Pager, Settings (4 tabs, one tap each);
