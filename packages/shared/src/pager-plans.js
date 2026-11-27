@@ -33,7 +33,7 @@ export const PAGER_PLANS = Object.freeze({
     prices: Object.freeze({ monthly: 2900, yearly: 29000 }),
     withLoyalty: Object.freeze({ monthly: 1500, yearly: 15000 }),
     freeWithPosAdvanced: true,
-    features: Object.freeze(['unlimitedCalls', 'webAlerts', 'cashierApp', 'qr', 'tv', 'basicReports', 'branding']),
+    features: Object.freeze(['unlimitedCalls', 'webAlerts', 'inLoyalty', 'qr', 'tv', 'basicReports', 'branding']),
   }),
   plus: Object.freeze({
     tier: 'plus',

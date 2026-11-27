@@ -81,3 +81,34 @@ await check('pager plan: owner-only, prices from the catalog, one trial per work
     'billing_unavailable',
   )
 })
+
+await check('pager inside Loyalty: roles, "start the plan" before a plan, a plain unavailable when the POS cannot be reached', async () => {
+  const owner = await Agent.owner()
+  const manager = await Agent.staff(owner, 'manager')
+  const cashier = await Agent.staff(owner, 'cashier')
+  expectStatus(await new Agent().get('/api/pager'), 401)
+  // Before a plan: every staff role sees the same clear answer, never an error.
+  for (const who of [owner, manager, cashier]) {
+    const o = await who.get('/api/pager')
+    expectStatus(o, 200)
+    expect(o.body.status).toBe('no_plan')
+  }
+  expect((await cashier.get('/api/pager/nav')).body.pagerLive).toBe(false)
+  // Tickets: staff, but only with a live plan.
+  expectStatus(await cashier.post('/api/pager/branches/b1/tickets', {}), 409, 'pager_no_plan')
+  expectStatus(await cashier.post('/api/pager/tickets/t1/call', {}), 409, 'pager_no_plan')
+  // Settings, branches, brand, reports: owner and manager only.
+  expectStatus(await cashier.put('/api/pager/settings', { sound: 'bell' }), 403, 'forbidden')
+  expectStatus(await cashier.post('/api/pager/branches', { name: 'Olaya' }), 403, 'forbidden')
+  expectStatus(await cashier.put('/api/pager/brand', { name: 'X' }), 403, 'forbidden')
+  expectStatus(await cashier.get('/api/pager/reports?from=2026-11-01&to=2026-11-07'), 403, 'forbidden')
+  expectStatus(await manager.put('/api/pager/settings', { sound: 'bell' }), 409, 'pager_no_plan')
+  // With a live plan and no POS reachable (the gate runs none): a plain, retryable answer.
+  expectStatus(await owner.post('/api/billing/pager/trial', { tier: 'basic' }), 200)
+  expect((await cashier.get('/api/pager/nav')).body.pagerLive).toBe(true)
+  expectStatus(await cashier.get('/api/pager'), 503, 'pager_unavailable')
+  expectStatus(await cashier.post('/api/pager/branches/b1/tickets', {}), 503, 'pager_unavailable')
+  // Another workspace is untouched.
+  const other = await Agent.owner()
+  expect((await other.get('/api/pager')).body.status).toBe('no_plan')
+})

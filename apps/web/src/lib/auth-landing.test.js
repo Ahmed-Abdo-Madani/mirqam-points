@@ -10,9 +10,9 @@ function memoryStorage() {
 }
 
 describe('where a sign-up or sign-in lands', () => {
-  it('product=pager lands on the pager plan in Billing (register and login use the same rule)', () => {
-    expect(authLanding(q('product=pager'))).toBe('/app/billing#pager-plan-title')
-    expect(PAGER_LANDING).toBe('/app/billing#pager-plan-title')
+  it('product=pager lands on the pager page (register and login use the same rule)', () => {
+    expect(authLanding(q('product=pager'))).toBe('/app/pager')
+    expect(PAGER_LANDING).toBe('/app/pager')
   })
 
   it('a valid next always wins, also over product=pager', () => {
@@ -56,10 +56,11 @@ describe('pager sign-up copy', () => {
     expect(translate('en', 'auth.pager.registerTitle', vars)).toContain('Mirqam Pager')
     expect(translate('en', 'auth.pager.registerSubtitle', vars)).toContain('14-day free trial')
     expect(translate('en', 'auth.pager.loginTitle', vars)).toContain('Mirqam Pager')
-    // The side panel speaks about the pager, not loyalty programs.
-    for (const k of ['panelTitle', 'panel1', 'panel2', 'panel3']) {
-      expect(translate('en', `auth.pager.${k}`, vars)).not.toMatch(/loyalty/i)
-      expect(translate('ar', `auth.pager.${k}`, vars)).not.toMatch(/ولاء/)
+    // The side panel speaks about the pager (which runs in Mirqam Loyalty), not loyalty programmes,
+    // and never sends anyone to the Cashier app.
+    for (const k of ['panelTitle', 'panel1', 'panel2', 'panel3', 'loginSubtitle']) {
+      expect(translate('en', `auth.pager.${k}`, vars)).not.toMatch(/loyalty program|cashier/i)
+      expect(translate('ar', `auth.pager.${k}`, vars)).not.toMatch(/برامج الولاء|كاشير/)
     }
   })
 })

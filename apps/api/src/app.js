@@ -9,6 +9,7 @@ import { acceptForwarded } from './forwarder.js'
 import { installHqAdmin } from './hq-admin.js'
 import { errorHandler, HttpError, rejectMalformedPath } from './http.js'
 import { liveUpdateHandler } from './live-update.js'
+import { createPagerCounter } from './pager-counter.js'
 import { createPagerPlan } from './pager-plan.js'
 import { installLoyaltyPosBridge } from './pos-bridge/install.mjs'
 import { installPosLoyalty } from './pos-bridge/loyalty.mjs'
@@ -20,6 +21,7 @@ import campaignRoutes from './routes/campaigns.js'
 import giftCardRoutes from './routes/giftcards.js'
 import ledgerRoutes from './routes/ledger.js'
 import memberRoutes from './routes/members.js'
+import pagerRoutes from './routes/pager.js'
 import programRoutes from './routes/programs.js'
 import staffRoutes from './routes/staff.js'
 import stampRoutes from './routes/stamps.js'
@@ -212,6 +214,8 @@ export function createApp({ db, config }) {
   app.use('/api/public', publicRoutes({ db, wallet }))
   app.get('/api/wallet/status', requireAuth, (_req, res) => res.json(wallet.status()))
   app.use('/api/billing', billingRoutes(billing, { db, pager }))
+  // The pager counter inside Loyalty (pager-counter.js); outside the loyalty paywall like /billing.
+  app.use('/api/pager', pagerRoutes(createPagerCounter({ db, config, pager })))
   app.use('/api/auth', authRoutes({ db, config, billing, wallet }))
   app.use('/api/programs', programRoutes({ db, wallet }))
   app.use('/api/members', memberRoutes({ db, wallet }))

@@ -18,6 +18,7 @@ import Legal from './pages/public/Legal.jsx'
 
 const Dashboard = lazy(() => import('./pages/app/Dashboard.jsx'))
 const Cashier = lazy(() => import('./pages/app/Cashier.jsx'))
+const Pager = lazy(() => import('./pages/app/Pager.jsx'))
 const Members = lazy(() => import('./pages/app/Members.jsx'))
 const MemberDetail = lazy(() => import('./pages/app/MemberDetail.jsx'))
 const Programs = lazy(() => import('./pages/app/Programs.jsx'))
@@ -107,6 +108,14 @@ export default function App() {
             element={
               <RequireAuth capability="transact">
                 <Cashier />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="pager"
+            element={
+              <RequireAuth capability="transact">
+                <Pager />
               </RequireAuth>
             }
           />

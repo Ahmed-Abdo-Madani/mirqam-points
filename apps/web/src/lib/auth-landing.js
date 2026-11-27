@@ -2,10 +2,10 @@
  *
  * - A valid `next` (an in-app path under /app, never `//host`) always wins: no open redirect.
  * - `product=pager` (the only product value accepted) is a Mirqam Pager sign-up from mirqam.sa or
- *   pos.mirqam.sa: it lands on the pager plan in Billing.
+ *   pos.mirqam.sa: it lands on the pager page (/app/pager), which offers the trial and then runs the counter.
  * - Anything else: the dashboard, as before.
  */
-export const PAGER_LANDING = '/app/billing#pager-plan-title'
+export const PAGER_LANDING = '/app/pager'
 
 export function safeNext(value) {
   return typeof value === 'string' && value.startsWith('/app') && !value.startsWith('//') ? value : null

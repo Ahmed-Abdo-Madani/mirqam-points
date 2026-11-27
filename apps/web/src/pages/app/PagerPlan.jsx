@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
 import { PAGER_MAX_BRANCHES } from '@mirqam-points/shared'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { CycleSwitch, cycleChoice, PagerFinePrint, PagerPlanCards } from '../../components/PagerPlans.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
 import { api, useApi } from '../../lib/api.js'
@@ -8,7 +9,7 @@ import { day, money } from '../../lib/format.js'
 
 const TONE = { trialing: 'blue', active: 'green', past_due: 'amber', suspended: 'red', canceled: 'gray', expired: 'gray' }
 
-/* Mirqam Pager plan inside Billing: trial, subscribe per branch, and the link to the cashier app. */
+/* Mirqam Pager plan inside Billing: trial, subscribe per branch, and the way to the pager page (/app/pager). */
 export default function PagerPlan({ checkoutHost }) {
   const { t, locale } = useI18n()
   const errorText = useErrorText()
@@ -94,23 +95,9 @@ export default function PagerPlan({ checkoutHost }) {
             {t('pager.console.branches')}: <span className="tnum">{sub.branches}</span> · {t('pager.console.until', { date: day(sub.expiresAt, locale) })}
           </p>
           {sub.active && (
-            <p className="mt-2 text-sm">
-              {sub.posError === 'pos_email_in_use'
-                ? t('pager.console.posEmailInUse')
-                : sub.posState === 'on' && !sub.posError
-                  ? t('pager.console.posOn')
-                  : t('pager.console.posPending')}
-            </p>
-          )}
-          {sub.active && (
-            <div className="mt-4 rounded-xl bg-soft px-4 py-3 text-sm">
-              <p className="font-semibold">{t('pager.console.stepsTitle')}</p>
-              <ol className="mt-2 list-decimal space-y-1 ps-5">
-                {['email', 'branch', 'app'].map((k) => (
-                  <li key={k}>{t(`pager.console.steps.${k}`)}</li>
-                ))}
-              </ol>
-            </div>
+            <Link to="/app/pager" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-on-primary">
+              {t('pager.console.openPager')}
+            </Link>
           )}
         </Card>
       )}
