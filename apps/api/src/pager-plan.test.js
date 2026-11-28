@@ -484,13 +484,138 @@ describe('paid Mirqam Loyalty: Basic included, Plus a paid upgrade (owner, 2026-
     billingCalls = []
     await pager.runLifecycle()
     expect(calls('/change-plan')).toHaveLength(0)
-    // The renewal at the Loyalty price arrives: nothing left to settle.
+    // The renewal at the Loyalty price arrives. Billing changed only the plan: the add-ons keep their
+    // standalone code, and every branch stays on (the POS must not drop to 1 branch).
+    posCalls = []
+    await pager.applyEntitlement({
+      platform: 'loyalty',
+      account_ref: `pager:${tenantId}`,
+      status: 'active',
+      plan: 'pager_plus_loyalty',
+      cycle: 'yearly',
+      items: [{ code: 'pager_plus_branch', quantity: 2 }],
+      active_until: new Date(Date.now() + 365 * 86_400_000).toISOString(),
+      version: ++version,
+    })
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ tier: 'plus', branches: 3, withLoyaltyPrice: true, active: true })
+    expect(lastPush()).toMatchObject({ active: true, plan: 'plus', branches: 3 })
+    // Still listed to settle by hand until the add-ons are moved to the Loyalty add-on.
+    expect(await settleRow()).toMatchObject({ loyalty_action: 'price_switched' })
+    expect((await pager.toSettle()).map((r) => r.loyalty_action)).toEqual(['price_switched'])
+    // Add-ons moved (or a mix): both codes count; nothing left to settle once no standalone add-on is left.
+    await pager.applyEntitlement({
+      platform: 'loyalty',
+      account_ref: `pager:${tenantId}`,
+      status: 'active',
+      plan: 'pager_plus_loyalty',
+      cycle: 'yearly',
+      items: [
+        { code: 'pager_plus_loyalty_branch', quantity: 1 },
+        { code: 'pager_plus_branch', quantity: 1 },
+      ],
+      active_until: new Date(Date.now() + 365 * 86_400_000).toISOString(),
+      version: ++version,
+    })
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ branches: 3 })
+    expect(await settleRow()).toMatchObject({ loyalty_action: 'price_switched' })
     await paidSub('pager_plus_loyalty', { cycle: 'yearly', extra: 2, days: 365 })
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ branches: 3 })
     expect(await settleRow()).toMatchObject({ loyalty_action: null })
-    expect((await pager.status(tenantId)).subscription).toMatchObject({ tier: 'plus', withLoyaltyPrice: true, active: true })
   })
 
-  it('Plus at the Loyalty price, Loyalty lapses: runs to its end at the price paid, 49 / 490 shown before any renewal; Loyalty paid again resumes it', async () => {
+  it('a standalone Basic still running + paid Loyalty: Plus is not offered or sold until it ends (409 pager_basic_running)', async () => {
+    await paidSub('pager_basic', { days: 12 })
+    await paid()
+    await pager.runLifecycle()
+    const s = await pager.status(tenantId)
+    expect(s).toMatchObject({ included: true, upgrade: null, purchasable: false })
+    expect(s.basicRunning).toMatchObject({ tier: 'basic' })
+    expect(new Date(s.basicRunning.until).getTime()).toBeGreaterThan(Date.now() + 11 * 86_400_000)
+    billingCalls = []
+    await expect(pager.checkout(tenantId, { tier: 'plus', cycle: 'monthly', branches: 1 }, 'basic-running')).rejects.toMatchObject({
+      status: 409,
+      code: 'pager_basic_running',
+      details: { until: expect.any(String) },
+    })
+    expect(billingCalls).toHaveLength(0)
+    // The Basic period ends: Plus is offered at the Loyalty price.
+    await db.query("UPDATE pager_subscriptions SET status='expired', expires_at=now() - interval '1 minute' WHERE tenant_id=$1", [tenantId])
+    await pager.runLifecycle()
+    expect(await pager.status(tenantId)).toMatchObject({ upgrade: 'plus', purchasable: true, basicRunning: null })
+  })
+
+  it('a past-due standalone Basic + paid Loyalty: ended now, so billing voids its open renewal invoice and no retry charges it', async () => {
+    await paidSub('pager_basic')
+    await pager.applyEntitlement({
+      platform: 'loyalty',
+      account_ref: `pager:${tenantId}`,
+      status: 'past_due',
+      plan: 'pager_basic',
+      cycle: 'monthly',
+      items: [],
+      active_until: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+      version: ++version,
+    })
+    await paid()
+    billingCalls = []
+    posCalls = []
+    await pager.ensureIncluded(tenantId)
+    expect(calls(`/subscriptions/${encodeURIComponent(`pager:${tenantId}`)}/cancel`).map((c) => c.body)).toEqual([{ immediate: true }])
+    expect(lastPush()).toMatchObject({ active: true, plan: want.tier })
+    expect(await settleRow()).toMatchObject({ loyalty_action: 'renewal_stopped' })
+    // A Basic that is not past due only has its renewal stopped (no immediate end).
+    await db.query('DELETE FROM pager_subscriptions')
+    billingCalls = []
+    await paidSub('pager_basic')
+    await pager.ensureIncluded(tenantId)
+    expect(calls('/cancel').map((c) => c.body)).toEqual([{}])
+  })
+
+  it('Plus at the Loyalty price, Loyalty lapses: runs to its end, then renews at 49 / 490 (scheduled, shown first, never cancelled)', async () => {
+    await paid()
+    await paidSub('pager_plus_loyalty', { days: 20 })
+    await lapsed()
+    billingCalls = []
+    posCalls = []
+    await pager.runLifecycle()
+    const sub = `/subscriptions/${encodeURIComponent(`pager:${tenantId}`)}`
+    expect(calls(`${sub}/change-plan/preview`).map((c) => c.body)).toEqual([{ plan: 'pager_plus', cycle: 'monthly', at_period_end: true }])
+    // Scheduled for the next renewal: billing's renewal notice (renewal_upcoming) then shows 49 before the charge.
+    expect(calls(`${sub}/change-plan`).map((c) => c.body)).toEqual([{ plan: 'pager_plus', cycle: 'monthly', at_period_end: true }])
+    expect(calls('/cancel')).toHaveLength(0)
+    expect(billingCalls.some((c) => c.url.includes('/checkout-sessions') || c.url.includes('/charge'))).toBe(false)
+    expect(posCalls.every((c) => c.body.active === true && c.body.plan === 'plus')).toBe(true)
+    const s = await pager.status(tenantId)
+    expect(s.subscription).toMatchObject({ tier: 'plus', active: true })
+    expect(s.renewsAtStandalone).toMatchObject({ tier: 'plus', scheduled: true, cycle: 'monthly', monthly: 4900, yearly: 49000 })
+    expect(await settleRow()).toMatchObject({ loyalty_action: 'standalone_scheduled' })
+    billingCalls = []
+    await pager.runLifecycle()
+    expect(calls('/change-plan')).toHaveLength(0)
+    // Loyalty paid again before the renewal: the Loyalty price is kept (the scheduled change is dropped).
+    await paid()
+    billingCalls = []
+    await pager.runLifecycle()
+    expect(calls(`${sub}/change-plan`).map((c) => c.body)).toEqual([{ plan: 'pager_plus_loyalty', cycle: 'monthly' }])
+    expect(await settleRow()).toMatchObject({ loyalty_action: null })
+    expect((await pager.status(tenantId)).renewsAtStandalone).toBeNull()
+  })
+
+  it('Plus at the Loyalty price after a lapse renews at the standalone price: nothing left to settle, Plus stays on', async () => {
+    await paid()
+    await paidSub('pager_plus_loyalty', { days: 20 })
+    await lapsed()
+    await pager.runLifecycle()
+    expect(await settleRow()).toMatchObject({ loyalty_action: 'standalone_scheduled' })
+    await paidSub('pager_plus', { days: 30 })
+    expect(await settleRow()).toMatchObject({ loyalty_action: null })
+    const s = await pager.status(tenantId)
+    expect(s.subscription).toMatchObject({ tier: 'plus', active: true, withLoyaltyPrice: false })
+    expect(s.renewsAtStandalone).toBeNull()
+  })
+
+  it('a billing that cannot schedule the price rise (it would charge now): the renewal is stopped instead, 49 / 490 shown; Loyalty paid again resumes it', async () => {
+    billingAnswer = (url) => (url.endsWith('/change-plan/preview') ? json(200, { type: 'upgrade', amount_minor: 1840, total_minor: 1840 }) : json(200, {}))
     await paid()
     await paidSub('pager_plus_loyalty', { days: 20 })
     await lapsed()
@@ -498,12 +623,11 @@ describe('paid Mirqam Loyalty: Basic included, Plus a paid upgrade (owner, 2026-
     posCalls = []
     await pager.runLifecycle()
     expect(calls(`/subscriptions/${encodeURIComponent(`pager:${tenantId}`)}/cancel`)).toHaveLength(1)
-    expect(billingCalls.some((c) => c.url.includes('/checkout-sessions') || c.url.includes('/change-plan'))).toBe(false)
+    expect(calls('/change-plan')).toHaveLength(0)
     expect(posCalls.every((c) => c.body.active === true && c.body.plan === 'plus')).toBe(true)
     const s = await pager.status(tenantId)
     expect(s.subscription).toMatchObject({ tier: 'plus', active: true })
-    expect(s.renewsAtStandalone).toMatchObject({ tier: 'plus', monthly: pagerPrice('plus', 'monthly'), yearly: pagerPrice('plus', 'yearly') })
-    expect(s.renewsAtStandalone).toMatchObject({ monthly: 4900, yearly: 49000 })
+    expect(s.renewsAtStandalone).toMatchObject({ tier: 'plus', scheduled: false, monthly: pagerPrice('plus', 'monthly'), yearly: pagerPrice('plus', 'yearly') })
     expect(await settleRow()).toMatchObject({ loyalty_action: 'stopped_on_lapse' })
     // Loyalty paid again before Plus ends: the renewal at the Loyalty price comes back.
     await paid()
@@ -523,6 +647,34 @@ describe('paid Mirqam Loyalty: Basic included, Plus a paid upgrade (owner, 2026-
     await pager.runLifecycle()
     expect(calls('/change-plan').map((c) => c.body)).toEqual([{ plan: 'pager_plus', cycle: 'monthly' }])
     expect(await settleRow()).toMatchObject({ loyalty_action: null })
+  })
+
+  it('the lifecycle job keeps going when one workspace fails', async () => {
+    const { tenantId: other } = await seedTenant(db)
+    const failing = createPagerPlan({
+      db,
+      config: { posApiUrl: 'https://pos-api.example', posBridgeKey: KEY },
+      billing: {
+        remote: false,
+        state: async (t) => {
+          if (t === tenantId) throw new Error('boom')
+          return { state: 'none' }
+        },
+      },
+      fetcher: async (url, init) => {
+        posCalls.push({ url: String(url), body: JSON.parse(init.body) })
+        return json(200, { posTenantId: 'pos-x' })
+      },
+      log: { warn() {}, error() {} },
+    })
+    for (const t of [tenantId, other])
+      await db.query(
+        "INSERT INTO pager_subscriptions(tenant_id,tier,branches,status,source,expires_at,updated_at) VALUES($1,'basic',1,'trialing','trial',now() - interval '1 minute', $2)",
+        [t, t === tenantId ? new Date(Date.now() - 60_000) : new Date()],
+      )
+    const out = await failing.runLifecycle()
+    expect(out).toMatchObject({ pagerFailed: 1, pagerPushed: 1 })
+    expect(posCalls.map((c) => c.body.loyaltyTenantId)).toEqual([other])
   })
 
   it('without paid Loyalty, standalone checkout always uses the list codes', async () => {

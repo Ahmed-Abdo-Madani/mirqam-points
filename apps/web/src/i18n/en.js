@@ -474,6 +474,7 @@ const base = {
     network_error: 'Could not connect. Check your connection and retry — the transaction will not be duplicated.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
     pager_included: 'Pager Basic is included in your Mirqam Loyalty plan; only the Plus upgrade can be bought.',
+    pager_basic_running: 'Your current Pager Basic plan has not ended yet; after it ends you can upgrade to Plus.',
     managed_in_pos: 'Branches and the customer page look are managed in Mirqam POS.',
     pager_no_plan: 'The pager is not on for this account. Start the trial or subscribe on the Pager page.',
     pager_starting: 'Setting up the pager, try again in a moment.',

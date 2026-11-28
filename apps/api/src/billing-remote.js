@@ -236,12 +236,18 @@ export function createRemoteBilling({ db, config, HttpError, fetcher = fetch }) 
       return call('GET', `entitlements/${encodeURIComponent(ref)}`)
     },
     /** Stops a sub-account's renewal (cancel at the end of the paid period; nothing is refunded). */
-    async subAccountCancel(ref) {
-      return call('POST', `subscriptions/${encodeURIComponent(ref)}/cancel`, {})
+    async subAccountCancel(ref, { immediate = false } = {}) {
+      // immediate: ends it now and voids its open renewal invoice (no retry can charge it).
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/cancel`, immediate ? { immediate: true } : {})
     },
-    /** Changes a sub-account's plan. A cheaper price is scheduled for the next renewal (nothing charged now). */
-    async subAccountChangePlan(ref, { plan, cycle }) {
-      return call('POST', `subscriptions/${encodeURIComponent(ref)}/change-plan`, { plan, cycle })
+    /** Changes a sub-account's plan. A cheaper price is scheduled for the next renewal (nothing charged now);
+        `atPeriodEnd` asks billing to schedule any change for the next renewal. */
+    async subAccountChangePlan(ref, { plan, cycle, atPeriodEnd }) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/change-plan`, { plan, cycle, ...(atPeriodEnd ? { at_period_end: true } : {}) })
+    },
+    /** What a plan change would do (charged now or scheduled), without changing anything. */
+    async subAccountPreviewPlan(ref, { plan, cycle, atPeriodEnd }) {
+      return call('POST', `subscriptions/${encodeURIComponent(ref)}/change-plan/preview`, { plan, cycle, ...(atPeriodEnd ? { at_period_end: true } : {}) })
     },
     /** Undoes a stopped renewal (the subscription renews again at its price). */
     async subAccountResume(ref) {

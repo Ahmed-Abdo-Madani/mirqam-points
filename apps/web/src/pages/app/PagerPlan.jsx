@@ -2,6 +2,7 @@ import { Badge, Button, Card, Skeleton } from '@mirqam/ui'
 import { PAGER_MAX_BRANCHES } from '@mirqam-points/shared'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PagerPlanNotices from '../../components/PagerPlanNotices.jsx'
 import { CycleSwitch, cycleChoice, PagerFinePrint, PagerPlanCards, price } from '../../components/PagerPlans.jsx'
 import PagerPlusUpgrade from '../../components/PagerPlusUpgrade.jsx'
 import { useErrorText, useI18n } from '../../i18n/index.jsx'
@@ -108,6 +109,7 @@ export default function PagerPlan({ checkoutHost }) {
             </Link>
           </Card>
         )}
+        <PagerPlanNotices data={data} />
         <PagerPlusUpgrade offer={data} checkoutHost={checkoutHost} onDone={reload} />
       </section>
     )
@@ -125,6 +127,7 @@ export default function PagerPlan({ checkoutHost }) {
           {errorText(failure)}
         </p>
       )}
+      <PagerPlanNotices data={data} />
       {sub && (
         <Card
           title={`${t('pager.console.current')}: ${t(`pager.tiers.${sub.tier}`)}`}
@@ -133,15 +136,6 @@ export default function PagerPlan({ checkoutHost }) {
           <p className="text-sm">
             {t('pager.console.branches')}: <span className="tnum">{sub.branches}</span> · {t('pager.console.until', { date: day(sub.expiresAt, locale) })}
           </p>
-          {data.renewsAtStandalone && (
-            <p className="mt-2 text-sm">
-              {t('pager.console.renewsAtStandalone', {
-                date: day(data.renewsAtStandalone.until, locale),
-                monthly: price(data.renewsAtStandalone.monthly, locale),
-                yearly: price(data.renewsAtStandalone.yearly, locale),
-              })}
-            </p>
-          )}
           {sub.active && (
             <Link to="/app/pager" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-on-primary">
               {t('pager.console.openPager')}

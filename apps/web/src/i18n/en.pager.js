@@ -117,6 +117,11 @@ export default {
       basicStaysIncluded: 'Basic stays included in your Mirqam Loyalty plan after Plus ends.',
       renewsAtStandalone:
         'Your Mirqam Loyalty plan has ended: Plus runs until {date} at the price you paid and will not renew at the Loyalty price. After that it is {monthly} / branch / month or {yearly} / year: renew Mirqam Loyalty to keep the member price, or subscribe again at this price.',
+      renewsAtStandaloneMonthly:
+        'Your Mirqam Loyalty plan has ended: Plus runs until {date} at the price you paid, then renews automatically at {amount} / branch / month. Renew Mirqam Loyalty before then to keep the member price, or stop the renewal on the subscription page.',
+      renewsAtStandaloneYearly:
+        'Your Mirqam Loyalty plan has ended: Plus runs until {date} at the price you paid, then renews automatically at {amount} / branch / year. Renew Mirqam Loyalty before then to keep the member price, or stop the renewal on the subscription page.',
+      basicRunning: 'Your current Pager Basic plan ends on {date}; after that you can upgrade to Plus.',
       openPager: 'Open the pager',
       branches: 'Branches',
       total: 'Total before VAT: {amount}',
