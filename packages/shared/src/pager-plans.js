@@ -18,10 +18,6 @@ export const PAGER_MAX_BRANCHES = 50
 export const PAGER_TIERS = ['basic', 'plus']
 export const PAGER_CYCLES = ['monthly', 'yearly']
 
-/* Not set by the owner yet (asked twice). Until he answers, the product neither states nor charges them;
-   his answer is a one-line change here. */
-/** WhatsApp «جاهز» messages per branch per month on Plus. null = no limit stated (and none enforced). */
-export const PAGER_WHATSAPP_FAIR_USE = null
 /**
  * What a workspace with a paid Mirqam Loyalty plan gets, included, with no pager subscription: the tier,
  * on every branch (up to PAGER_MAX_BRANCHES), as Basic is with POS ADVANCED. One line here; the tests
@@ -48,19 +44,13 @@ export const PAGER_PLANS = Object.freeze({
     // Sold to paid-Loyalty workspaces as the upgrade over the included Basic.
     withLoyalty: Object.freeze({ monthly: 2500, yearly: 25000 }),
     freeWithPosAdvanced: false,
-    // WhatsApp «جاهز» messages per branch per month; null = no number shown (PAGER_WHATSAPP_FAIR_USE).
-    whatsappFairUse: PAGER_WHATSAPP_FAIR_USE,
+    // WhatsApp «جاهز» alerts have no monthly limit (owner, 2026-11-27): no page, email or card names one.
     features: Object.freeze(['everythingInBasic', 'whatsappReady', 'liveActivity', 'fullReports', 'multiBranch']),
     // Listed but not shipped yet: the card marks them "coming soon" so nothing is sold before it exists.
     // liveActivity ships with the iPhone App Clip (planned early December 2026).
     comingSoon: Object.freeze(['liveActivity']),
   }),
 })
-
-/** The copy key of a plan feature: the WhatsApp line names a monthly limit only when one is set. */
-export function pagerFeatureKey(plan, feature) {
-  return feature === 'whatsappReady' && !(Number(plan?.whatsappFairUse) > 0) ? 'whatsappReadyNoLimit' : feature
-}
 
 /** Billing product codes (platform "loyalty"): the plan covers one branch, the add-on each extra branch. */
 export function pagerBillingCode(tier, withLoyalty = false) {

@@ -1,23 +1,22 @@
-import { PAGER_PLANS, PAGER_WHATSAPP_FAIR_USE, pagerFeatureKey } from '@mirqam-points/shared'
+import { PAGER_PLANS } from '@mirqam-points/shared'
 import { describe, expect, it } from 'vitest'
+import ar from '../i18n/ar.js'
+import en from '../i18n/en.js'
 import { translate } from '../i18n/index.jsx'
 import { cycleChoice } from './PagerPlans.jsx'
 
-const line = (locale, plan) =>
-  translate(locale, `pager.features.${pagerFeatureKey(plan, 'whatsappReady')}`, { n: plan.whatsappFairUse?.toLocaleString('en-US') })
-
 describe('Plus card: the WhatsApp line', () => {
-  it('names no number while the owner has not set a limit, and never says unlimited', () => {
-    expect(PAGER_WHATSAPP_FAIR_USE).toBeNull()
-    expect(line('ar', PAGER_PLANS.plus)).toBe('رسالة «طلبك جاهز» على واتساب')
-    expect(line('en', PAGER_PLANS.plus)).toBe('“Your order is ready” on WhatsApp')
-    for (const l of ['ar', 'en']) expect(line(l, PAGER_PLANS.plus)).not.toMatch(/\d|unlimited|بلا حد|غير محدود/i)
+  it('names no monthly limit and never says unlimited (there is no limit, owner 2026-11-27)', () => {
+    expect(PAGER_PLANS.plus).not.toHaveProperty('whatsappFairUse')
+    expect(translate('ar', 'pager.features.whatsappReady')).toBe('رسالة «طلبك جاهز» على واتساب')
+    expect(translate('en', 'pager.features.whatsappReady')).toBe('“Your order is ready” on WhatsApp')
   })
 
-  it('the limit wording comes back by itself when a number is set', () => {
-    const withLimit = { ...PAGER_PLANS.plus, whatsappFairUse: 1000 }
-    expect(line('ar', withLimit)).toBe('رسالة «طلبك جاهز» على واتساب (حتى 1,000 رسالة شهرياً لكل فرع)')
-    expect(line('en', withLimit)).toBe('“Your order is ready” on WhatsApp (up to 1,000 messages a month per branch)')
+  it('no pager copy in either language names a message count per month', () => {
+    for (const dict of [ar, en]) {
+      const text = JSON.stringify(dict.pager)
+      expect(text).not.toMatch(/\d[\d,]*\s*(messages|رسالة)|messages a month|رسالة شهري/i)
+    }
   })
 })
 

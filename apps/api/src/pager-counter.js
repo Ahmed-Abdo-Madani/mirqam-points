@@ -5,7 +5,9 @@
 
    Answers the web page can always render:
    - no live plan        → { status: 'no_plan' } (not an error: the page offers the trial)
-   - plan live, POS not linked/on yet (first push still on its way) → { status: 'starting' }
+   - plan live, POS not linked/on yet (first push still on its way) → { status: 'starting', posError }; when the
+     last push failed, each look pushes again (one try) and logs the failure code; the page gives up after 3
+     failed tries or 60 seconds (lib/pager-page.js)
    - POS unreachable / timeout → 503 pager_unavailable (the page shows a plain message and a retry) */
 import { DEFAULT_DESIGN } from '@mirqam-points/shared'
 import { HttpError } from './http.js'
@@ -79,6 +81,16 @@ export function createPagerCounter({ db, config, pager, fetcher = fetch }) {
     }
   }
 
+  /** The first push to the POS failed: try it once more. Returns the failure code (null once it went through). */
+  async function retrySetup(tenantId, posError) {
+    if (!posError || typeof pager.pushToPos !== 'function') return posError
+    const r = await pager.pushToPos(tenantId)
+    if (r?.ok) return null
+    const code = String(r?.reason || posError).slice(0, 60)
+    console.warn(`[pager] setup not finished: tenant=${tenantId} code=${code}`)
+    return code
+  }
+
   return {
     bridge,
     requireLive,
@@ -94,8 +106,8 @@ export function createPagerCounter({ db, config, pager, fetcher = fetch }) {
         // `plan` here is the POS entitlement (tier, Plus features, branches); the loyalty-side subscription is `subscription`.
         return { ...state, status: 'live', subscription: plan.subscription }
       } catch (err) {
-        if (err.code === 'pager_starting') return { status: 'starting', plan }
-        throw err
+        if (err.code !== 'pager_starting') throw err
+        return { status: 'starting', plan, posError: await retrySetup(tenantId, plan.subscription?.posError ?? null) }
       }
     },
 

@@ -136,7 +136,8 @@ export function createPagerPlan({ db, config, billing, fetcher = fetch, log = co
       })
       const body = await res.json().catch(() => ({}))
       if (res.ok) posTenant = typeof body.posTenantId === 'string' ? body.posTenantId.slice(0, 100) : posTenant
-      else error = res.status === 409 && body.code === 'pos_email_in_use' ? 'pos_email_in_use' : `pos_http_${res.status}`
+      // 409 pager_tenant_exists: the POS already has this workspace's pager business but the link was lost.
+      else error = res.status === 409 && body.code === 'pager_tenant_exists' ? 'pager_tenant_exists' : `pos_http_${res.status}`
     } catch {
       error = 'pos_unreachable'
     }

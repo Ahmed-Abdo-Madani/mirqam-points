@@ -141,9 +141,9 @@ describe('trial', () => {
   })
 
   it('keeps a failed POS push and retries it', async () => {
-    posAnswer = () => json(409, { code: 'pos_email_in_use' })
+    posAnswer = () => json(409, { code: 'pager_tenant_exists' })
     await pager.startTrial(tenantId, 'basic')
-    expect((await pager.status(tenantId)).subscription).toMatchObject({ posError: 'pos_email_in_use', posState: null })
+    expect((await pager.status(tenantId)).subscription).toMatchObject({ posError: 'pager_tenant_exists', posState: null })
     posAnswer = () => json(200, { posTenantId: 'pos-tenant-9' })
     await pager.runLifecycle()
     expect((await pager.status(tenantId)).subscription).toMatchObject({ posError: null, posState: 'on', posLinked: true })
